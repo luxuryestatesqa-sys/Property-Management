@@ -42,6 +42,7 @@ export default function PropertyDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [availabilityBusy, setAvailabilityBusy] = useState(false);
 
   const [form, setForm] = useState<Record<string, string>>({});
   const [images, setImages] = useState<string[]>([]);
@@ -157,6 +158,21 @@ export default function PropertyDetailPage() {
     }
   }
 
+  async function changeAvailability(next: AvailabilityStatus) {
+    if (!listing || next === listing.availabilityStatus) return;
+    setAvailabilityBusy(true);
+    try {
+      const res = await fetch(`/api/listings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ availabilityStatus: next }),
+      });
+      if (res.ok) await load();
+    } finally {
+      setAvailabilityBusy(false);
+    }
+  }
+
   async function toggleStatus() {
     if (!listing) return;
     const nextStatus = listing.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -262,6 +278,34 @@ export default function PropertyDetailPage() {
                 className="flex-1 justify-center py-3 text-[14px]"
               />
             </div>
+          )}
+
+          {canManage && (
+            <section className="rounded-2xl border border-border bg-surface p-4">
+              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Status</h3>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
+                {availabilityOptionsFor(listing.listingType).map((opt) => {
+                  const active = opt === listing.availabilityStatus;
+                  const color = AVAILABILITY_COLORS[opt];
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={availabilityBusy}
+                      onClick={() => changeAvailability(opt)}
+                      className="shrink-0 text-[13px] font-semibold px-4 py-2.5 rounded-xl active:opacity-70 disabled:opacity-60"
+                      style={
+                        active
+                          ? { background: color.bg, color: color.text, boxShadow: `inset 0 0 0 1.5px ${color.text}` }
+                          : { background: "var(--surface-muted)", color: "var(--muted)" }
+                      }
+                    >
+                      {AVAILABILITY_LABELS[opt]}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           )}
 
           <section className="rounded-2xl border border-border bg-surface p-4">

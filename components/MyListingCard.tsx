@@ -100,7 +100,7 @@ export default function MyListingCard({ listing, onStatusChange }: { listing: Li
 
       <div className="mt-3 pt-3 border-t border-border">
         <div className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1.5">Availability</div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
           {availabilityOptionsFor(listing.listingType).map((opt) => {
             const active = opt === listing.availabilityStatus;
             const color = AVAILABILITY_COLORS[opt];
@@ -110,7 +110,7 @@ export default function MyListingCard({ listing, onStatusChange }: { listing: Li
                 type="button"
                 disabled={busy}
                 onClick={() => changeAvailability(opt)}
-                className="text-[12px] font-medium px-2.5 py-1.5 rounded-lg disabled:opacity-60"
+                className="shrink-0 text-[12px] font-medium px-2.5 py-1.5 rounded-lg disabled:opacity-60"
                 style={active ? { background: color.bg, color: color.text } : { background: "var(--surface-muted)", color: "var(--muted)" }}
               >
                 {AVAILABILITY_LABELS[opt]}
