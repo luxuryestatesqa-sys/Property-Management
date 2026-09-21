@@ -598,7 +598,13 @@ export default function PropertyDetailPage() {
                 placeholder="e.g. Lusail"
                 level="area"
                 value={form.area}
-                onChange={(v) => setForm((f) => ({ ...f, area: v }))}
+                onChange={(v, resolvedCommunity) =>
+                  setForm((f) => ({
+                    ...f,
+                    area: v,
+                    ...(resolvedCommunity ? { community: resolvedCommunity } : {}),
+                  }))
+                }
               />
               <LocationAutocomplete
                 label="Area / Community"

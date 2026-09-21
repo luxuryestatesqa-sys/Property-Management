@@ -285,7 +285,13 @@ export default function AddPropertyPage() {
               placeholder="e.g. Lusail"
               level="area"
               value={form.area}
-              onChange={(v) => update("area", v)}
+              onChange={(v, resolvedCommunity) =>
+                setForm((prev) => ({
+                  ...prev,
+                  area: v,
+                  ...(resolvedCommunity ? { community: resolvedCommunity } : {}),
+                }))
+              }
             />
             <LocationAutocomplete
               label="Area / Community"

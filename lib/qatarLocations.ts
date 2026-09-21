@@ -113,3 +113,18 @@ export const QATAR_COMMUNITIES_BY_AREA: Record<string, string[]> = {
     "Qetaifan Islands",
   ],
 };
+
+// Flat lookup so typing a precinct name anywhere (e.g. "Marina") can resolve
+// straight to its parent area + the precinct itself, e.g. "Lusail Marina" ->
+// { area: "Lusail", community: "Lusail Marina" } - without this, someone
+// searching by precinct name would have to already know which area it's in.
+export const QATAR_COMMUNITY_TO_AREA: Record<string, { area: string; community: string }> = (() => {
+  const map: Record<string, { area: string; community: string }> = {};
+  for (const [areaKey, communities] of Object.entries(QATAR_COMMUNITIES_BY_AREA)) {
+    const canonicalArea = QATAR_AREAS.find((a) => a.toLowerCase() === areaKey) ?? areaKey;
+    for (const community of communities) {
+      map[community.toLowerCase()] = { area: canonicalArea, community };
+    }
+  }
+  return map;
+})();
