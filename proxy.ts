@@ -35,6 +35,6 @@ export const config = {
   // login-page logo or the app icon get redirected back to /login instead
   // of served, since the visitor has no session yet.
   matcher: [
-    "/((?!_next/static|_next/image|.*\\.(?:ico|png|jpe?g|svg|gif|webp|avif|css|js|map|txt|xml|json|woff2?)$).*)",
+    "/((?!_next/static|_next/image|.*\\.(?:ico|png|jpe?g|svg|gif|webp|avif|css|js|map|txt|xml|json|webmanifest|woff2?)$).*)",
   ],
 };
