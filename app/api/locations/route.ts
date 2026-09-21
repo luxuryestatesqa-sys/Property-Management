@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
+import { QATAR_AREAS } from "@/lib/qatarLocations";
 
 // Returns distinct location values to power cascading pickers.
 // ?level=area -> all areas
@@ -20,9 +21,20 @@ export async function GET(req: NextRequest) {
       where: { status: "ACTIVE" },
       select: { area: true },
       distinct: ["area"],
-      orderBy: { area: "asc" },
     });
-    return NextResponse.json({ values: rows.map((r) => r.area) });
+    // Merge in the real areas already in use (case-insensitive) with the
+    // curated list of Qatar areas, so suggestions are never empty just
+    // because nobody's posted there yet.
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const value of [...rows.map((r) => r.area), ...QATAR_AREAS]) {
+      const key = value.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(value);
+    }
+    merged.sort((a, b) => a.localeCompare(b));
+    return NextResponse.json({ values: merged });
   }
 
   if (level === "community") {
