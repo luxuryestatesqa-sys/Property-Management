@@ -8,9 +8,11 @@ import AddUserModal from "@/components/AddUserModal";
 import ResetPasswordModal from "@/components/ResetPasswordModal";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Avatar from "@/components/Avatar";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -52,7 +54,13 @@ export default function AdminUsersPage() {
   }
 
   async function removeUser(u: UserDTO) {
-    if (!window.confirm(`Remove ${u.name}? If they have listings, they will be deactivated instead to preserve history.`)) return;
+    const confirmed = await confirm({
+      title: "Remove User?",
+      message: `Remove ${u.name}? If they have listings, they'll be deactivated instead of removed, to preserve listing history.`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!confirmed) return;
     setBusyId(u.id);
     try {
       const res = await fetch(`/api/users/${u.id}`, { method: "DELETE" });

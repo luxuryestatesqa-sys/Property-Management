@@ -6,15 +6,29 @@ import { ListingDTO, AvailabilityStatus } from "@/lib/types";
 import { formatQAR, formatSqm, formatDate, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS, availabilityOptionsFor } from "@/lib/availability";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "@/lib/propertyCategory";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export default function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onStatusChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const isRent = listing.listingType === "RENT";
+  const confirm = useConfirm();
 
   async function toggleStatus() {
     const nextStatus = listing.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    const msg = nextStatus === "INACTIVE" ? "Deactivate this listing?" : "Reactivate this listing?";
-    if (!window.confirm(msg)) return;
+    const confirmed =
+      nextStatus === "INACTIVE"
+        ? await confirm({
+            title: "Deactivate Listing?",
+            message: "It will be hidden from active search. You can reactivate it anytime.",
+            confirmLabel: "Deactivate",
+            danger: true,
+          })
+        : await confirm({
+            title: "Reactivate Listing?",
+            message: "It will become visible in active search results again.",
+            confirmLabel: "Reactivate",
+          });
+    if (!confirmed) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/listings/${listing.id}/status`, {

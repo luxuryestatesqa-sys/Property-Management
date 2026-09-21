@@ -22,6 +22,7 @@ import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { buildListingInquiryMessage } from "@/lib/whatsapp";
 import CallButton from "@/components/CallButton";
 import Avatar from "@/components/Avatar";
@@ -34,6 +35,7 @@ export default function PropertyDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
+  const confirm = useConfirm();
   const id = params.id as string;
 
   const [listing, setListing] = useState<ListingDTO | null>(null);
@@ -178,11 +180,20 @@ export default function PropertyDetailPage() {
   async function toggleStatus() {
     if (!listing) return;
     const nextStatus = listing.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    const confirmMsg =
+    const confirmed =
       nextStatus === "INACTIVE"
-        ? "Deactivate this listing? It will be hidden from active search but kept in the database."
-        : "Reactivate this listing?";
-    if (!window.confirm(confirmMsg)) return;
+        ? await confirm({
+            title: "Deactivate Listing?",
+            message: "It will be hidden from active search. You can reactivate it anytime from My Listings.",
+            confirmLabel: "Deactivate",
+            danger: true,
+          })
+        : await confirm({
+            title: "Reactivate Listing?",
+            message: "It will become visible in active search results again.",
+            confirmLabel: "Reactivate",
+          });
+    if (!confirmed) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/listings/${id}/status`, {
