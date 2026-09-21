@@ -1,69 +1,165 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+import { ListingDTO } from "@/lib/types";
+import { Filters, DEFAULT_FILTERS, countActiveFilters, filtersToParams } from "@/lib/filters";
+import FilterSheet from "@/components/FilterSheet";
+import GroupedResults from "@/components/GroupedResults";
+import SegmentedControl from "@/components/SegmentedControl";
+
+export default function PropertiesPage() {
+  const { data: session, status: sessionStatus } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const [listings, setListings] = useState<ListingDTO[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
+
+  const fetchListings = useCallback(
+    async (pageNum: number, reset: boolean) => {
+      if (sessionStatus !== "authenticated") return;
+      setLoading(true);
+      const params = filtersToParams(filters, { page: String(pageNum) });
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      try {
+        const res = await fetch(`/api/listings?${params.toString()}`);
+        const data = await res.json();
+        setListings((prev) => (reset ? data.listings : [...prev, ...data.listings]));
+        setTotalPages(data.totalPages);
+        setTotal(data.total);
+        setPage(pageNum);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters, debouncedQuery, sessionStatus]
+  );
+
+  useEffect(() => {
+    fetchListings(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, debouncedQuery, sessionStatus]);
+
+  const activeFilterCount = countActiveFilters(filters);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <div>
+      <div className="sticky top-0 z-30 bg-background safe-top pt-4 px-4 pb-3 border-b border-border">
+        <h1 className="text-xl font-bold mb-3">Properties</h1>
+        <div className="flex gap-2">
+          <div className="flex-1 flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-3">
+            <span className="text-muted">🔍</span>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search location, building, agent, ID..."
+              className="flex-1 min-w-0 outline-none bg-transparent text-[15px]"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {query && (
+              <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="text-muted text-sm px-1">
+                ✕
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="relative shrink-0 rounded-xl border border-border bg-surface px-4 flex items-center justify-center active:bg-surface-muted"
+            aria-label="Filters"
           >
-            Documentation
-          </a>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+            {activeFilterCount > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
+                style={{ background: "var(--accent)" }}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
-      </main>
+
+        <div className="mt-3">
+          <SegmentedControl
+            options={[
+              { label: "All", value: "ALL" },
+              { label: "For Rent", value: "RENT" },
+              { label: "For Sale", value: "SALE" },
+            ]}
+            value={filters.listingType}
+            onChange={(v) => setFilters((f) => ({ ...f, listingType: v }))}
+          />
+        </div>
+
+        <div className="flex items-center justify-between mt-2.5">
+          <div className="text-[12px] text-muted">
+            {loading && listings.length === 0 ? "Searching..." : `${total} propert${total === 1 ? "y" : "ies"} found`}
+          </div>
+          {activeFilterCount > 0 && (
+            <button onClick={() => setFilters(DEFAULT_FILTERS)} className="text-[12px] font-semibold" style={{ color: "var(--primary)" }}>
+              Clear all filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 py-4">
+        {!loading && listings.length === 0 && (
+          <div className="text-center py-16 text-muted">
+            <div className="text-4xl mb-3">🏠</div>
+            <p className="font-medium text-foreground">No properties found</p>
+            <p className="text-sm mt-1">Try adjusting your search or filters</p>
+          </div>
+        )}
+
+        <GroupedResults listings={listings} />
+
+        {loading && listings.length === 0 && (
+          <div className="flex flex-col gap-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-2xl bg-surface border border-border p-4 h-40 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {page < totalPages && (
+          <button
+            onClick={() => fetchListings(page + 1, false)}
+            disabled={loading}
+            className="w-full mt-4 rounded-xl py-3.5 text-[14px] font-semibold bg-surface-muted text-foreground active:opacity-70 disabled:opacity-60"
+          >
+            {loading ? "Loading..." : "Load More"}
+          </button>
+        )}
+      </div>
+
+      <FilterSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        filters={filters}
+        onApply={setFilters}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

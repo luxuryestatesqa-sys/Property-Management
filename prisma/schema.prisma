@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  AGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ListingType {
+  RENT
+  SALE
+}
+
+enum Furnished {
+  FURNISHED
+  UNFURNISHED
+}
+
+enum BillsStatus {
+  INCLUDED
+  EXCLUDED
+}
+
+enum ListingStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// Real-world state of the property, independent of ListingStatus (which
+// controls soft-delete / visibility in search). RENT listings use
+// AVAILABLE / RESERVED / RENTED; SALE listings use AVAILABLE / RESERVED / SOLD.
+enum AvailabilityStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+  SOLD
+}
+
+enum PropertyCategory {
+  APARTMENT
+  VILLA
+  TOWNHOUSE
+  PENTHOUSE
+  DUPLEX
+  COMPOUND_VILLA
+  WHOLE_BUILDING
+  OFFICE
+  RETAIL
+  LAND
+}
+
+// Only meaningful for residential categories (see lib/propertyCategory.ts);
+// null for Office / Retail / Land.
+enum BedroomCount {
+  STUDIO
+  ONE
+  TWO
+  TWO_PLUS_MAID
+  THREE
+  THREE_PLUS_MAID
+  FOUR
+  FOUR_PLUS_MAID
+  FIVE
+  FIVE_PLUS_MAID
+  SIX_PLUS
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  whatsapp     String // mandatory WhatsApp contact number; agents can change their own, admin can correct any
+  avatarUrl    String? // data URL of a resized/compressed profile photo; agents can change their own
+  passwordHash String
+  role         Role       @default(AGENT)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+
+  listings  Listing[]  @relation("CreatedListings")
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@index([role])
+}
+
+model Listing {
+  id          Int         @id @default(autoincrement())
+  listingType ListingType
+
+  propertyCategory PropertyCategory
+  bedrooms         BedroomCount? // null for non-residential categories (Office / Retail / Land)
+  sizeSqm          Float? // optional, in square meters
+
+  // Location hierarchy: area (top-level location) -> community (area/community) -> buildingName -> floor -> apartmentNumber
+  area              String
+  community         String
+  buildingName      String
+  floor             String
+  apartmentNumber   String
+  dupKey            String // normalized area|community|buildingName|floor|apartmentNumber for duplicate detection & grouping
+
+  rentPrice    Float?
+  salePrice    Float?
+  rentalValue  Float? // optional, only relevant for SALE listings
+
+  furnished   Furnished
+  billsStatus BillsStatus
+
+  status             ListingStatus       @default(ACTIVE)
+  deactivatedAt      DateTime?
+  availabilityStatus AvailabilityStatus  @default(AVAILABLE)
+
+  createdById String
+  createdBy   User     @relation("CreatedListings", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  auditLogs AuditLog[]
+  images    ListingImage[]
+
+  @@index([area])
+  @@index([community])
+  @@index([buildingName])
+  @@index([apartmentNumber])
+  @@index([floor])
+  @@index([listingType])
+  @@index([rentPrice])
+  @@index([salePrice])
+  @@index([status])
+  @@index([createdById])
+  @@index([dupKey])
+  @@index([availabilityStatus])
+  @@index([propertyCategory])
+  @@index([bedrooms])
+}
+
+model ListingImage {
+  id        String   @id @default(cuid())
+  listingId Int
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String // resized/compressed JPEG data URL
+  sortOrder Int      @default(0) // 0 = cover image, shown on cards
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  listingId Int
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  oldValue  String?
+  newValue  String?
+  timestamp DateTime @default(now())
+
+  @@index([listingId])
+  @@index([userId])
+}
