@@ -21,7 +21,7 @@ export default function PropertyCard({ listing }: { listing: ListingDTO }) {
       <div className="relative aspect-[16/10] bg-surface-muted">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover.url} alt={listing.buildingName} className="w-full h-full object-cover" />
+          <img src={cover.url} alt={listing.buildingName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-3xl text-border">🏠</div>
         )}

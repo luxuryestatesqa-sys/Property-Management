@@ -8,11 +8,14 @@ type Tab = "ACTIVE" | "INACTIVE";
 
 export default function MyListingsPage() {
   const [tab, setTab] = useState<Tab>("ACTIVE");
-  const [listings, setListings] = useState<ListingDTO[]>([]);
+  const [listingsByTab, setListingsByTab] = useState<Record<Tab, ListingDTO[]>>({ ACTIVE: [], INACTIVE: [] });
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({ ACTIVE: 0, INACTIVE: 0 });
 
-  const load = useCallback(async (currentTab: Tab) => {
+  // Both tabs' data is fetched together, so switching tabs is instant - no
+  // refetch or loading flash on every tap, only on first load and after a
+  // status/availability change.
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [activeRes, inactiveRes] = await Promise.all([
@@ -22,15 +25,17 @@ export default function MyListingsPage() {
       const activeData = await activeRes.json();
       const inactiveData = await inactiveRes.json();
       setCounts({ ACTIVE: activeData.total, INACTIVE: inactiveData.total });
-      setListings(currentTab === "ACTIVE" ? activeData.listings : inactiveData.listings);
+      setListingsByTab({ ACTIVE: activeData.listings, INACTIVE: inactiveData.listings });
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load(tab);
-  }, [tab, load]);
+    load();
+  }, [load]);
+
+  const listings = listingsByTab[tab];
 
   return (
     <div>
@@ -68,7 +73,7 @@ export default function MyListingsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {listings.map((l) => (
-              <MyListingCard key={l.id} listing={l} onStatusChange={() => load(tab)} />
+              <MyListingCard key={l.id} listing={l} onStatusChange={load} />
             ))}
           </div>
         )}

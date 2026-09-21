@@ -32,7 +32,7 @@ function DuplicateGroupCard({ group }: { group: ListingDTO[] }) {
         {cover && (
           <div className="shrink-0 w-12 h-12 rounded-lg overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cover.url} alt={first.buildingName} className="w-full h-full object-cover" />
+            <img src={cover.url} alt={first.buildingName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
           </div>
         )}
         <div className="min-w-0 flex-1">

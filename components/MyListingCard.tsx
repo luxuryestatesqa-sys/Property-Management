@@ -52,7 +52,7 @@ export default function MyListingCard({ listing, onStatusChange }: { listing: Li
           <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-surface-muted flex items-center justify-center">
             {cover ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cover.url} alt={listing.buildingName} className="w-full h-full object-cover" />
+              <img src={cover.url} alt={listing.buildingName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
             ) : (
               <span className="text-xl text-border">🏠</span>
             )}

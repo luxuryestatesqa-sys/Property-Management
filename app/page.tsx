@@ -33,21 +33,28 @@ export default function PropertiesPage() {
     };
   }, [query]);
 
+  // Guards against out-of-order responses: if the user changes the search/filters
+  // again before a slower earlier request resolves, only the latest request's
+  // response is applied, so results never flicker back to a stale query's data.
+  const requestIdRef = useRef(0);
+
   const fetchListings = useCallback(
     async (pageNum: number, reset: boolean) => {
       if (sessionStatus !== "authenticated") return;
+      const requestId = ++requestIdRef.current;
       setLoading(true);
       const params = filtersToParams(filters, { page: String(pageNum) });
       if (debouncedQuery) params.set("q", debouncedQuery);
       try {
         const res = await fetch(`/api/listings?${params.toString()}`);
         const data = await res.json();
+        if (requestId !== requestIdRef.current) return;
         setListings((prev) => (reset ? data.listings : [...prev, ...data.listings]));
         setTotalPages(data.totalPages);
         setTotal(data.total);
         setPage(pageNum);
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) setLoading(false);
       }
     },
     [filters, debouncedQuery, sessionStatus]
@@ -132,7 +139,9 @@ export default function PropertiesPage() {
           </div>
         )}
 
-        <GroupedResults listings={listings} />
+        <div className={loading && listings.length > 0 ? "opacity-50 transition-opacity pointer-events-none" : "transition-opacity"}>
+          <GroupedResults listings={listings} />
+        </div>
 
         {loading && listings.length === 0 && (
           <div className="flex flex-col gap-3">
