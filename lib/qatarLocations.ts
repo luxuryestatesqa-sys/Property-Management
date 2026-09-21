@@ -55,17 +55,10 @@ export const QATAR_AREAS: string[] = [
   "Al Kharaitiyat",
   "Umm Salal Mohammed",
   "Umm Salal Ali",
-  // Lusail & The Pearl
+  // Lusail & The Pearl (their precincts are suggested at the
+  // Area/Community level instead - see QATAR_COMMUNITIES_BY_AREA below)
   "Lusail",
-  "Fox Hills",
-  "Marina District",
-  "Al Erkyah",
-  "Al Qutaifiya",
   "The Pearl-Qatar",
-  "Porto Arabia",
-  "Viva Bahriya",
-  "Qanat Quartier",
-  "Giardino Village",
   // Al Rayyan
   "Al Rayyan",
   "Al Rayyan Al Jadeed",
@@ -91,3 +84,32 @@ export const QATAR_AREAS: string[] = [
   "Al Ruwais",
   "Al Zubarah",
 ].sort((a, b) => a.localeCompare(b));
+
+// Curated precincts/zones within specific Qatar areas, keyed by the area
+// name (case-insensitive lookup). Suggested at the Area/Community level once
+// that parent area is selected, merged with whatever's already in the DB.
+export const QATAR_COMMUNITIES_BY_AREA: Record<string, string[]> = {
+  "the pearl-qatar": [
+    "Porto Arabia",
+    "Viva Bahriya",
+    "Qanat Quartier",
+    "Medina Centrale",
+    "Abraj Quartier",
+    "Giardino Village",
+    "Floresta Gardens",
+    "Isola Dana",
+    "Costa Malaz",
+  ],
+  lusail: [
+    "Fox Hills North",
+    "Fox Hills South",
+    "Yasmeen City",
+    "Lusail Marina",
+    "Huzoom Lusail",
+    "Al Erkyah",
+    "Al Qutaifiya",
+    "Al Furjan",
+    "Energy City",
+    "Qetaifan Islands",
+  ],
+};
