@@ -4,6 +4,7 @@ import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatDate } from "@/lib/format";
 import WhatsAppButton from "./WhatsAppButton";
 import Avatar from "./Avatar";
+import { buildListingInquiryMessage } from "@/lib/whatsapp";
 
 interface DuplicateWarningModalProps {
   existing: ListingDTO[];
@@ -67,7 +68,7 @@ export default function DuplicateWarningModal({ existing, onCancel, onContinue, 
                       Added by <span className="font-medium text-foreground">{l.createdBy.name}</span> · {formatDate(l.createdAt)}
                     </div>
                   </div>
-                  <WhatsAppButton number={l.createdBy.whatsapp} name={l.createdBy.name} variant="full" />
+                  <WhatsAppButton number={l.createdBy.whatsapp} message={buildListingInquiryMessage(l)} variant="full" />
                 </div>
               </div>
             ))}

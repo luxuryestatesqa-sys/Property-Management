@@ -22,6 +22,7 @@ import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { buildListingInquiryMessage } from "@/lib/whatsapp";
 import CallButton from "@/components/CallButton";
 import Avatar from "@/components/Avatar";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -267,7 +268,7 @@ export default function PropertyDetailPage() {
             <div className="flex gap-2.5">
               <WhatsAppButton
                 number={listing.createdBy.whatsapp}
-                name={listing.createdBy.name}
+                message={buildListingInquiryMessage(listing)}
                 label="WhatsApp Now"
                 variant="full"
                 className="flex-1 justify-center py-3 text-[14px]"
@@ -347,7 +348,7 @@ export default function PropertyDetailPage() {
                 <dd className="font-medium flex items-center gap-2">
                   <Avatar name={listing.createdBy.name} avatarUrl={listing.createdBy.avatarUrl} size={24} />
                   {listing.createdBy.name}
-                  {!isOwner && <WhatsAppButton number={listing.createdBy.whatsapp} name={listing.createdBy.name} size={30} />}
+                  {!isOwner && <WhatsAppButton number={listing.createdBy.whatsapp} message={buildListingInquiryMessage(listing)} size={30} />}
                 </dd>
               </div>
               <div className="flex justify-between">
@@ -395,7 +396,7 @@ export default function PropertyDetailPage() {
                           {d.listingType === "RENT" ? `${formatQAR(d.rentPrice)}/mo` : formatQAR(d.salePrice)}
                         </div>
                       </div>
-                      <WhatsAppButton number={d.createdBy.whatsapp} name={d.createdBy.name} size={30} />
+                      <WhatsAppButton number={d.createdBy.whatsapp} message={buildListingInquiryMessage(d)} size={30} />
                     </div>
                     <div className="text-[11px] text-muted shrink-0">{formatDate(d.createdAt)}</div>
                   </Link>

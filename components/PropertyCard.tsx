@@ -7,6 +7,7 @@ import { AVAILABILITY_LABELS, AVAILABILITY_COLORS } from "@/lib/availability";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "@/lib/propertyCategory";
 import WhatsAppButton from "./WhatsAppButton";
 import Avatar from "./Avatar";
+import { buildListingInquiryMessage } from "@/lib/whatsapp";
 
 export default function PropertyCard({ listing }: { listing: ListingDTO }) {
   const isRent = listing.listingType === "RENT";
@@ -104,7 +105,7 @@ export default function PropertyCard({ listing }: { listing: ListingDTO }) {
             <div className="text-[12px] text-muted truncate">
               Added by <span className="font-medium text-foreground">{listing.createdBy.name}</span> · {formatDate(listing.createdAt)}
             </div>
-            <WhatsAppButton number={listing.createdBy.whatsapp} name={listing.createdBy.name} size={28} />
+            <WhatsAppButton number={listing.createdBy.whatsapp} message={buildListingInquiryMessage(listing)} size={28} />
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[11px] text-muted">{listingCode(listing.id)}</span>

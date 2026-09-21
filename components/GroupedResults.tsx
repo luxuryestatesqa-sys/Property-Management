@@ -6,6 +6,7 @@ import { formatQAR, formatDate, listingCode } from "@/lib/format";
 import PropertyCard from "./PropertyCard";
 import WhatsAppButton from "./WhatsAppButton";
 import Avatar from "./Avatar";
+import { buildListingInquiryMessage } from "@/lib/whatsapp";
 
 function groupByDupKey(listings: ListingDTO[]): ListingDTO[][] {
   const order: string[] = [];
@@ -61,7 +62,7 @@ function DuplicateGroupCard({ group }: { group: ListingDTO[] }) {
                   {isRent(l) ? "For Rent" : "For Sale"} — {isRent(l) ? `${formatQAR(l.rentPrice)}/mo` : formatQAR(l.salePrice)}
                 </div>
               </div>
-              <WhatsAppButton number={l.createdBy.whatsapp} name={l.createdBy.name} size={28} />
+              <WhatsAppButton number={l.createdBy.whatsapp} message={buildListingInquiryMessage(l)} size={28} />
             </div>
             <div className="text-right shrink-0 ml-2">
               <div className="text-[11px] text-muted">Added: {formatDate(l.createdAt)}</div>
