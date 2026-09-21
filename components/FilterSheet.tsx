@@ -133,6 +133,24 @@ export default function FilterSheet({ open, onClose, filters, onApply, isAdmin }
         </div>
 
         <div className="overflow-y-auto px-5 py-4 flex flex-col gap-6 no-scrollbar">
+          {/* Property type + bedrooms first - this is what most agents filter
+              by first (e.g. "Studio", "1 Bedroom"), so it leads the sheet. */}
+          <CollapsibleChipSelect
+            label="Property Type"
+            options={PROPERTY_TYPE_FILTER_OPTIONS}
+            value={draft.propertyCategory ?? ""}
+            onChange={(v) => update("propertyCategory", (v || null) as Filters["propertyCategory"])}
+            defaultOpen
+          />
+
+          <CollapsibleChipSelect
+            label="Bedrooms"
+            options={BEDROOM_FILTER_OPTIONS}
+            value={draft.bedrooms ?? ""}
+            onChange={(v) => update("bedrooms", (v || null) as Filters["bedrooms"])}
+            defaultOpen
+          />
+
           <section>
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Location</h3>
             <div className="flex flex-col gap-3">
@@ -174,20 +192,6 @@ export default function FilterSheet({ open, onClose, filters, onApply, isAdmin }
               onChange={(v) => update("listingType", v)}
             />
           </section>
-
-          <CollapsibleChipSelect
-            label="Property Type"
-            options={PROPERTY_TYPE_FILTER_OPTIONS}
-            value={draft.propertyCategory ?? ""}
-            onChange={(v) => update("propertyCategory", (v || null) as Filters["propertyCategory"])}
-          />
-
-          <CollapsibleChipSelect
-            label="Bedrooms"
-            options={BEDROOM_FILTER_OPTIONS}
-            value={draft.bedrooms ?? ""}
-            onChange={(v) => update("bedrooms", (v || null) as Filters["bedrooms"])}
-          />
 
           {draft.listingType === "RENT" && (
             <section>
