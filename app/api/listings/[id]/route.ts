@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { listingUpdateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
-import { isResidentialCategory } from "@/lib/propertyCategory";
+import { isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
 import { PropertyCategory } from "@prisma/client";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -72,6 +72,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const resultBedrooms = data.bedrooms !== undefined ? data.bedrooms : listing.bedrooms;
   if (resultResidential && !resultBedrooms) {
     return NextResponse.json({ error: "Bedrooms is required for this property type" }, { status: 400 });
+  }
+  if (resultResidential && resultBedrooms && !bedroomOptionsFor(resultCategory).includes(resultBedrooms)) {
+    return NextResponse.json({ error: `"${resultBedrooms}" is not a valid bedroom count for this property type` }, { status: 400 });
   }
   if (!resultResidential) {
     // Non-residential categories (Office / Retail / Land) never carry a bedroom count.

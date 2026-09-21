@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { ListingDTO, AuditLogDTO, AvailabilityStatus, PropertyCategory } from "@/lib/types";
+import { ListingDTO, AuditLogDTO, AvailabilityStatus, PropertyCategory, BedroomCount } from "@/lib/types";
 import { formatQAR, formatSqm, formatDate, formatDateTime, listingCode } from "@/lib/format";
 import { describeAuditEntry } from "@/lib/audit";
 import { extractErrorMessage } from "@/lib/errors";
@@ -13,9 +13,9 @@ import {
   PROPERTY_CATEGORY_LABELS,
   PROPERTY_CATEGORY_OPTIONS,
   BEDROOM_LABELS,
-  BEDROOM_OPTIONS,
   BEDROOM_SHORT_LABELS,
   isResidentialCategory,
+  bedroomOptionsFor,
 } from "@/lib/propertyCategory";
 import SegmentedControl from "@/components/SegmentedControl";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
@@ -26,7 +26,6 @@ import PhotoPicker from "@/components/PhotoPicker";
 import PhotoGallery from "@/components/PhotoGallery";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
-const BEDROOM_EDIT_OPTIONS = BEDROOM_OPTIONS.map((b) => ({ label: BEDROOM_LABELS[b], value: b }));
 
 export default function PropertyDetailPage() {
   const params = useParams();
@@ -398,11 +397,15 @@ export default function PropertyDetailPage() {
             options={PROPERTY_TYPE_EDIT_OPTIONS}
             value={form.propertyCategory as PropertyCategory}
             onChange={(v) =>
-              setForm((f) => ({
-                ...f,
-                propertyCategory: v,
-                bedrooms: isResidentialCategory(v) ? f.bedrooms : "",
-              }))
+              setForm((f) => {
+                const category = v as PropertyCategory;
+                const stillValid = isResidentialCategory(category) && bedroomOptionsFor(category).includes(f.bedrooms as BedroomCount);
+                return {
+                  ...f,
+                  propertyCategory: v,
+                  bedrooms: stillValid ? f.bedrooms : "",
+                };
+              })
             }
           />
 
@@ -410,7 +413,7 @@ export default function PropertyDetailPage() {
             <CollapsibleChipSelect
               label="Bedrooms"
               placeholder="Select bedrooms"
-              options={BEDROOM_EDIT_OPTIONS}
+              options={bedroomOptionsFor(form.propertyCategory as PropertyCategory).map((b) => ({ label: BEDROOM_LABELS[b], value: b }))}
               value={form.bedrooms}
               onChange={(v) => setForm((f) => ({ ...f, bedrooms: v }))}
             />

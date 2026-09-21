@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isResidentialCategory } from "./propertyCategory";
+import { isResidentialCategory, bedroomOptionsFor } from "./propertyCategory";
 import { MAX_LISTING_IMAGES } from "./constants";
 
 const PROPERTY_CATEGORIES = [
@@ -75,6 +75,9 @@ export const listingCreateSchema = z
     }
     if (isResidentialCategory(data.propertyCategory) && !data.bedrooms) {
       ctx.addIssue({ code: "custom", message: "Bedrooms is required", path: ["bedrooms"] });
+    }
+    if (data.bedrooms && !bedroomOptionsFor(data.propertyCategory).includes(data.bedrooms)) {
+      ctx.addIssue({ code: "custom", message: `"${data.bedrooms}" is not a valid bedroom count for this property type`, path: ["bedrooms"] });
     }
   });
 

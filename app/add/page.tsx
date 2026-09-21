@@ -8,13 +8,12 @@ import LocationAutocomplete from "@/components/LocationAutocomplete";
 import DuplicateWarningModal from "@/components/DuplicateWarningModal";
 import PhotoPicker from "@/components/PhotoPicker";
 import { ListingDTO, PropertyCategory, BedroomCount } from "@/lib/types";
-import { PROPERTY_CATEGORY_LABELS, PROPERTY_CATEGORY_OPTIONS, BEDROOM_LABELS, BEDROOM_OPTIONS, isResidentialCategory } from "@/lib/propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, PROPERTY_CATEGORY_OPTIONS, BEDROOM_LABELS, isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
 import { extractErrorMessage } from "@/lib/errors";
 
 type ListingType = "RENT" | "SALE";
 
 const PROPERTY_TYPE_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
-const BEDROOM_CHOICE_OPTIONS = BEDROOM_OPTIONS.map((b) => ({ label: BEDROOM_LABELS[b], value: b }));
 
 const initialState = {
   listingType: "RENT" as ListingType,
@@ -156,11 +155,14 @@ export default function AddPropertyPage() {
           options={PROPERTY_TYPE_OPTIONS}
           value={form.propertyCategory}
           onChange={(v) => {
-            setForm((prev) => ({
-              ...prev,
-              propertyCategory: v,
-              bedrooms: v !== "" && isResidentialCategory(v) ? prev.bedrooms : "",
-            }));
+            setForm((prev) => {
+              const stillValid = v !== "" && isResidentialCategory(v) && bedroomOptionsFor(v).includes(prev.bedrooms as BedroomCount);
+              return {
+                ...prev,
+                propertyCategory: v,
+                bedrooms: stillValid ? prev.bedrooms : "",
+              };
+            });
           }}
         />
 
@@ -168,7 +170,7 @@ export default function AddPropertyPage() {
           <CollapsibleChipSelect
             label="Bedrooms"
             placeholder="Select bedrooms"
-            options={BEDROOM_CHOICE_OPTIONS}
+            options={bedroomOptionsFor(form.propertyCategory).map((b) => ({ label: BEDROOM_LABELS[b], value: b }))}
             value={form.bedrooms}
             onChange={(v) => update("bedrooms", v)}
           />
