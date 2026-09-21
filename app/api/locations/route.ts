@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
-import { QATAR_AREAS, QATAR_COMMUNITIES_BY_AREA } from "@/lib/qatarLocations";
+import { QATAR_AREAS, QATAR_COMMUNITIES_BY_AREA, QATAR_LOCATION_SUGGESTIONS, LocationSuggestion } from "@/lib/qatarLocations";
 
 // Merges real DB values with a curated list, case-insensitively deduped and
 // sorted, so suggestions are useful even where no listing exists yet.
@@ -19,6 +19,7 @@ function mergeDeduped(dbValues: string[], curated: string[]): string[] {
 }
 
 // Returns distinct location values to power cascading pickers.
+// ?level=combined -> single-field {area, community, display} suggestions
 // ?level=area -> all areas
 // ?level=community&area=X -> communities within area X
 // ?level=building&area=X&community=Y -> buildings within area+community
@@ -30,6 +31,27 @@ export async function GET(req: NextRequest) {
   const level = sp.get("level") ?? "area";
   const area = sp.get("area") ?? undefined;
   const community = sp.get("community") ?? undefined;
+
+  if (level === "combined") {
+    const rows = await prisma.listing.findMany({
+      where: { status: "ACTIVE" },
+      select: { area: true, community: true },
+      distinct: ["area", "community"],
+    });
+    const seen = new Set<string>();
+    const merged: LocationSuggestion[] = [];
+    for (const s of [
+      ...rows.map((r) => ({ area: r.area, community: r.community, display: `${r.community}, ${r.area}` })),
+      ...QATAR_LOCATION_SUGGESTIONS,
+    ]) {
+      const key = `${s.area.trim().toLowerCase()}|${s.community.trim().toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(s);
+    }
+    merged.sort((a, b) => a.display.localeCompare(b.display));
+    return NextResponse.json({ suggestions: merged });
+  }
 
   if (level === "area") {
     const rows = await prisma.listing.findMany({

@@ -128,3 +128,24 @@ export const QATAR_COMMUNITY_TO_AREA: Record<string, { area: string; community: 
   }
   return map;
 })();
+
+export interface LocationSuggestion {
+  area: string;
+  community: string;
+  display: string;
+}
+
+// One flat, pickable list for a single combined "Location" field: every
+// plain area (self-referential - area and community are the same, since
+// most Qatar areas don't have a further-named precinct) plus every known
+// precinct (shown as "Precinct, Area"). Selecting either resolves both the
+// area and community in one tap, so the form never needs two separate boxes
+// for what a user thinks of as one "location".
+export const QATAR_LOCATION_SUGGESTIONS: LocationSuggestion[] = [
+  ...QATAR_AREAS.map((area) => ({ area, community: area, display: area })),
+  ...Object.values(QATAR_COMMUNITY_TO_AREA).map(({ area, community }) => ({
+    area,
+    community,
+    display: `${community}, ${area}`,
+  })),
+].sort((a, b) => a.display.localeCompare(b.display));

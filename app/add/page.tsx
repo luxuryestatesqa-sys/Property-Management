@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import SegmentedControl from "@/components/SegmentedControl";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
+import LocationCombinedInput from "@/components/LocationCombinedInput";
 import DuplicateWarningModal from "@/components/DuplicateWarningModal";
 import PhotoPicker from "@/components/PhotoPicker";
 import { ListingDTO, PropertyCategory, BedroomCount } from "@/lib/types";
@@ -280,31 +281,14 @@ export default function AddPropertyPage() {
         <section>
           <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Location</h3>
           <div className="flex flex-col gap-3">
-            <LocationAutocomplete
-              label="Location"
-              placeholder="e.g. Lusail"
-              level="area"
-              value={form.area}
-              onChange={(v, resolvedCommunity) =>
-                setForm((prev) => ({
-                  ...prev,
-                  area: v,
-                  ...(resolvedCommunity ? { community: resolvedCommunity } : {}),
-                }))
-              }
-            />
-            <LocationAutocomplete
-              label="Area / Community"
-              placeholder="e.g. Marina District"
-              level="community"
+            <LocationCombinedInput
               area={form.area}
-              value={form.community}
-              onChange={(v) => update("community", v)}
+              community={form.community}
+              onChange={(area, community) => setForm((prev) => ({ ...prev, area, community }))}
             />
             <LocationAutocomplete
               label="Building Name"
               placeholder="e.g. Marina Tower 5"
-              level="building"
               area={form.area}
               community={form.community}
               value={form.buildingName}
