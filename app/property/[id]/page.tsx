@@ -249,6 +249,12 @@ export default function PropertyDetailPage() {
                   Rental Value: {formatQAR(listing.rentalValue)}/month
                 </div>
               )}
+              <div className="text-[13px] text-white/90 mt-2 flex items-center gap-1">
+                <span>📍</span>
+                <span>
+                  {listing.area} → {listing.community}
+                </span>
+              </div>
             </div>
             <div className="bg-surface px-4 py-3 flex gap-2 flex-wrap">
               <span className="text-[12px] px-2.5 py-1 rounded-lg bg-surface-muted text-foreground">
