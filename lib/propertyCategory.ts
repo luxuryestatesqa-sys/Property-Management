@@ -80,3 +80,36 @@ const BEDROOM_OPTIONS_BY_CATEGORY: Partial<Record<PropertyCategory, BedroomCount
 export function bedroomOptionsFor(category: PropertyCategory): BedroomCount[] {
   return BEDROOM_OPTIONS_BY_CATEGORY[category] ?? ALL_BEDROOM_OPTIONS;
 }
+
+export interface UnitLabelConfig {
+  // Whether a "Floor" field makes sense - false for standalone units (a
+  // villa, a plot of land) that aren't a floor within a building.
+  showFloor: boolean;
+  unitLabel: string;
+  unitPlaceholder: string;
+  // Compact prefix for tight spaces like property cards, e.g. "Apt 1204".
+  unitShortLabel: string;
+}
+
+const APARTMENT_UNIT: UnitLabelConfig = { showFloor: true, unitLabel: "Apartment No.", unitPlaceholder: "1204", unitShortLabel: "Apt" };
+
+const UNIT_LABELS_BY_CATEGORY: Record<PropertyCategory, UnitLabelConfig> = {
+  APARTMENT: APARTMENT_UNIT,
+  PENTHOUSE: APARTMENT_UNIT,
+  DUPLEX: APARTMENT_UNIT,
+  VILLA: { showFloor: false, unitLabel: "Villa No.", unitPlaceholder: "12", unitShortLabel: "Villa" },
+  TOWNHOUSE: { showFloor: false, unitLabel: "Townhouse No.", unitPlaceholder: "12", unitShortLabel: "Townhouse" },
+  COMPOUND_VILLA: { showFloor: false, unitLabel: "Villa No.", unitPlaceholder: "12", unitShortLabel: "Villa" },
+  WHOLE_BUILDING: { showFloor: false, unitLabel: "Reference No.", unitPlaceholder: "1", unitShortLabel: "Ref" },
+  OFFICE: { showFloor: true, unitLabel: "Office No.", unitPlaceholder: "501", unitShortLabel: "Office" },
+  RETAIL: { showFloor: true, unitLabel: "Shop No.", unitPlaceholder: "G-05", unitShortLabel: "Shop" },
+  LAND: { showFloor: false, unitLabel: "Plot No.", unitPlaceholder: "45", unitShortLabel: "Plot" },
+};
+
+export function unitLabelFor(category: PropertyCategory): UnitLabelConfig {
+  return UNIT_LABELS_BY_CATEGORY[category] ?? APARTMENT_UNIT;
+}
+
+// The value stored for "Floor" when a category doesn't use one, so the
+// (still required) database field always has something meaningful in it.
+export const NO_FLOOR_VALUE = "-";

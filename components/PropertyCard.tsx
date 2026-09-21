@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatSqm, formatDate, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS } from "@/lib/availability";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "@/lib/propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "@/lib/propertyCategory";
 import WhatsAppButton from "./WhatsAppButton";
 import Avatar from "./Avatar";
 import { buildListingInquiryMessage } from "@/lib/whatsapp";
@@ -13,6 +13,7 @@ export default function PropertyCard({ listing }: { listing: ListingDTO }) {
   const isRent = listing.listingType === "RENT";
   const availabilityColor = AVAILABILITY_COLORS[listing.availabilityStatus];
   const cover = listing.images[0];
+  const unit = unitLabelFor(listing.propertyCategory);
 
   return (
     <Link
@@ -73,9 +74,15 @@ export default function PropertyCard({ listing }: { listing: ListingDTO }) {
             </>
           )}
           <span className="w-1 h-1 rounded-full bg-border" />
-          <span>Apt {listing.apartmentNumber}</span>
-          <span className="w-1 h-1 rounded-full bg-border" />
-          <span>Floor {listing.floor}</span>
+          <span>
+            {unit.unitShortLabel} {listing.apartmentNumber}
+          </span>
+          {unit.showFloor && (
+            <>
+              <span className="w-1 h-1 rounded-full bg-border" />
+              <span>Floor {listing.floor}</span>
+            </>
+          )}
         </div>
 
         <div className="mt-3 flex items-end justify-between">

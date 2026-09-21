@@ -9,7 +9,15 @@ import LocationCombinedInput from "@/components/LocationCombinedInput";
 import DuplicateWarningModal from "@/components/DuplicateWarningModal";
 import PhotoPicker from "@/components/PhotoPicker";
 import { ListingDTO, PropertyCategory, BedroomCount } from "@/lib/types";
-import { PROPERTY_CATEGORY_LABELS, PROPERTY_CATEGORY_OPTIONS, BEDROOM_LABELS, isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
+import {
+  PROPERTY_CATEGORY_LABELS,
+  PROPERTY_CATEGORY_OPTIONS,
+  BEDROOM_LABELS,
+  isResidentialCategory,
+  bedroomOptionsFor,
+  unitLabelFor,
+  NO_FLOOR_VALUE,
+} from "@/lib/propertyCategory";
 import { extractErrorMessage } from "@/lib/errors";
 
 type ListingType = "RENT" | "SALE";
@@ -52,8 +60,9 @@ export default function AddPropertyPage() {
     if (!form.area.trim()) return "Location is required";
     if (!form.community.trim()) return "Area / Community is required";
     if (!form.buildingName.trim()) return "Building name is required";
-    if (!form.floor.trim()) return "Floor is required";
-    if (!form.apartmentNumber.trim()) return "Apartment number is required";
+    const unit = unitLabelFor(form.propertyCategory);
+    if (unit.showFloor && !form.floor.trim()) return "Floor is required";
+    if (!form.apartmentNumber.trim()) return `${unit.unitLabel} is required`;
     if (form.listingType === "RENT" && !form.rentPrice) return "Rent price is required";
     if (form.listingType === "SALE" && !form.salePrice) return "Sale price is required";
     return null;
@@ -79,7 +88,7 @@ export default function AddPropertyPage() {
           area: form.area,
           community: form.community,
           buildingName: form.buildingName,
-          floor: form.floor,
+          floor: unitLabelFor(form.propertyCategory as PropertyCategory).showFloor ? form.floor : NO_FLOOR_VALUE,
           apartmentNumber: form.apartmentNumber,
           rentPrice: form.listingType === "RENT" ? Number(form.rentPrice) : undefined,
           salePrice: form.listingType === "SALE" ? Number(form.salePrice) : undefined,
@@ -295,24 +304,28 @@ export default function AddPropertyPage() {
               onChange={(v) => update("buildingName", v)}
             />
             <div className="flex gap-3">
+              {form.propertyCategory && unitLabelFor(form.propertyCategory).showFloor && (
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-foreground block mb-1.5">Floor</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.floor}
+                    onChange={(e) => update("floor", e.target.value)}
+                    placeholder="12"
+                    className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
+                  />
+                </div>
+              )}
               <div className="flex-1">
-                <label className="text-sm font-medium text-foreground block mb-1.5">Floor</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.floor}
-                  onChange={(e) => update("floor", e.target.value)}
-                  placeholder="12"
-                  className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-sm font-medium text-foreground block mb-1.5">Apartment No.</label>
+                <label className="text-sm font-medium text-foreground block mb-1.5">
+                  {form.propertyCategory ? unitLabelFor(form.propertyCategory).unitLabel : "Apartment No."}
+                </label>
                 <input
                   type="text"
                   value={form.apartmentNumber}
                   onChange={(e) => update("apartmentNumber", e.target.value)}
-                  placeholder="1204"
+                  placeholder={form.propertyCategory ? unitLabelFor(form.propertyCategory).unitPlaceholder : "1204"}
                   className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
                 />
               </div>

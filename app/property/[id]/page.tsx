@@ -16,6 +16,8 @@ import {
   BEDROOM_SHORT_LABELS,
   isResidentialCategory,
   bedroomOptionsFor,
+  unitLabelFor,
+  NO_FLOOR_VALUE,
 } from "@/lib/propertyCategory";
 import SegmentedControl from "@/components/SegmentedControl";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
@@ -129,7 +131,7 @@ export default function PropertyDetailPage() {
         area: form.area,
         community: form.community,
         buildingName: form.buildingName,
-        floor: form.floor,
+        floor: unitLabelFor(category).showFloor ? form.floor : NO_FLOOR_VALUE,
         apartmentNumber: form.apartmentNumber,
         furnished: form.furnished,
         billsStatus: form.billsStatus,
@@ -336,12 +338,14 @@ export default function PropertyDetailPage() {
                 <dt className="text-muted">Building Name</dt>
                 <dd className="font-medium text-right">{listing.buildingName}</dd>
               </div>
+              {unitLabelFor(listing.propertyCategory).showFloor && (
+                <div className="flex justify-between">
+                  <dt className="text-muted">Floor</dt>
+                  <dd className="font-medium text-right">{listing.floor}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
-                <dt className="text-muted">Floor</dt>
-                <dd className="font-medium text-right">{listing.floor}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted">Apartment No.</dt>
+                <dt className="text-muted">{unitLabelFor(listing.propertyCategory).unitLabel}</dt>
                 <dd className="font-medium text-right">{listing.apartmentNumber}</dd>
               </div>
             </dl>
@@ -620,21 +624,26 @@ export default function PropertyDetailPage() {
                 onChange={(v) => setForm((f) => ({ ...f, buildingName: v }))}
               />
               <div className="flex gap-3">
+                {unitLabelFor(form.propertyCategory as PropertyCategory).showFloor && (
+                  <div className="flex-1">
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Floor</label>
+                    <input
+                      type="text"
+                      value={form.floor}
+                      onChange={(e) => setForm((f) => ({ ...f, floor: e.target.value }))}
+                      className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
+                    />
+                  </div>
+                )}
                 <div className="flex-1">
-                  <label className="text-sm font-medium text-foreground block mb-1.5">Floor</label>
-                  <input
-                    type="text"
-                    value={form.floor}
-                    onChange={(e) => setForm((f) => ({ ...f, floor: e.target.value }))}
-                    className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-sm font-medium text-foreground block mb-1.5">Apartment No.</label>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">
+                    {unitLabelFor(form.propertyCategory as PropertyCategory).unitLabel}
+                  </label>
                   <input
                     type="text"
                     value={form.apartmentNumber}
                     onChange={(e) => setForm((f) => ({ ...f, apartmentNumber: e.target.value }))}
+                    placeholder={unitLabelFor(form.propertyCategory as PropertyCategory).unitPlaceholder}
                     className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
                   />
                 </div>

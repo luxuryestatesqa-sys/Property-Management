@@ -1,6 +1,6 @@
 import { ListingDTO } from "./types";
 import { formatQAR, formatSqm, listingCode } from "./format";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "./propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "./propertyCategory";
 
 // A ready-to-send WhatsApp inquiry message pre-filled with the listing's own
 // details, so tapping "WhatsApp Now" (or any WhatsApp icon) on a listing
@@ -17,11 +17,16 @@ export function buildListingInquiryMessage(listing: ListingDTO): string {
     .filter(Boolean)
     .join(" • ");
 
+  const unit = unitLabelFor(listing.propertyCategory);
+  const unitLine = unit.showFloor
+    ? `${unit.unitLabel} ${listing.apartmentNumber}, Floor ${listing.floor}`
+    : `${unit.unitLabel} ${listing.apartmentNumber}`;
+
   return [
     `Hi ${listing.createdBy.name}, I'm interested in this listing on Luxury Estates:`,
     "",
     `${listingCode(listing.id)} - ${listing.buildingName}, ${listing.community}, ${listing.area}`,
-    `Unit ${listing.apartmentNumber}, Floor ${listing.floor}`,
+    unitLine,
     details,
     "",
     "Is this still available?",

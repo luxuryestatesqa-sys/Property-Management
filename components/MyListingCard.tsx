@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ListingDTO, AvailabilityStatus } from "@/lib/types";
 import { formatQAR, formatSqm, formatDate, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS, availabilityOptionsFor } from "@/lib/availability";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "@/lib/propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "@/lib/propertyCategory";
 import { useConfirm } from "@/components/ConfirmDialog";
 
 export default function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onStatusChange: () => void }) {
@@ -92,7 +92,8 @@ export default function MyListingCard({ listing, onStatusChange }: { listing: Li
               )}
             </p>
             <p className="text-[13px] text-muted mt-0.5">
-              Apt {listing.apartmentNumber} · Floor {listing.floor}
+              {unitLabelFor(listing.propertyCategory).unitShortLabel} {listing.apartmentNumber}
+              {unitLabelFor(listing.propertyCategory).showFloor && ` · Floor ${listing.floor}`}
             </p>
           </div>
           <span

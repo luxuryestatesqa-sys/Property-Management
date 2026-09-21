@@ -2,6 +2,7 @@
 
 import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatDate } from "@/lib/format";
+import { unitLabelFor } from "@/lib/propertyCategory";
 import WhatsAppButton from "./WhatsAppButton";
 import Avatar from "./Avatar";
 import { buildListingInquiryMessage } from "@/lib/whatsapp";
@@ -43,7 +44,8 @@ export default function DuplicateWarningModal({ existing, onCancel, onContinue, 
                       📍 {l.area} → {l.community}
                     </div>
                     <div className="text-[13px] text-muted mt-0.5">
-                      Floor: {l.floor} &nbsp;·&nbsp; Apartment: {l.apartmentNumber}
+                      {unitLabelFor(l.propertyCategory).showFloor && <>Floor: {l.floor} &nbsp;·&nbsp; </>}
+                      {unitLabelFor(l.propertyCategory).unitLabel}: {l.apartmentNumber}
                     </div>
                   </div>
                 </div>
