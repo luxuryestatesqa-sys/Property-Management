@@ -62,13 +62,14 @@ export const BEDROOM_SHORT_LABELS: Record<BedroomCount, string> = {
 export const BEDROOM_OPTIONS = Object.keys(BEDROOM_LABELS) as BedroomCount[];
 
 const ALL_BEDROOM_OPTIONS = BEDROOM_OPTIONS;
+const UP_TO_THREE_PLUS_MAID_OPTIONS = BEDROOM_OPTIONS.slice(0, BEDROOM_OPTIONS.indexOf("THREE_PLUS_MAID") + 1);
 const FROM_ONE_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO");
 const FROM_TWO_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO" && b !== "ONE");
 
 // Which bedroom counts make sense per property type, so a Villa never offers
 // "Studio" or "1 Bedroom" the way an Apartment does, etc.
 const BEDROOM_OPTIONS_BY_CATEGORY: Partial<Record<PropertyCategory, BedroomCount[]>> = {
-  APARTMENT: ALL_BEDROOM_OPTIONS,
+  APARTMENT: UP_TO_THREE_PLUS_MAID_OPTIONS,
   PENTHOUSE: FROM_ONE_BEDROOM_OPTIONS,
   DUPLEX: FROM_ONE_BEDROOM_OPTIONS,
   VILLA: FROM_TWO_BEDROOM_OPTIONS,

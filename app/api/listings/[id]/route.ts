@@ -73,7 +73,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (resultResidential && !resultBedrooms) {
     return NextResponse.json({ error: "Bedrooms is required for this property type" }, { status: 400 });
   }
-  if (resultResidential && resultBedrooms && !bedroomOptionsFor(resultCategory).includes(resultBedrooms)) {
+  // Only enforce the category/bedroom-count pairing when this edit actually
+  // touches one of those two fields - an edit to an unrelated field (price,
+  // photos, ...) should never get blocked by a rule that postdates the
+  // listing's original data.
+  const touchesCategoryOrBedrooms = data.propertyCategory !== undefined || data.bedrooms !== undefined;
+  if (touchesCategoryOrBedrooms && resultResidential && resultBedrooms && !bedroomOptionsFor(resultCategory).includes(resultBedrooms)) {
     return NextResponse.json({ error: `"${resultBedrooms}" is not a valid bedroom count for this property type` }, { status: 400 });
   }
   if (!resultResidential) {
