@@ -21,6 +21,7 @@ import SegmentedControl from "@/components/SegmentedControl";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import CallButton from "@/components/CallButton";
 import Avatar from "@/components/Avatar";
 import PhotoPicker from "@/components/PhotoPicker";
 import PhotoGallery from "@/components/PhotoGallery";
@@ -244,6 +245,24 @@ export default function PropertyDetailPage() {
               )}
             </div>
           </div>
+
+          {!isOwner && (
+            <div className="flex gap-2.5">
+              <WhatsAppButton
+                number={listing.createdBy.whatsapp}
+                name={listing.createdBy.name}
+                label="WhatsApp Now"
+                variant="full"
+                className="flex-1 justify-center py-3 text-[14px]"
+              />
+              <CallButton
+                number={listing.createdBy.whatsapp}
+                label="Call Now"
+                variant="full"
+                className="flex-1 justify-center py-3 text-[14px]"
+              />
+            </div>
+          )}
 
           <section className="rounded-2xl border border-border bg-surface p-4">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Location</h3>

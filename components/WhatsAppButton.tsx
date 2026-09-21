@@ -18,12 +18,13 @@ interface WhatsAppButtonProps {
   number: string;
   name?: string;
   message?: string; // overrides the default "reaching out about a listing" text
+  label?: string; // overrides the "full" variant's visible button text (default "WhatsApp")
   variant?: "icon" | "full";
   size?: number;
   className?: string;
 }
 
-export default function WhatsAppButton({ number, name, message, variant = "icon", size = 32, className = "" }: WhatsAppButtonProps) {
+export default function WhatsAppButton({ number, name, message, label = "WhatsApp", variant = "icon", size = 32, className = "" }: WhatsAppButtonProps) {
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -40,7 +41,7 @@ export default function WhatsAppButton({ number, name, message, variant = "icon"
         style={{ background: "#e7f9ee", color: "#1a7f3c" }}
       >
         <WhatsAppIcon size={15} />
-        WhatsApp
+        {label}
       </button>
     );
   }
