@@ -21,6 +21,7 @@ export function buildListingInquiryMessage(listing: ListingDTO): string {
     `Hi ${listing.createdBy.name}, I'm interested in this listing on Luxury Estates:`,
     "",
     `${listingCode(listing.id)} - ${listing.buildingName}, ${listing.community}, ${listing.area}`,
+    `Unit ${listing.apartmentNumber}, Floor ${listing.floor}`,
     details,
     "",
     "Is this still available?",
