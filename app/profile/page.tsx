@@ -6,12 +6,14 @@ import { UserDTO } from "@/lib/types";
 import { resizeImageFile } from "@/lib/image";
 import { extractErrorMessage } from "@/lib/errors";
 import Avatar from "@/components/Avatar";
+import ProfileSkeleton from "@/components/ProfileSkeleton";
 
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024; // 10MB raw upload cap, before client-side resize
 
 export default function ProfilePage() {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<UserDTO | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -36,14 +38,15 @@ export default function ProfilePage() {
         setProfile(d.user);
         setWhatsappInput(d.user?.whatsapp ?? "");
       })
-      .catch(() => setProfile(null));
+      .catch(() => setProfile(null))
+      .finally(() => setLoadingProfile(false));
   }
 
   useEffect(() => {
     loadProfile();
   }, []);
 
-  if (!session) return null;
+  if (!session || loadingProfile) return <ProfileSkeleton />;
   const user = session.user;
 
   async function handleAvatarSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -194,7 +197,7 @@ export default function ProfilePage() {
           <div className="flex justify-between items-center text-[14px]">
             <span className="text-muted">WhatsApp Number</span>
             <div className="flex items-center gap-2">
-              <span className="font-medium">{profile ? profile.whatsapp : "Loading..."}</span>
+              <span className="font-medium">{profile?.whatsapp ?? "—"}</span>
               <button
                 onClick={() => {
                   setWhatsappInput(profile?.whatsapp ?? "");
