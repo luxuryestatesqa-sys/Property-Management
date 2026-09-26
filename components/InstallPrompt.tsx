@@ -77,8 +77,11 @@ export default function InstallPrompt({ bottomClassName = "bottom-20" }: { botto
     <div
       className={`fixed ${bottomClassName} left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md rounded-2xl border border-border bg-surface shadow-lg p-3.5 flex items-center gap-3 safe-bottom`}
     >
+      {/* The actual home-screen icon (icon-192.png) is a separate, tile-style
+          asset made for the OS to display - this banner is in-app UI, so it
+          shows the real logo mark instead, not that icon. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/icons/icon-192.png" alt="" className="w-10 h-10 rounded-xl shrink-0" style={{ background: "var(--primary)" }} />
+      <img src="/icon.png" alt="" className="w-10 h-10 rounded-xl shrink-0 p-1.5" style={{ background: "var(--primary)" }} />
       <div className="min-w-0 flex-1">
         <div className="font-semibold text-[14px]">Install Luxury Estates</div>
         <div className="text-[12px] text-muted truncate">
