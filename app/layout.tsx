@@ -45,6 +45,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        {/* Part of the initial HTML (not a client component) so it paints the
+            instant the OS hands off from its own app-launch splash, with no
+            gap where neither is visible. See the #app-splash rules in
+            globals.css for the fade-out, which runs on pure CSS. */}
+        <div id="app-splash" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" />
+        </div>
         <SessionProviderWrapper session={session}>
           <AppShell>{children}</AppShell>
         </SessionProviderWrapper>
