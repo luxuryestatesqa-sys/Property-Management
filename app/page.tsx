@@ -1,12 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { ListingDTO } from "@/lib/types";
 import { Filters, DEFAULT_FILTERS, countActiveFilters, filtersToParams } from "@/lib/filters";
-import FilterSheet from "@/components/FilterSheet";
 import GroupedResults from "@/components/GroupedResults";
 import SegmentedControl from "@/components/SegmentedControl";
+import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
+
+// The filter sheet pulls in range sliders, chip selects and location
+// autocomplete - all dead weight until the user actually opens it, so it's
+// kept out of the initial bundle for the properties page.
+const FilterSheet = dynamic(() => import("@/components/FilterSheet"), { ssr: false });
+
+const PAGE_SIZE = 20;
 
 export default function PropertiesPage() {
   const { data: session, status: sessionStatus } = useSession();
@@ -20,7 +28,11 @@ export default function PropertiesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  // "loading" covers the initial/reset fetch (new search or filter change);
+  // "loadingMore" covers appending the next page during infinite scroll -
+  // kept separate so paging in doesn't dim/hide the results already on screen.
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -42,8 +54,9 @@ export default function PropertiesPage() {
     async (pageNum: number, reset: boolean) => {
       if (sessionStatus !== "authenticated") return;
       const requestId = ++requestIdRef.current;
-      setLoading(true);
-      const params = filtersToParams(filters, { page: String(pageNum) });
+      if (reset) setLoading(true);
+      else setLoadingMore(true);
+      const params = filtersToParams(filters, { page: String(pageNum), pageSize: String(PAGE_SIZE) });
       if (debouncedQuery) params.set("q", debouncedQuery);
       try {
         const res = await fetch(`/api/listings?${params.toString()}`);
@@ -54,7 +67,10 @@ export default function PropertiesPage() {
         setTotal(data.total);
         setPage(pageNum);
       } finally {
-        if (requestId === requestIdRef.current) setLoading(false);
+        if (requestId === requestIdRef.current) {
+          if (reset) setLoading(false);
+          else setLoadingMore(false);
+        }
       }
     },
     [filters, debouncedQuery, sessionStatus]
@@ -64,6 +80,26 @@ export default function PropertiesPage() {
     fetchListings(1, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, debouncedQuery, sessionStatus]);
+
+  // Infinite scroll: fetch the next page automatically once the sentinel
+  // below the list nears the viewport, instead of requiring a tap.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const canLoadMore = page < totalPages;
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !canLoadMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && !loadingMore) {
+          fetchListings(page + 1, false);
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canLoadMore, loading, loadingMore, page, fetchListings]);
 
   const activeFilterCount = countActiveFilters(filters);
 
@@ -78,7 +114,7 @@ export default function PropertiesPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search location, building, agent, ID..."
+              placeholder="Search location, building, bedrooms, agent, ID..."
               className="flex-1 min-w-0 outline-none bg-transparent text-[15px]"
             />
             {query && (
@@ -145,20 +181,23 @@ export default function PropertiesPage() {
 
         {loading && listings.length === 0 && (
           <div className="flex flex-col gap-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl bg-surface border border-border p-4 h-40 animate-pulse" />
+            {[1, 2, 3, 4, 5].map((i) => (
+              <PropertyCardSkeleton key={i} />
             ))}
           </div>
         )}
 
-        {page < totalPages && (
-          <button
-            onClick={() => fetchListings(page + 1, false)}
-            disabled={loading}
-            className="w-full mt-4 rounded-xl py-3.5 text-[14px] font-semibold bg-surface-muted text-foreground active:opacity-70 disabled:opacity-60"
-          >
-            {loading ? "Loading..." : "Load More"}
-          </button>
+        {!loading && listings.length > 0 && (
+          <>
+            <div ref={sentinelRef} className="h-1" />
+            {loadingMore && (
+              <div className="flex flex-col gap-3 mt-3">
+                <PropertyCardSkeleton />
+                <PropertyCardSkeleton />
+              </div>
+            )}
+            {!canLoadMore && <div className="text-center text-[12px] text-muted py-4">No more properties</div>}
+          </>
         )}
       </div>
 

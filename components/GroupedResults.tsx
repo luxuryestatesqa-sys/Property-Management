@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatDate, listingCode } from "@/lib/format";
@@ -21,14 +22,14 @@ function groupByDupKey(listings: ListingDTO[]): ListingDTO[][] {
   return order.map((k) => map.get(k)!);
 }
 
-function DuplicateGroupCard({ group }: { group: ListingDTO[] }) {
+const DuplicateGroupCard = memo(function DuplicateGroupCard({ group }: { group: ListingDTO[] }) {
   const first = group[0];
   const isRent = (l: ListingDTO) => l.listingType === "RENT";
 
   const cover = group.map((l) => l.images[0]).find(Boolean);
 
   return (
-    <div className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: "var(--accent)" }}>
+    <div className="card-cv rounded-2xl border-2 overflow-hidden shadow-sm" style={{ borderColor: "var(--accent)" }}>
       <div className="px-4 py-3 flex items-center gap-3" style={{ background: "var(--accent-light)" }}>
         {cover && (
           <div className="shrink-0 w-12 h-12 rounded-lg overflow-hidden">
@@ -73,7 +74,7 @@ function DuplicateGroupCard({ group }: { group: ListingDTO[] }) {
       </div>
     </div>
   );
-}
+});
 
 export default function GroupedResults({ listings }: { listings: ListingDTO[] }) {
   const groups = groupByDupKey(listings);

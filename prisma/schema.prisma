@@ -104,23 +104,34 @@ model Listing {
   sizeSqm          Float? // optional, in square meters
 
   // Location hierarchy: area (top-level location) -> community (area/community) -> buildingName -> floor -> apartmentNumber
-  area              String
-  community         String
-  buildingName      String
-  floor             String
-  apartmentNumber   String
-  dupKey            String // normalized area|community|buildingName|floor|apartmentNumber for duplicate detection & grouping
+  area            String
+  community       String
+  buildingName    String
+  floor           String
+  apartmentNumber String
+  dupKey          String // normalized area|community|buildingName|floor|apartmentNumber for duplicate detection & grouping
 
-  rentPrice    Float?
-  salePrice    Float?
-  rentalValue  Float? // optional, only relevant for SALE listings
+  rentPrice   Float?
+  salePrice   Float?
+  rentalValue Float? // optional, only relevant for SALE listings
 
   furnished   Furnished
-  billsStatus BillsStatus
+  billsStatus BillsStatus? // only relevant for RENT listings; always null for SALE
 
-  status             ListingStatus       @default(ACTIVE)
+  // Private, agent-only details - never returned to any user other than the
+  // listing's own creator or an admin. See lib/listingPrivacy.ts, which
+  // redacts these fields on every API response before it reaches anyone else.
+  ownerName              String?
+  ownerPhone             String?
+  ownerWhatsapp          String?
+  titleDeedNumber        String? // SALE listings only
+  privateNotes           String?
+  titleDeedImage         String? // data URL; SALE listings only
+  authorizationFormImage String? // data URL; RENT listings only
+
+  status             ListingStatus      @default(ACTIVE)
   deactivatedAt      DateTime?
-  availabilityStatus AvailabilityStatus  @default(AVAILABLE)
+  availabilityStatus AvailabilityStatus @default(AVAILABLE)
 
   createdById String
   createdBy   User     @relation("CreatedListings", fields: [createdById], references: [id])

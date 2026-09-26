@@ -61,7 +61,6 @@ async function main() {
         salePrice: 1850000,
         rentalValue: 10000,
         furnished: "FURNISHED" as const,
-        billsStatus: "EXCLUDED" as const,
         createdById: agents[0].id,
       },
       {
@@ -77,7 +76,6 @@ async function main() {
         salePrice: 1900000,
         rentalValue: 10500,
         furnished: "FURNISHED" as const,
-        billsStatus: "EXCLUDED" as const,
         createdById: agents[1].id,
       },
       {
@@ -124,7 +122,6 @@ async function main() {
         apartmentNumber: "502",
         salePrice: 2400000,
         furnished: "UNFURNISHED" as const,
-        billsStatus: "EXCLUDED" as const,
         availabilityStatus: "SOLD" as const,
         createdById: agents[4].id,
       },

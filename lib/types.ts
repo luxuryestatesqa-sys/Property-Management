@@ -53,7 +53,18 @@ export interface ListingDTO {
   salePrice: number | null;
   rentalValue: number | null;
   furnished: Furnished;
-  billsStatus: BillsStatus;
+  // Only meaningful for RENT listings; always null for SALE.
+  billsStatus: BillsStatus | null;
+  // Private, agent-only fields. Only ever populated by the API when the
+  // viewer is the listing's own creator or an admin - null otherwise,
+  // indistinguishable from "not filled in". See lib/listingPrivacy.ts.
+  ownerName: string | null;
+  ownerPhone: string | null;
+  ownerWhatsapp: string | null;
+  titleDeedNumber: string | null;
+  privateNotes: string | null;
+  titleDeedImage: string | null;
+  authorizationFormImage: string | null;
   status: ListingStatus;
   deactivatedAt: string | null;
   availabilityStatus: AvailabilityStatus;
@@ -61,6 +72,36 @@ export interface ListingDTO {
   createdBy: { id: string; name: string; whatsapp: string; avatarUrl: string | null };
   createdAt: string;
   updatedAt: string;
+}
+
+// Safe-to-share subset of ListingDTO returned by the public (unauthenticated)
+// share link - deliberately excludes createdBy, private owner fields, and
+// anything else that would identify or contact the listing's own agent.
+export interface PublicListingDTO {
+  id: number;
+  listingType: ListingType;
+  propertyCategory: PropertyCategory;
+  bedrooms: BedroomCount | null;
+  sizeSqm: number | null;
+  images: ListingImageDTO[];
+  area: string;
+  community: string;
+  buildingName: string;
+  floor: string;
+  apartmentNumber: string;
+  rentPrice: number | null;
+  salePrice: number | null;
+  rentalValue: number | null;
+  furnished: Furnished;
+  billsStatus: BillsStatus | null;
+  availabilityStatus: AvailabilityStatus;
+}
+
+// The agent who generated the share link (from its `?agent=` param), shown
+// as the contact for a shared listing instead of whoever originally created it.
+export interface PublicAgentDTO {
+  name: string;
+  whatsapp: string;
 }
 
 export interface AuditLogDTO {

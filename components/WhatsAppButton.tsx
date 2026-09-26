@@ -8,23 +8,28 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function buildWhatsAppUrl(number: string, message?: string): string {
-  const digits = number.replace(/[^\d+]/g, "").replace(/^\+/, "");
+function buildWhatsAppUrl(number: string | undefined, message?: string): string {
   const params = message ? `?text=${encodeURIComponent(message)}` : "";
+  if (!number) {
+    // No specific recipient - let the user pick who to send this to from within WhatsApp.
+    return `https://wa.me/${params}`;
+  }
+  const digits = number.replace(/[^\d+]/g, "").replace(/^\+/, "");
   return `https://wa.me/${digits}${params}`;
 }
 
 interface WhatsAppButtonProps {
-  number: string;
+  number?: string; // omit to let the user pick a recipient (e.g. sharing a listing) instead of messaging a fixed contact
   name?: string;
   message?: string; // overrides the default "reaching out about a listing" text
   label?: string; // overrides the "full" variant's visible button text (default "WhatsApp")
+  ariaLabel?: string; // overrides the "icon" variant's default aria-label
   variant?: "icon" | "full";
   size?: number;
   className?: string;
 }
 
-export default function WhatsAppButton({ number, name, message, label = "WhatsApp", variant = "icon", size = 32, className = "" }: WhatsAppButtonProps) {
+export default function WhatsAppButton({ number, name, message, label = "WhatsApp", ariaLabel, variant = "icon", size = 32, className = "" }: WhatsAppButtonProps) {
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -50,7 +55,7 @@ export default function WhatsAppButton({ number, name, message, label = "WhatsAp
     <button
       type="button"
       onClick={handleClick}
-      aria-label={name ? `Contact ${name} on WhatsApp` : "Contact on WhatsApp"}
+      aria-label={ariaLabel ?? (name ? `Contact ${name} on WhatsApp` : "Contact on WhatsApp")}
       className={`rounded-full flex items-center justify-center shrink-0 active:opacity-70 ${className}`}
       style={{ background: "#e7f9ee", color: "#1a7f3c", width: size, height: size }}
     >

@@ -25,11 +25,14 @@ import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { useConfirm } from "@/components/ConfirmDialog";
-import { buildListingInquiryMessage } from "@/lib/whatsapp";
+import { buildListingInquiryMessage, buildListingShareMessage } from "@/lib/whatsapp";
+import { buildListingShareUrl } from "@/lib/shareLink";
 import CallButton from "@/components/CallButton";
 import Avatar from "@/components/Avatar";
 import PhotoPicker from "@/components/PhotoPicker";
 import PhotoGallery from "@/components/PhotoGallery";
+import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } from "@/components/PrivateDetailsSection";
+import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
 
@@ -49,10 +52,14 @@ export default function PropertyDetailPage() {
   const [error, setError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const [form, setForm] = useState<Record<string, string>>({});
   const [images, setImages] = useState<string[]>([]);
   const [initialImages, setInitialImages] = useState<string[]>([]);
+  const [canViewPrivateDetails, setCanViewPrivateDetails] = useState(false);
+  const [privateDetails, setPrivateDetails] = useState<PrivateDetailsValue>(EMPTY_PRIVATE_DETAILS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,12 +82,22 @@ export default function PropertyDetailPage() {
         salePrice: data.listing.salePrice ? String(data.listing.salePrice) : "",
         rentalValue: data.listing.rentalValue ? String(data.listing.rentalValue) : "",
         furnished: data.listing.furnished,
-        billsStatus: data.listing.billsStatus,
+        billsStatus: data.listing.billsStatus ?? "INCLUDED",
         availabilityStatus: data.listing.availabilityStatus,
       });
       const urls = data.listing.images.map((img: { url: string }) => img.url);
       setImages(urls);
       setInitialImages(urls);
+      setCanViewPrivateDetails(Boolean(data.canViewPrivateDetails));
+      setPrivateDetails({
+        ownerName: data.listing.ownerName ?? "",
+        ownerPhone: data.listing.ownerPhone ?? "",
+        ownerWhatsapp: data.listing.ownerWhatsapp ?? "",
+        titleDeedNumber: data.listing.titleDeedNumber ?? "",
+        privateNotes: data.listing.privateNotes ?? "",
+        titleDeedImage: data.listing.titleDeedImage ?? null,
+        authorizationFormImage: data.listing.authorizationFormImage ?? null,
+      });
     }
     setLoading(false);
   }, [id]);
@@ -90,13 +107,7 @@ export default function PropertyDetailPage() {
   }, [load]);
 
   if (loading) {
-    return (
-      <div className="px-4 py-6">
-        <div className="h-8 w-40 bg-surface-muted rounded-lg animate-pulse mb-4" />
-        <div className="h-40 bg-surface-muted rounded-2xl animate-pulse mb-3" />
-        <div className="h-40 bg-surface-muted rounded-2xl animate-pulse" />
-      </div>
-    );
+    return <PropertyDetailSkeleton />;
   }
 
   if (!listing) {
@@ -134,8 +145,15 @@ export default function PropertyDetailPage() {
         floor: unitLabelFor(category).showFloor ? form.floor : NO_FLOOR_VALUE,
         apartmentNumber: form.apartmentNumber,
         furnished: form.furnished,
-        billsStatus: form.billsStatus,
+        billsStatus: isRent ? form.billsStatus : null,
         availabilityStatus: form.availabilityStatus,
+        ownerName: privateDetails.ownerName.trim() || null,
+        ownerPhone: privateDetails.ownerPhone.trim() || null,
+        ownerWhatsapp: privateDetails.ownerWhatsapp.trim() || null,
+        titleDeedNumber: privateDetails.titleDeedNumber.trim() || null,
+        privateNotes: privateDetails.privateNotes.trim() || null,
+        titleDeedImage: privateDetails.titleDeedImage,
+        authorizationFormImage: privateDetails.authorizationFormImage,
       };
       const imagesChanged = images.length !== initialImages.length || images.some((url, i) => url !== initialImages[i]);
       if (imagesChanged) {
@@ -161,6 +179,28 @@ export default function PropertyDetailPage() {
       await load();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function copyListingId() {
+    if (!listing) return;
+    try {
+      await navigator.clipboard.writeText(listingCode(listing.id));
+      setIdCopied(true);
+      setTimeout(() => setIdCopied(false), 1500);
+    } catch {
+      // Clipboard access can be denied (permissions, non-HTTPS) - not worth surfacing an error for a copy button.
+    }
+  }
+
+  async function copyListingLink() {
+    if (!listing || !session?.user?.id) return;
+    try {
+      await navigator.clipboard.writeText(buildListingShareUrl(listing.id, session.user.id));
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      // Clipboard access can be denied (permissions, non-HTTPS) - not worth surfacing an error for a copy button.
     }
   }
 
@@ -212,12 +252,42 @@ export default function PropertyDetailPage() {
   return (
     <div className="px-4 pb-10">
       <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3">
-        <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 rounded-full bg-surface-muted flex items-center justify-center shrink-0">
-          ←
+        <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 rounded-full bg-surface-muted flex items-center justify-center shrink-0 active:opacity-70">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--foreground)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
         </button>
         <h1 className="text-lg font-bold truncate flex-1">{listing.buildingName}</h1>
         {listing.status === "INACTIVE" && (
           <span className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-danger-bg text-danger shrink-0">Inactive</span>
+        )}
+        {session?.user?.id && (
+          <>
+            <button
+              type="button"
+              onClick={copyListingLink}
+              aria-label="Copy listing link"
+              className="rounded-full flex items-center justify-center shrink-0 active:opacity-70"
+              style={{ background: "var(--surface-muted)", color: "var(--foreground)", width: 34, height: 34 }}
+            >
+              {linkCopied ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.07 0l1.93-1.93a5 5 0 0 0-7.07-7.07L10.5 5.5" />
+                  <path d="M14 11a5 5 0 0 0-7.07 0l-1.93 1.93a5 5 0 0 0 7.07 7.07L13.5 18.5" />
+                </svg>
+              )}
+            </button>
+            <WhatsAppButton
+              message={buildListingShareMessage(listing, buildListingShareUrl(listing.id, session.user.id))}
+              ariaLabel="Share this listing on WhatsApp"
+              size={34}
+              className="shrink-0"
+            />
+          </>
         )}
       </div>
 
@@ -225,62 +295,67 @@ export default function PropertyDetailPage() {
         <div className="flex flex-col gap-4">
           <PhotoGallery images={listing.images} />
 
-          <div className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: "var(--primary)" }}>
-            <div className="px-4 py-3" style={{ background: "var(--primary)" }}>
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                  style={{ background: isRent ? "#ffffff" : "var(--accent)", color: isRent ? "var(--rent-text)" : "#ffffff" }}
-                >
-                  {isRent ? "FOR RENT" : "FOR SALE"}
-                </span>
-                <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                  style={{ background: AVAILABILITY_COLORS[listing.availabilityStatus].bg, color: AVAILABILITY_COLORS[listing.availabilityStatus].text }}
-                >
-                  {AVAILABILITY_LABELS[listing.availabilityStatus]}
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-white mt-2">
-                {isRent ? `${formatQAR(listing.rentPrice)}/month` : formatQAR(listing.salePrice)}
-              </div>
-              {!isRent && listing.rentalValue && (
-                <div className="text-[13px] mt-0.5" style={{ color: "var(--accent-light)" }}>
-                  Rental Value: {formatQAR(listing.rentalValue)}/month
-                </div>
-              )}
-              <div className="text-[13px] text-white/90 mt-2 flex items-center gap-1">
-                <span>📍</span>
-                <span>
-                  {listing.area} → {listing.community}
-                </span>
-              </div>
-            </div>
-            <div className="bg-surface px-4 py-3 flex gap-2 flex-wrap">
-              <span className="text-[12px] px-2.5 py-1 rounded-lg bg-surface-muted text-foreground">
-                {PROPERTY_CATEGORY_LABELS[listing.propertyCategory]}
+          <div className="rounded-2xl border border-border bg-surface shadow-sm p-4">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                style={{
+                  background: isRent ? "var(--rent-bg)" : "var(--sale-bg)",
+                  color: isRent ? "var(--rent-text)" : "var(--sale-text)",
+                }}
+              >
+                {isRent ? "FOR RENT" : "FOR SALE"}
               </span>
-              {listing.bedrooms && (
-                <span className="text-[12px] px-2.5 py-1 rounded-lg bg-surface-muted text-foreground">
-                  {BEDROOM_SHORT_LABELS[listing.bedrooms]}
-                </span>
-              )}
-              {listing.sizeSqm && (
-                <span className="text-[12px] px-2.5 py-1 rounded-lg bg-surface-muted text-foreground">
-                  {formatSqm(listing.sizeSqm)}
-                </span>
-              )}
-              {listing.propertyCategory !== "LAND" && (
-                <>
-                  <span className="text-[12px] px-2.5 py-1 rounded-lg bg-surface-muted text-foreground">
-                    {listing.furnished === "FURNISHED" ? "Furnished" : "Unfurnished"}
-                  </span>
-                  <span className="text-[12px] px-2.5 py-1 rounded-lg bg-surface-muted text-foreground">
-                    Bills {listing.billsStatus === "INCLUDED" ? "Included" : "Excluded"}
-                  </span>
-                </>
-              )}
+              <span
+                className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                style={{ background: AVAILABILITY_COLORS[listing.availabilityStatus].bg, color: AVAILABILITY_COLORS[listing.availabilityStatus].text }}
+              >
+                {AVAILABILITY_LABELS[listing.availabilityStatus]}
+              </span>
             </div>
+
+            <div className="text-[26px] font-extrabold text-foreground mt-2.5 leading-tight">
+              {isRent ? `${formatQAR(listing.rentPrice)}/month` : formatQAR(listing.salePrice)}
+            </div>
+            {!isRent && listing.rentalValue && (
+              <div className="text-[13px] text-muted mt-0.5">Rental Value: {formatQAR(listing.rentalValue)}/month</div>
+            )}
+
+            <div className="flex items-start gap-1.5 mt-3 text-[13px] text-muted">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+                <path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z" />
+                <circle cx="12" cy="9" r="2.5" />
+              </svg>
+              <span>
+                {listing.area} → {listing.community}
+              </span>
+            </div>
+            <div className="text-[15px] font-semibold text-foreground mt-1">
+              {listing.buildingName} · {unitLabelFor(listing.propertyCategory).unitShortLabel} {listing.apartmentNumber}
+              {unitLabelFor(listing.propertyCategory).showFloor && `, Floor ${listing.floor}`}
+            </div>
+
+            <div className="h-px bg-border my-3" />
+
+            <div className="text-[13px] text-muted">
+              {[
+                PROPERTY_CATEGORY_LABELS[listing.propertyCategory],
+                listing.bedrooms ? BEDROOM_SHORT_LABELS[listing.bedrooms] : null,
+                listing.sizeSqm ? formatSqm(listing.sizeSqm) : null,
+              ]
+                .filter(Boolean)
+                .join("  •  ")}
+            </div>
+            {listing.propertyCategory !== "LAND" && (
+              <div className="text-[13px] text-muted mt-1">
+                {[
+                  listing.furnished === "FURNISHED" ? "Furnished" : "Unfurnished",
+                  isRent && listing.billsStatus ? `Bills ${listing.billsStatus === "INCLUDED" ? "Included" : "Excluded"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join("  •  ")}
+              </div>
+            )}
           </div>
 
           {!isOwner && (
@@ -302,8 +377,8 @@ export default function PropertyDetailPage() {
           )}
 
           {canManage && (
-            <section className="rounded-2xl border border-border bg-surface p-4">
-              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Status</h3>
+            <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
+              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Availability</h3>
               <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
                 {availabilityOptionsFor(listing.listingType).map((opt) => {
                   const active = opt === listing.availabilityStatus;
@@ -315,11 +390,7 @@ export default function PropertyDetailPage() {
                       disabled={availabilityBusy}
                       onClick={() => changeAvailability(opt)}
                       className="shrink-0 text-[13px] font-semibold px-4 py-2.5 rounded-xl active:opacity-70 disabled:opacity-60"
-                      style={
-                        active
-                          ? { background: color.bg, color: color.text, boxShadow: `inset 0 0 0 1.5px ${color.text}` }
-                          : { background: "var(--surface-muted)", color: "var(--muted)" }
-                      }
+                      style={active ? { background: color.bg, color: color.text } : { background: "var(--surface-muted)", color: "var(--muted)" }}
                     >
                       {AVAILABILITY_LABELS[opt]}
                     </button>
@@ -329,66 +400,37 @@ export default function PropertyDetailPage() {
             </section>
           )}
 
-          <section className="rounded-2xl border border-border bg-surface p-4">
-            <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Location</h3>
-            <dl className="flex flex-col gap-2.5 text-[14px]">
-              <div className="flex justify-between">
-                <dt className="text-muted">Location</dt>
-                <dd className="font-medium text-right">{listing.area}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted">Area / Community</dt>
-                <dd className="font-medium text-right">{listing.community}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted">Building Name</dt>
-                <dd className="font-medium text-right">{listing.buildingName}</dd>
-              </div>
-              {unitLabelFor(listing.propertyCategory).showFloor && (
-                <div className="flex justify-between">
-                  <dt className="text-muted">Floor</dt>
-                  <dd className="font-medium text-right">{listing.floor}</dd>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <dt className="text-muted">{unitLabelFor(listing.propertyCategory).unitLabel}</dt>
-                <dd className="font-medium text-right">{listing.apartmentNumber}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="rounded-2xl border border-border bg-surface p-4">
+          <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Listing Information</h3>
             <dl className="flex flex-col gap-2.5 text-[14px]">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <dt className="text-muted">Listing ID</dt>
-                <dd className="font-medium">{listingCode(listing.id)}</dd>
+                <dd className="font-medium flex items-center gap-2">
+                  {listingCode(listing.id)}
+                  <button
+                    type="button"
+                    onClick={copyListingId}
+                    aria-label="Copy listing ID"
+                    className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-surface-muted text-muted active:opacity-70"
+                  >
+                    {idCopied ? "Copied" : "Copy"}
+                  </button>
+                </dd>
               </div>
               <div className="flex justify-between items-center">
                 <dt className="text-muted">Added By</dt>
                 <dd className="font-medium flex items-center gap-2">
                   <Avatar name={listing.createdBy.name} avatarUrl={listing.createdBy.avatarUrl} size={24} />
                   {listing.createdBy.name}
-                  {!isOwner && <WhatsAppButton number={listing.createdBy.whatsapp} message={buildListingInquiryMessage(listing)} size={30} />}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted">Original Added Date</dt>
-                <dd className="font-medium">{formatDate(listing.createdAt)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted">Original Added Time</dt>
-                <dd className="font-medium">{formatDateTime(listing.createdAt).split(", ")[1]}</dd>
+                <dt className="text-muted">Added On</dt>
+                <dd className="font-medium">{formatDateTime(listing.createdAt)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted">Last Updated</dt>
                 <dd className="font-medium">{formatDateTime(listing.updatedAt)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted">Availability</dt>
-                <dd className="font-semibold" style={{ color: AVAILABILITY_COLORS[listing.availabilityStatus].text }}>
-                  {AVAILABILITY_LABELS[listing.availabilityStatus]}
-                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted">Status</dt>
@@ -399,14 +441,106 @@ export default function PropertyDetailPage() {
             </dl>
           </section>
 
+          {canViewPrivateDetails &&
+            (listing.ownerName ||
+              listing.ownerPhone ||
+              listing.ownerWhatsapp ||
+              listing.titleDeedNumber ||
+              listing.privateNotes ||
+              listing.titleDeedImage ||
+              listing.authorizationFormImage) && (
+              <section className="rounded-2xl border border-dashed border-border bg-surface-muted/40 p-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="11" width="14" height="9" rx="2" />
+                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                  </svg>
+                  <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide">Private Details</h3>
+                  <span className="text-[11px] text-muted ml-auto">Only visible to you</span>
+                </div>
+                <dl className="flex flex-col gap-2.5 text-[14px]">
+                  {listing.ownerName && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted shrink-0">Owner Name</dt>
+                      <dd className="font-medium text-right">{listing.ownerName}</dd>
+                    </div>
+                  )}
+                  {listing.ownerPhone && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-muted shrink-0">Owner Phone</dt>
+                      <dd className="font-medium text-right flex items-center gap-2">
+                        {listing.ownerPhone}
+                        <CallButton number={listing.ownerPhone} size={26} />
+                      </dd>
+                    </div>
+                  )}
+                  {listing.ownerWhatsapp && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-muted shrink-0">Owner WhatsApp</dt>
+                      <dd className="font-medium text-right flex items-center gap-2">
+                        {listing.ownerWhatsapp}
+                        <WhatsAppButton number={listing.ownerWhatsapp} name={listing.ownerName ?? undefined} size={26} />
+                      </dd>
+                    </div>
+                  )}
+                  {listing.titleDeedNumber && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted shrink-0">Title Deed Number</dt>
+                      <dd className="font-medium text-right">{listing.titleDeedNumber}</dd>
+                    </div>
+                  )}
+                  {listing.privateNotes && (
+                    <div className="flex flex-col gap-1">
+                      <dt className="text-muted">Notes</dt>
+                      <dd className="font-medium whitespace-pre-wrap">{listing.privateNotes}</dd>
+                    </div>
+                  )}
+                  {listing.titleDeedImage && (
+                    <div className="flex flex-col gap-1.5">
+                      <dt className="text-muted">Title Deed Photo</dt>
+                      <dd>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={listing.titleDeedImage}
+                          alt="Title deed"
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full max-w-[220px] aspect-[4/3] object-cover rounded-xl border border-border"
+                        />
+                      </dd>
+                    </div>
+                  )}
+                  {listing.authorizationFormImage && (
+                    <div className="flex flex-col gap-1.5">
+                      <dt className="text-muted">Authorization Form</dt>
+                      <dd>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={listing.authorizationFormImage}
+                          alt="Authorization form"
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full max-w-[220px] aspect-[4/3] object-cover rounded-xl border border-border"
+                        />
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </section>
+            )}
+
           {duplicates.length > 0 && (
-            <section className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: "var(--accent)" }}>
-              <div className="px-4 py-2.5" style={{ background: "var(--accent-light)" }}>
-                <h3 className="text-[13px] font-bold" style={{ color: "var(--primary)" }}>
-                  Other Agents With This Property ({duplicates.length})
-                </h3>
+            <section className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center justify-between">
+                <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide">Other Agents With This Property</h3>
+                <span
+                  className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white shrink-0"
+                  style={{ background: "var(--accent)" }}
+                >
+                  {duplicates.length}
+                </span>
               </div>
-              <div className="divide-y divide-border bg-surface">
+              <div className="divide-y divide-border border-t border-border">
                 {duplicates.map((d) => (
                   <Link key={d.id} href={`/property/${d.id}`} className="flex items-center justify-between px-4 py-3 active:bg-surface-muted">
                     <div className="min-w-0 flex items-center gap-2">
@@ -427,7 +561,7 @@ export default function PropertyDetailPage() {
           )}
 
           {(isOwner || isAdmin) && auditLogs.length > 0 && (
-            <section className="rounded-2xl border border-border bg-surface p-4">
+            <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
               <button onClick={() => setShowHistory((s) => !s)} className="w-full flex items-center justify-between">
                 <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide">Edit History</h3>
                 <span className="text-muted text-sm">{showHistory ? "Hide ▲" : "Show ▼"}</span>
@@ -586,31 +720,31 @@ export default function PropertyDetailPage() {
           </section>
 
           {form.propertyCategory !== "LAND" && (
-            <>
-              <section>
-                <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Furnished</h3>
-                <SegmentedControl
-                  options={[
-                    { label: "Furnished", value: "FURNISHED" },
-                    { label: "Unfurnished", value: "UNFURNISHED" },
-                  ]}
-                  value={form.furnished as "FURNISHED" | "UNFURNISHED"}
-                  onChange={(v) => setForm((f) => ({ ...f, furnished: v }))}
-                />
-              </section>
+            <section>
+              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Furnished</h3>
+              <SegmentedControl
+                options={[
+                  { label: "Furnished", value: "FURNISHED" },
+                  { label: "Unfurnished", value: "UNFURNISHED" },
+                ]}
+                value={form.furnished as "FURNISHED" | "UNFURNISHED"}
+                onChange={(v) => setForm((f) => ({ ...f, furnished: v }))}
+              />
+            </section>
+          )}
 
-              <section>
-                <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Bills</h3>
-                <SegmentedControl
-                  options={[
-                    { label: "Included", value: "INCLUDED" },
-                    { label: "Excluded", value: "EXCLUDED" },
-                  ]}
-                  value={form.billsStatus as "INCLUDED" | "EXCLUDED"}
-                  onChange={(v) => setForm((f) => ({ ...f, billsStatus: v }))}
-                />
-              </section>
-            </>
+          {form.propertyCategory !== "LAND" && isRent && (
+            <section>
+              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Bills</h3>
+              <SegmentedControl
+                options={[
+                  { label: "Included", value: "INCLUDED" },
+                  { label: "Excluded", value: "EXCLUDED" },
+                ]}
+                value={form.billsStatus as "INCLUDED" | "EXCLUDED"}
+                onChange={(v) => setForm((f) => ({ ...f, billsStatus: v }))}
+              />
+            </section>
           )}
 
           <section>
@@ -656,6 +790,8 @@ export default function PropertyDetailPage() {
               </div>
             </div>
           </section>
+
+          <PrivateDetailsSection value={privateDetails} onChange={setPrivateDetails} listingType={listing.listingType} />
 
           {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
 

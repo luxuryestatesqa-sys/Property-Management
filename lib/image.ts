@@ -39,3 +39,10 @@ export function resizeImageFile(file: File, maxDimension = 320, quality = 0.82):
 export function resizeListingPhoto(file: File): Promise<string> {
   return resizeImageFile(file, 1280, 0.75);
 }
+
+// Document photos (title deed, authorization form) need enough resolution
+// that printed text stays legible when zoomed in, so this gets more headroom
+// than a regular listing photo.
+export function resizeDocumentPhoto(file: File): Promise<string> {
+  return resizeImageFile(file, 1600, 0.82);
+}

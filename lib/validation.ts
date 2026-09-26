@@ -47,6 +47,34 @@ export const whatsappSchema = z
 
 export const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
 
+// Private, agent-only fields - optional, loosely validated since they're
+// free-form reference info (owner contact, title deed, notes) rather than
+// data the app itself needs to act on.
+//
+// The preprocess step trims strings and turns "" into null (clear the
+// field), while leaving `undefined` (key not sent at all) untouched - the
+// update route relies on that distinction to tell "clear this field" apart
+// from "this request doesn't touch this field".
+const OWNER_PHONE_REGEX = /^\+?[0-9][0-9\s-]{6,19}$/;
+const trimOrPassThrough = (v: unknown) => (typeof v === "string" ? (v.trim() === "" ? null : v.trim()) : v);
+const optionalPrivateText = (max: number) => z.preprocess(trimOrPassThrough, z.string().max(max).nullable().optional());
+const optionalPrivatePhone = (message: string) =>
+  z.preprocess(trimOrPassThrough, z.string().regex(OWNER_PHONE_REGEX, message).nullable().optional());
+// Document photos (title deed, authorization form) are resized larger than
+// regular listing photos for legibility, so they get a higher size cap.
+const optionalPrivateImage = () =>
+  z.preprocess(trimOrPassThrough, z.string().startsWith("data:image/", "Invalid image").max(2_500_000, "Image is too large").nullable().optional());
+
+const privateListingFields = {
+  ownerName: optionalPrivateText(120),
+  ownerPhone: optionalPrivatePhone("Enter a valid phone number, e.g. +974 5000 0000"),
+  ownerWhatsapp: optionalPrivatePhone("Enter a valid WhatsApp number, e.g. +974 5000 0000"),
+  titleDeedNumber: optionalPrivateText(80),
+  privateNotes: optionalPrivateText(2000),
+  titleDeedImage: optionalPrivateImage(),
+  authorizationFormImage: optionalPrivateImage(),
+};
+
 export const listingCreateSchema = z
   .object({
     listingType: z.enum(["RENT", "SALE"]),
@@ -62,9 +90,12 @@ export const listingCreateSchema = z
     salePrice: z.number().positive().optional().nullable(),
     rentalValue: z.number().positive().optional().nullable(),
     furnished: z.enum(["FURNISHED", "UNFURNISHED"]),
-    billsStatus: z.enum(["INCLUDED", "EXCLUDED"]),
+    // Only meaningful for RENT listings - the server nulls it out for SALE
+    // regardless of what's sent, so it's optional here.
+    billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional().nullable(),
     images: listingImagesSchema.optional(),
     confirmDuplicate: z.boolean().optional(),
+    ...privateListingFields,
   })
   .superRefine((data, ctx) => {
     if (data.listingType === "RENT" && !data.rentPrice) {
@@ -94,9 +125,10 @@ export const listingUpdateSchema = z.object({
   salePrice: z.number().positive().optional().nullable(),
   rentalValue: z.number().positive().optional().nullable(),
   furnished: z.enum(["FURNISHED", "UNFURNISHED"]).optional(),
-  billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional(),
+  billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional().nullable(),
   availabilityStatus: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]).optional(),
   images: listingImagesSchema.optional(),
+  ...privateListingFields,
 });
 
 export const userCreateSchema = z.object({

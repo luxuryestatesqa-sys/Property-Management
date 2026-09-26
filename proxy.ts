@@ -9,8 +9,11 @@ export default auth((req) => {
   const isAuthPage = nextUrl.pathname === "/login";
   const isAdminPage = nextUrl.pathname.startsWith("/admin");
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
+  // The public share link (/listing/[id]) and its API are opened by clients
+  // with no CRM account at all - they must never be redirected to /login.
+  const isPublicShare = nextUrl.pathname.startsWith("/listing/") || nextUrl.pathname.startsWith("/api/public/");
 
-  if (isApiAuth) return NextResponse.next();
+  if (isApiAuth || isPublicShare) return NextResponse.next();
 
   if (!isLoggedIn && !isAuthPage) {
     const loginUrl = new URL("/login", nextUrl);

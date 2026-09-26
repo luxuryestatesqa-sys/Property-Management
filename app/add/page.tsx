@@ -8,6 +8,7 @@ import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
 import DuplicateWarningModal from "@/components/DuplicateWarningModal";
 import PhotoPicker from "@/components/PhotoPicker";
+import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } from "@/components/PrivateDetailsSection";
 import { ListingDTO, PropertyCategory, BedroomCount } from "@/lib/types";
 import {
   PROPERTY_CATEGORY_LABELS,
@@ -40,6 +41,7 @@ const initialState = {
   floor: "",
   apartmentNumber: "",
   images: [] as string[],
+  privateDetails: EMPTY_PRIVATE_DETAILS as PrivateDetailsValue,
 };
 
 export default function AddPropertyPage() {
@@ -94,8 +96,15 @@ export default function AddPropertyPage() {
           salePrice: form.listingType === "SALE" ? Number(form.salePrice) : undefined,
           rentalValue: form.listingType === "SALE" && form.rentalValue ? Number(form.rentalValue) : undefined,
           furnished: form.furnished,
-          billsStatus: form.billsStatus,
+          billsStatus: form.listingType === "RENT" ? form.billsStatus : undefined,
           images: form.images.length > 0 ? form.images : undefined,
+          ownerName: form.privateDetails.ownerName || undefined,
+          ownerPhone: form.privateDetails.ownerPhone || undefined,
+          ownerWhatsapp: form.privateDetails.ownerWhatsapp || undefined,
+          titleDeedNumber: form.privateDetails.titleDeedNumber || undefined,
+          privateNotes: form.privateDetails.privateNotes || undefined,
+          titleDeedImage: form.privateDetails.titleDeedImage || undefined,
+          authorizationFormImage: form.privateDetails.authorizationFormImage || undefined,
           confirmDuplicate,
         }),
       });
@@ -260,31 +269,31 @@ export default function AddPropertyPage() {
         )}
 
         {form.propertyCategory !== "LAND" && (
-          <>
-            <section>
-              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Furnished</h3>
-              <SegmentedControl
-                options={[
-                  { label: "Furnished", value: "FURNISHED" },
-                  { label: "Unfurnished", value: "UNFURNISHED" },
-                ]}
-                value={form.furnished}
-                onChange={(v) => update("furnished", v)}
-              />
-            </section>
+          <section>
+            <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Furnished</h3>
+            <SegmentedControl
+              options={[
+                { label: "Furnished", value: "FURNISHED" },
+                { label: "Unfurnished", value: "UNFURNISHED" },
+              ]}
+              value={form.furnished}
+              onChange={(v) => update("furnished", v)}
+            />
+          </section>
+        )}
 
-            <section>
-              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Bills</h3>
-              <SegmentedControl
-                options={[
-                  { label: "Included", value: "INCLUDED" },
-                  { label: "Excluded", value: "EXCLUDED" },
-                ]}
-                value={form.billsStatus}
-                onChange={(v) => update("billsStatus", v)}
-              />
-            </section>
-          </>
+        {form.propertyCategory !== "LAND" && form.listingType === "RENT" && (
+          <section>
+            <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Bills</h3>
+            <SegmentedControl
+              options={[
+                { label: "Included", value: "INCLUDED" },
+                { label: "Excluded", value: "EXCLUDED" },
+              ]}
+              value={form.billsStatus}
+              onChange={(v) => update("billsStatus", v)}
+            />
+          </section>
         )}
 
         <section>
@@ -332,6 +341,12 @@ export default function AddPropertyPage() {
             </div>
           </div>
         </section>
+
+        <PrivateDetailsSection
+          value={form.privateDetails}
+          onChange={(privateDetails) => update("privateDetails", privateDetails)}
+          listingType={form.listingType}
+        />
 
         {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
 

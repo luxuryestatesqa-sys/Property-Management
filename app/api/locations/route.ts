@@ -18,6 +18,13 @@ function mergeDeduped(dbValues: string[], curated: string[]): string[] {
   return merged;
 }
 
+// Location suggestions barely change minute to minute - this avoids
+// refetching them from the DB every time a location picker reopens (Add
+// Property, the Filter Sheet's cascading Area/Community/Building selects).
+function jsonCached(body: unknown) {
+  return NextResponse.json(body, { headers: { "Cache-Control": "private, max-age=60" } });
+}
+
 // Returns distinct location values to power cascading pickers.
 // ?level=combined -> single-field {area, community, display} suggestions
 // ?level=area -> all areas
@@ -50,7 +57,7 @@ export async function GET(req: NextRequest) {
       merged.push(s);
     }
     merged.sort((a, b) => a.display.localeCompare(b.display));
-    return NextResponse.json({ suggestions: merged });
+    return jsonCached({ suggestions: merged });
   }
 
   if (level === "area") {
@@ -59,32 +66,32 @@ export async function GET(req: NextRequest) {
       select: { area: true },
       distinct: ["area"],
     });
-    return NextResponse.json({ values: mergeDeduped(rows.map((r) => r.area), QATAR_AREAS) });
+    return jsonCached({ values: mergeDeduped(rows.map((r) => r.area), QATAR_AREAS) });
   }
 
   if (level === "community") {
     const rows = await prisma.listing.findMany({
-      where: { status: "ACTIVE", ...(area ? { area } : {}) },
+      where: { status: "ACTIVE", ...(area ? { area: { equals: area, mode: "insensitive" } } : {}) },
       select: { community: true },
       distinct: ["community"],
     });
     const curated = area ? (QATAR_COMMUNITIES_BY_AREA[area.trim().toLowerCase()] ?? []) : [];
-    return NextResponse.json({ values: mergeDeduped(rows.map((r) => r.community), curated) });
+    return jsonCached({ values: mergeDeduped(rows.map((r) => r.community), curated) });
   }
 
   if (level === "building") {
     const rows = await prisma.listing.findMany({
       where: {
         status: "ACTIVE",
-        ...(area ? { area } : {}),
-        ...(community ? { community } : {}),
+        ...(area ? { area: { equals: area, mode: "insensitive" } } : {}),
+        ...(community ? { community: { equals: community, mode: "insensitive" } } : {}),
       },
       select: { buildingName: true },
       distinct: ["buildingName"],
       orderBy: { buildingName: "asc" },
     });
-    return NextResponse.json({ values: rows.map((r) => r.buildingName) });
+    return jsonCached({ values: rows.map((r) => r.buildingName) });
   }
 
-  return NextResponse.json({ values: [] });
+  return jsonCached({ values: [] });
 }

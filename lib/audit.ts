@@ -51,6 +51,10 @@ export function describeAuditEntry(entry: AuditLogDTO): string {
   if (entry.action === "CREATED") return "Listing created";
   if (entry.action === "DEACTIVATED") return "Listing deactivated";
   if (entry.action === "REACTIVATED") return "Listing reactivated";
+  // Deliberately doesn't record old/new values (see the PATCH route) - the
+  // audit log is visible to anyone who can view the listing, not just its
+  // owner/admin, so the private fields themselves never appear here.
+  if (entry.action === "PRIVATE_DETAILS_UPDATED") return "Private details updated";
 
   const label = LABELS[entry.action] ?? entry.action;
   const formatter = VALUE_FORMATTERS[entry.action];

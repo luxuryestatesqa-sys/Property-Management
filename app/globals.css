@@ -86,3 +86,17 @@ textarea {
 .safe-bottom {
   padding-bottom: max(env(safe-area-inset-bottom), 8px);
 }
+
+/* Skips layout/paint for offscreen list cards until they scroll into view,
+   which keeps long result lists smooth on low-end phones. The intrinsic
+   size is a rough estimate of a card's height so scrollbar/scroll position
+   don't jump once real content is measured. */
+.card-cv {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 320px;
+}
+
+.card-cv-compact {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 124px;
+}

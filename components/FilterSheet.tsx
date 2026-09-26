@@ -9,6 +9,7 @@ import DualRangeSlider from "./DualRangeSlider";
 import SegmentedControl from "./SegmentedControl";
 import ChipSelect from "./ChipSelect";
 import CollapsibleChipSelect from "./CollapsibleChipSelect";
+import SearchableSelect from "./SearchableSelect";
 
 const AVAILABILITY_OPTIONS: { label: string; value: Filters["availability"] }[] = [
   { label: "All", value: "ALL" },
@@ -80,22 +81,14 @@ function LocationSelect({
   }, [level, area, community, disabled]);
 
   return (
-    <div>
-      <label className="text-sm font-medium text-foreground block mb-1.5">{label}</label>
-      <select
-        value={value ?? ""}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary disabled:bg-surface-muted disabled:text-muted appearance-none"
-      >
-        <option value="">All</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </div>
+    <SearchableSelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      options={options.map((o) => ({ label: o, value: o }))}
+      searchPlaceholder={`Search ${label.toLowerCase()}...`}
+    />
   );
 }
 
@@ -189,7 +182,12 @@ export default function FilterSheet({ open, onClose, filters, onApply, isAdmin }
                 { label: "For Sale", value: "SALE" },
               ]}
               value={draft.listingType}
-              onChange={(v) => update("listingType", v)}
+              onChange={(v) =>
+                // Bills is a rent-only concept, so switching to Sale drops
+                // any bills filter that was set - it would otherwise hide
+                // every sale listing (they never have a bills status).
+                setDraft((prev) => ({ ...prev, listingType: v, bills: v === "SALE" ? "ALL" : prev.bills }))
+              }
             />
           </section>
 
@@ -248,18 +246,20 @@ export default function FilterSheet({ open, onClose, filters, onApply, isAdmin }
             />
           </section>
 
-          <section>
-            <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Bills</h3>
-            <SegmentedControl
-              options={[
-                { label: "All", value: "ALL" },
-                { label: "Included", value: "INCLUDED" },
-                { label: "Excluded", value: "EXCLUDED" },
-              ]}
-              value={draft.bills}
-              onChange={(v) => update("bills", v)}
-            />
-          </section>
+          {draft.listingType !== "SALE" && (
+            <section>
+              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Bills</h3>
+              <SegmentedControl
+                options={[
+                  { label: "All", value: "ALL" },
+                  { label: "Included", value: "INCLUDED" },
+                  { label: "Excluded", value: "EXCLUDED" },
+                ]}
+                value={draft.bills}
+                onChange={(v) => update("bills", v)}
+              />
+            </section>
+          )}
 
           <section>
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Availability</h3>
@@ -268,18 +268,13 @@ export default function FilterSheet({ open, onClose, filters, onApply, isAdmin }
 
           <section>
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Agent</h3>
-            <select
-              value={draft.agentId ?? ""}
-              onChange={(e) => update("agentId", e.target.value || null)}
-              className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary appearance-none"
-            >
-              <option value="">All Agents</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={draft.agentId}
+              onChange={(v) => update("agentId", v)}
+              options={agents.map((a) => ({ label: a.name, value: a.id }))}
+              placeholder="All Agents"
+              searchPlaceholder="Search agents..."
+            />
           </section>
 
           {isAdmin && (

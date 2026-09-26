@@ -14,5 +14,10 @@ export async function GET() {
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json({ agents: users });
+  return NextResponse.json(
+    { agents: users },
+    // The agent list barely changes minute to minute - this avoids refetching
+    // it from the DB every time the Agent filter or a picker reopens.
+    { headers: { "Cache-Control": "private, max-age=60" } }
+  );
 }

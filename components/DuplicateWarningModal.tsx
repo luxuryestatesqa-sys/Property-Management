@@ -35,7 +35,7 @@ export default function DuplicateWarningModal({ existing, onCancel, onContinue, 
                   {l.images[0] && (
                     <div className="shrink-0 w-14 h-14 rounded-xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={l.images[0].url} alt={l.buildingName} className="w-full h-full object-cover" />
+                      <img src={l.images[0].url} alt={l.buildingName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     </div>
                   )}
                   <div className="min-w-0">

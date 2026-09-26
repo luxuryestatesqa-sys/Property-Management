@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ListingDTO } from "@/lib/types";
 import MyListingCard from "@/components/MyListingCard";
+import MyListingCardSkeleton from "@/components/MyListingCardSkeleton";
 
 type Tab = "ACTIVE" | "INACTIVE";
 
@@ -59,7 +60,7 @@ export default function MyListingsPage() {
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl bg-surface border border-border p-4 h-44 animate-pulse" />
+              <MyListingCardSkeleton key={i} />
             ))}
           </div>
         ) : listings.length === 0 ? (

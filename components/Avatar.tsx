@@ -18,6 +18,7 @@ export default function Avatar({ name, avatarUrl, size = 40, className = "" }: A
         alt={name}
         className={`rounded-full object-cover shrink-0 ${className}`}
         style={{ width: size, height: size }}
+        loading="lazy"
         decoding="async"
       />
     );

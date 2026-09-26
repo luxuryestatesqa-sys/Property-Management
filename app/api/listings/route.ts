@@ -3,15 +3,25 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { listingCreateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
+import { redactPrivateFieldsList } from "@/lib/listingPrivacy";
+import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
 
-const PAGE_SIZE = 30;
+const DEFAULT_PAGE_SIZE = 30;
+const MAX_PAGE_SIZE = 100;
 
 export async function GET(req: NextRequest) {
   const { session, error } = await requireSession();
   if (error) return error;
 
   const sp = req.nextUrl.searchParams;
+  // Callers (e.g. the infinite-scrolling properties list) can request a
+  // smaller page size; other callers keep the existing default untouched.
+  const requestedPageSize = Number(sp.get("pageSize"));
+  const pageSize =
+    Number.isFinite(requestedPageSize) && requestedPageSize > 0
+      ? Math.min(Math.floor(requestedPageSize), MAX_PAGE_SIZE)
+      : DEFAULT_PAGE_SIZE;
   const q = sp.get("q")?.trim();
   const listingType = sp.get("listingType"); // RENT | SALE | ALL
   const area = sp.get("area");
@@ -53,9 +63,9 @@ export async function GET(req: NextRequest) {
   if (listingType === "RENT" || listingType === "SALE") {
     conditions.push({ listingType });
   }
-  if (area) conditions.push({ area: { equals: area } });
-  if (community) conditions.push({ community: { equals: community } });
-  if (buildingName) conditions.push({ buildingName: { equals: buildingName } });
+  if (area) conditions.push({ area: { equals: area, mode: "insensitive" } });
+  if (community) conditions.push({ community: { equals: community, mode: "insensitive" } });
+  if (buildingName) conditions.push({ buildingName: { equals: buildingName, mode: "insensitive" } });
   if (furnished === "FURNISHED" || furnished === "UNFURNISHED") {
     conditions.push({ furnished });
   }
@@ -79,20 +89,36 @@ export async function GET(req: NextRequest) {
   if (saleMax) conditions.push({ salePrice: { lte: Number(saleMax) } });
 
   if (q) {
-    const digits = q.replace(/\D/g, "");
-    const orConds: Prisma.ListingWhereInput[] = [
-      { area: { contains: q } },
-      { community: { contains: q } },
-      { buildingName: { contains: q } },
-      { apartmentNumber: { contains: q } },
-      { floor: { contains: q } },
-      { createdBy: { name: { contains: q } } },
-    ];
-    if (digits) {
-      const idNum = Number(digits);
-      if (!Number.isNaN(idNum)) orConds.push({ id: idNum });
+    // A query that's nothing but a bedroom expression ("2", "two", "studio",
+    // "3bhk + maid") means only that - a bare "2" should show every
+    // 2-bedroom listing, not also every listing whose floor, apartment
+    // number, or ID happens to contain the digit "2".
+    const bareBedroomMatches = parseBareBedroomQuery(q);
+    if (bareBedroomMatches) {
+      conditions.push({ bedrooms: { in: bareBedroomMatches } });
+    } else {
+      const digits = q.replace(/\D/g, "");
+      const orConds: Prisma.ListingWhereInput[] = [
+        { area: { contains: q, mode: "insensitive" } },
+        { community: { contains: q, mode: "insensitive" } },
+        { buildingName: { contains: q, mode: "insensitive" } },
+        { apartmentNumber: { contains: q, mode: "insensitive" } },
+        { floor: { contains: q, mode: "insensitive" } },
+        { createdBy: { name: { contains: q, mode: "insensitive" } } },
+      ];
+      if (digits) {
+        const idNum = Number(digits);
+        if (!Number.isNaN(idNum)) orConds.push({ id: idNum });
+      }
+      // Lets "lusail 2br" surface matching listings by bedroom count too,
+      // alongside the usual text hits, when the query is more than just a
+      // bare bedroom expression.
+      const bedroomMatches = parseBedroomKeywords(q);
+      if (bedroomMatches.length > 0) {
+        orConds.push({ bedrooms: { in: bedroomMatches } });
+      }
+      conditions.push({ OR: orConds });
     }
-    conditions.push({ OR: orConds });
   }
 
   const finalWhere: Prisma.ListingWhereInput = { AND: conditions };
@@ -106,17 +132,18 @@ export async function GET(req: NextRequest) {
         images: { orderBy: { sortOrder: "asc" }, take: 1, select: { id: true, url: true } },
       },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
   ]);
 
+  const isAdmin = session!.user.role === "ADMIN";
   return NextResponse.json({
-    listings,
+    listings: redactPrivateFieldsList(listings, session!.user.id, isAdmin),
     total,
     page,
-    pageSize: PAGE_SIZE,
-    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
   });
 }
 
@@ -144,7 +171,11 @@ export async function POST(req: NextRequest) {
       take: 5,
     });
     if (existing.length > 0) {
-      return NextResponse.json({ duplicate: true, existing }, { status: 200 });
+      const isAdmin = session!.user.role === "ADMIN";
+      return NextResponse.json(
+        { duplicate: true, existing: redactPrivateFieldsList(existing, session!.user.id, isAdmin) },
+        { status: 200 }
+      );
     }
   }
 
@@ -164,7 +195,16 @@ export async function POST(req: NextRequest) {
       salePrice: data.listingType === "SALE" ? data.salePrice : null,
       rentalValue: data.listingType === "SALE" ? data.rentalValue ?? null : null,
       furnished: data.furnished,
-      billsStatus: data.billsStatus,
+      // Bills included/excluded only makes sense for a rental; enforced here
+      // regardless of what the client sends, not just hidden in the UI.
+      billsStatus: data.listingType === "RENT" ? data.billsStatus ?? null : null,
+      ownerName: data.ownerName ?? null,
+      ownerPhone: data.ownerPhone ?? null,
+      ownerWhatsapp: data.ownerWhatsapp ?? null,
+      privateNotes: data.privateNotes ?? null,
+      titleDeedNumber: data.listingType === "SALE" ? data.titleDeedNumber ?? null : null,
+      titleDeedImage: data.listingType === "SALE" ? data.titleDeedImage ?? null : null,
+      authorizationFormImage: data.listingType === "RENT" ? data.authorizationFormImage ?? null : null,
       createdById: session!.user.id,
     },
   });

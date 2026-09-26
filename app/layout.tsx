@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { auth } from "@/auth";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
 import AppShell from "@/components/AppShell";
 
@@ -36,14 +37,15 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const session = await auth();
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <SessionProviderWrapper>
+        <SessionProviderWrapper session={session}>
           <AppShell>{children}</AppShell>
         </SessionProviderWrapper>
       </body>

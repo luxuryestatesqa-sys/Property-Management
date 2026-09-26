@@ -4,10 +4,11 @@ import { requireSession } from "@/lib/api-helpers";
 import { listingUpdateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
 import { isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
+import { canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { PropertyCategory } from "@prisma/client";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireSession();
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
@@ -30,7 +31,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ listing, duplicates });
+  const isAdmin = session!.user.role === "ADMIN";
+  const viewerCanSeePrivate = canViewPrivateDetails(listing.createdById, session!.user.id, isAdmin);
+  return NextResponse.json({
+    listing: redactPrivateFields(listing, session!.user.id, isAdmin),
+    duplicates: redactPrivateFieldsList(duplicates, session!.user.id, isAdmin),
+    // Lets the client tell "not filled in" apart from "hidden from you"
+    // for its own private-details section, without leaking that via the
+    // (redacted-to-null) field values themselves.
+    canViewPrivateDetails: viewerCanSeePrivate,
+  });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -109,7 +119,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   trackChange("floor", listing.floor, data.floor, "FLOOR");
   trackChange("apartmentNumber", listing.apartmentNumber, data.apartmentNumber, "APARTMENT");
   trackChange("furnished", listing.furnished, data.furnished, "FURNISHED");
-  trackChange("billsStatus", listing.billsStatus, data.billsStatus, "BILLS");
+  // Bills included/excluded only makes sense for a rental - a listing's type
+  // never changes after creation, so this self-heals any SALE listing back
+  // to null on its next edit even if an older client ever sent a value.
+  trackChange("billsStatus", listing.billsStatus, listing.listingType === "RENT" ? data.billsStatus : null, "BILLS");
   trackChange("availabilityStatus", listing.availabilityStatus, data.availabilityStatus, "AVAILABILITY_STATUS");
 
   if (listing.listingType === "RENT") {
@@ -117,6 +130,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } else {
     trackChange("salePrice", listing.salePrice, data.salePrice, "SALE_PRICE");
     trackChange("rentalValue", listing.rentalValue, data.rentalValue, "RENTAL_VALUE");
+  }
+
+  // Private fields get a single generic audit entry with no values recorded -
+  // the audit log is visible to any authenticated viewer of this listing (not
+  // just its owner/admin), so logging the actual owner phone/title deed etc.
+  // there would defeat the point of keeping them private.
+  let privateDetailsChanged = false;
+  for (const field of PRIVATE_LISTING_FIELDS) {
+    const newVal = data[field];
+    if (newVal !== undefined && newVal !== listing[field]) {
+      updateData[field] = newVal;
+      privateDetailsChanged = true;
+    }
+  }
+  if (privateDetailsChanged) {
+    auditEntries.push({ action: "PRIVATE_DETAILS_UPDATED", oldValue: "-", newValue: "-" });
   }
 
   // Recompute dupKey if location fields changed
