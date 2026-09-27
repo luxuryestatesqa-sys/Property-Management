@@ -5,7 +5,7 @@ import type { MetadataRoute } from "next";
 // a fresh cache key automatically - a deploy alone doesn't reliably bust an
 // already-cached /icons/icon-*.png at the edge. Bump this whenever the icon
 // files change so the manifest points at a URL the CDN has never cached.
-const ICON_VERSION = "2";
+const ICON_VERSION = "3";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
