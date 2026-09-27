@@ -64,7 +64,11 @@ function buildListingPayload(
   const { category, type } = pfCategoryAndType(listing.propertyCategory);
   const baseUrl = getAppBaseUrl();
 
-  const priceType = listing.listingType === "RENT" ? "yearly" : "sale";
+  // listing.rentPrice is stored (and shown everywhere else in this app) as a
+  // monthly figure, not annual - "monthly" is one of PF's own price.type
+  // options, so this sends it as-is rather than mislabeling it "yearly"
+  // (which would have published every rental at 1/12th its real price).
+  const priceType = listing.listingType === "RENT" ? "monthly" : "sale";
   const priceAmount = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
 
   return {

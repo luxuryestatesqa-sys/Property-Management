@@ -5,14 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ListingDTO } from "@/lib/types";
 import { BEDROOM_LABELS } from "@/lib/propertyCategory";
-import {
-  pfCategoryAndType,
-  PF_FURNISHING_TYPE,
-  filterAmenitiesForCategory,
-  amenityOptionsFor,
-  bathroomsToInputValue,
-  bathroomsFromInputValue,
-} from "@/lib/propertyFinder/mapping";
+import { pfCategoryAndType, PF_FURNISHING_TYPE, filterAmenitiesForCategory, amenityOptionsFor } from "@/lib/propertyFinder/mapping";
 import { extractErrorMessage } from "@/lib/errors";
 import { formatQAR } from "@/lib/format";
 import MultiChipSelect from "@/components/MultiChipSelect";
@@ -20,6 +13,7 @@ import PropertyFinderLocationPicker from "@/components/PropertyFinderLocationPic
 import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 import SearchableSelect from "@/components/SearchableSelect";
 import SegmentedControl from "@/components/SegmentedControl";
+import PropertyFinderPreviewSheet from "@/components/PropertyFinderPreviewSheet";
 
 interface PFUserOption {
   publicProfileId: number;
@@ -62,7 +56,6 @@ export default function PropertyFinderPublishPage() {
   const [descriptionAr, setDescriptionAr] = useState("");
   const [detailsLang, setDetailsLang] = useState<"en" | "ar">("en");
   const [reference, setReference] = useState("");
-  const [bathrooms, setBathrooms] = useState("");
   const [amenities, setAmenities] = useState<string[]>([]);
   const [pfLocationId, setPfLocationId] = useState<number | null>(null);
   const [pfLocationLabel, setPfLocationLabel] = useState<string | null>(null);
@@ -75,6 +68,7 @@ export default function PropertyFinderPublishPage() {
   const [reasons, setReasons] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const [credits, setCredits] = useState<{
     accountBalance: { remaining: number; total: number } | null;
@@ -93,7 +87,6 @@ export default function PropertyFinderPublishPage() {
       setDescription(l.description ?? "");
       setTitleAr(l.titleAr ?? "");
       setDescriptionAr(l.descriptionAr ?? "");
-      setBathrooms(bathroomsToInputValue(l.bathrooms));
       setAmenities(filterAmenitiesForCategory(l.propertyCategory, l.amenities));
       setPfLocationId(l.pfLocationId);
       setReference(l.propertyFinderState?.reference ?? "");
@@ -176,7 +169,10 @@ export default function PropertyFinderPublishPage() {
   const missing: string[] = [];
   if (!title.trim()) missing.push("title");
   if (!description.trim()) missing.push("description");
-  if (!isLand && !bathrooms) missing.push("bathrooms");
+  // Bathrooms is set on the listing itself (Add/Edit Property), not here -
+  // this only flags it as still missing, pointing the agent back there
+  // rather than duplicating the field on this page.
+  if (!isLand && !listing.bathrooms) missing.push("bathrooms (set this on the listing itself)");
   if (listing.images.length === 0) missing.push("photos");
   if (!pfLocationId) missing.push("location");
   if (!effectiveAssignedProfileId) missing.push("Property Finder account");
@@ -190,7 +186,6 @@ export default function PropertyFinderPublishPage() {
         description: description.trim() || null,
         titleAr: titleAr.trim() || null,
         descriptionAr: descriptionAr.trim() || null,
-        bathrooms: !isLand ? bathroomsFromInputValue(bathrooms) : null,
         amenities,
         pfLocationId,
       }),
@@ -389,21 +384,6 @@ export default function PropertyFinderPublishPage() {
               />
               <p className="text-[12px] text-muted mt-1">Must be unique across your whole Property Finder account. Leave blank to use the default.</p>
             </div>
-            {!isLand && (
-              <div>
-                <label className="text-sm font-medium text-foreground block mb-1.5">Bathrooms</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  max="20"
-                  value={bathrooms}
-                  onChange={(e) => setBathrooms(e.target.value)}
-                  placeholder="2"
-                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-[15px] outline-none focus:border-primary"
-                />
-              </div>
-            )}
             {!isLand && amenityOptions.length > 0 && (
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1.5">
@@ -430,8 +410,9 @@ export default function PropertyFinderPublishPage() {
             <Row label="Category / Type" value={`${category} / ${type}`} />
             <Row label="Furnishing" value={PF_FURNISHING_TYPE[listing.furnished]} />
             {listing.bedrooms && <Row label="Bedrooms" value={BEDROOM_LABELS[listing.bedrooms]} />}
+            {!isLand && <Row label="Bathrooms" value={listing.bathrooms ?? "Not set"} />}
             <Row label="Size" value={listing.sizeSqm ? `${listing.sizeSqm} sqm` : "—"} />
-            <Row label="Price" value={price ? `${formatQAR(price)}${isRent ? "/year" : ""}` : "Not set"} />
+            <Row label="Price" value={price ? `${formatQAR(price)}${isRent ? "/month" : ""}` : "Not set"} />
             <Row label="Photos" value={listing.images.length} />
             <Row label="Listing Level" value="Standard" />
           </dl>
@@ -498,6 +479,14 @@ export default function PropertyFinderPublishPage() {
         <div className="flex flex-col gap-2 mt-1">
           <button
             type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="w-full rounded-xl py-3 text-[14px] font-semibold active:opacity-70"
+            style={{ background: "var(--accent-light)", color: "var(--primary)" }}
+          >
+            Preview Listing
+          </button>
+          <button
+            type="button"
             onClick={() => handleSave(true)}
             disabled={saving || !options}
             className="w-full rounded-xl py-3.5 text-base font-semibold text-white active:opacity-80 disabled:opacity-60"
@@ -525,6 +514,21 @@ export default function PropertyFinderPublishPage() {
           )}
         </div>
       </div>
+
+      <PropertyFinderPreviewSheet
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        listing={listing}
+        title={detailsLang === "en" ? title.trim() : titleAr.trim()}
+        description={detailsLang === "en" ? description.trim() : descriptionAr.trim()}
+        lang={detailsLang}
+        reference={reference.trim() || `LE-${listing.id}`}
+        bathrooms={listing.bathrooms}
+        amenities={amenities}
+        locationLabel={pfLocationLabel}
+        categoryTypeLabel={`${category} / ${type}`}
+        agentName={chosenOption?.name ?? null}
+      />
     </div>
   );
 }
