@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isResidentialCategory, bedroomOptionsFor } from "./propertyCategory";
 import { MAX_LISTING_IMAGES } from "./constants";
+import { PF_BATHROOM_OPTIONS } from "./propertyFinder/mapping";
 
 const PROPERTY_CATEGORIES = [
   "APARTMENT",
@@ -35,7 +36,10 @@ const listingImageSchema = z
   .string()
   .startsWith("data:image/", "Invalid image")
   .max(900_000, "Image is too large");
-const listingImagesSchema = z.array(listingImageSchema).max(MAX_LISTING_IMAGES, `Up to ${MAX_LISTING_IMAGES} photos allowed`);
+const listingImagesSchema = z
+  .array(listingImageSchema)
+  .min(1, "At least one photo is required")
+  .max(MAX_LISTING_IMAGES, `Up to ${MAX_LISTING_IMAGES} photos allowed`);
 
 // Accepts international formats like "+974 5000 0000" or "97450000000".
 const WHATSAPP_REGEX = /^\+?[0-9][0-9\s-]{6,19}$/;
@@ -65,6 +69,34 @@ const optionalPrivatePhone = (message: string) =>
 const optionalPrivateImage = () =>
   z.preprocess(trimOrPassThrough, z.string().startsWith("data:image/", "Invalid image").max(2_500_000, "Image is too large").nullable().optional());
 
+// Emojis and HTML tags are rejected - Property Finder's API docs state these
+// "are NOT yet supported" in title/description. Arabic script itself is
+// fine (confirmed by Property Finder's own listing form, which has a
+// dedicated English/Arabic toggle for both fields), so this only blocks
+// what PF actually rejects rather than all non-ASCII text.
+const EMOJI_OR_HTML_REGEX = /[<>]|[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/u;
+const marketingText = (max: number) =>
+  z.preprocess(
+    trimOrPassThrough,
+    z
+      .string()
+      .max(max)
+      .refine((v) => !EMOJI_OR_HTML_REGEX.test(v), "Emojis and HTML aren't supported here")
+      .nullable()
+      .optional()
+  );
+
+const listingMarketingFields = {
+  // Matches Property Finder's own listing form limits exactly.
+  title: marketingText(50),
+  description: marketingText(2000),
+  // Optional Arabic variants - same limits, never required.
+  titleAr: marketingText(50),
+  descriptionAr: marketingText(2000),
+  amenities: z.array(z.string()).max(40).optional(),
+  bathrooms: z.enum(PF_BATHROOM_OPTIONS as [string, ...string[]]).optional().nullable(),
+};
+
 const privateListingFields = {
   ownerName: optionalPrivateText(120),
   ownerPhone: optionalPrivatePhone("Enter a valid phone number, e.g. +974 5000 0000"),
@@ -80,7 +112,7 @@ export const listingCreateSchema = z
     listingType: z.enum(["RENT", "SALE"]),
     propertyCategory: z.enum(PROPERTY_CATEGORIES),
     bedrooms: z.enum(BEDROOM_COUNTS).optional().nullable(),
-    sizeSqm: z.number().positive().optional().nullable(),
+    sizeSqm: z.number().positive("Size is required"),
     area: z.string().trim().min(1, "Location is required"),
     community: z.string().trim().min(1, "Area/Community is required"),
     buildingName: z.string().trim().min(1, "Building name is required"),
@@ -93,8 +125,9 @@ export const listingCreateSchema = z
     // Only meaningful for RENT listings - the server nulls it out for SALE
     // regardless of what's sent, so it's optional here.
     billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional().nullable(),
-    images: listingImagesSchema.optional(),
+    images: listingImagesSchema,
     confirmDuplicate: z.boolean().optional(),
+    ...listingMarketingFields,
     ...privateListingFields,
   })
   .superRefine((data, ctx) => {
@@ -115,7 +148,10 @@ export const listingCreateSchema = z
 export const listingUpdateSchema = z.object({
   propertyCategory: z.enum(PROPERTY_CATEGORIES).optional(),
   bedrooms: z.enum(BEDROOM_COUNTS).optional().nullable(),
-  sizeSqm: z.number().positive().optional().nullable(),
+  // Not nullable here (unlike other optional-on-update fields) - size is
+  // required on every listing, so an edit may leave it untouched but must
+  // never clear it back to empty.
+  sizeSqm: z.number().positive("Size is required").optional(),
   area: z.string().trim().min(1).optional(),
   community: z.string().trim().min(1).optional(),
   buildingName: z.string().trim().min(1).optional(),
@@ -128,6 +164,8 @@ export const listingUpdateSchema = z.object({
   billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional().nullable(),
   availabilityStatus: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]).optional(),
   images: listingImagesSchema.optional(),
+  pfLocationId: z.number().int().positive().optional().nullable(),
+  ...listingMarketingFields,
   ...privateListingFields,
 });
 

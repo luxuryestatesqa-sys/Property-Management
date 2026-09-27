@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { memo, useState } from "react";
 import { ListingDTO, AvailabilityStatus } from "@/lib/types";
 import { formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS, availabilityOptionsFor } from "@/lib/availability";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "@/lib/propertyCategory";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { extractErrorMessage } from "@/lib/errors";
 
 function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onStatusChange: () => void }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const isRent = listing.listingType === "RENT";
   const confirm = useConfirm();
   const availabilityColor = AVAILABILITY_COLORS[listing.availabilityStatus];
@@ -44,6 +49,30 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
     }
   }
 
+  async function deleteListing() {
+    setMenuOpen(false);
+    const confirmed = await confirm({
+      title: "Delete Listing?",
+      message: "This permanently removes it, including its photos and history - it can't be undone. If it's currently on Property Finder, it will be unpublished first. Deactivate instead if you might want it back.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
+    setBusy(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/listings/${listing.id}`, { method: "DELETE" });
+      if (res.ok) {
+        onStatusChange();
+      } else {
+        const data = await res.json().catch(() => null);
+        setDeleteError(extractErrorMessage(data?.error, "Failed to delete listing"));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function changeAvailability(next: AvailabilityStatus) {
     if (next === listing.availabilityStatus) return;
     setBusy(true);
@@ -72,7 +101,57 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
   }`;
 
   return (
-    <div className="card-cv-compact rounded-xl bg-surface border border-border shadow-sm p-2.5">
+    <div className="relative card-cv-compact rounded-xl bg-surface border border-border shadow-sm p-2.5">
+      <div className="absolute top-2 right-2 z-10">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          disabled={busy}
+          aria-label="Listing options"
+          className="w-7 h-7 rounded-full flex items-center justify-center active:opacity-70 disabled:opacity-60 bg-surface/90 text-muted shadow-sm"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="19" cy="12" r="1.8" />
+          </svg>
+        </button>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+            <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-border bg-surface shadow-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push(`/property/${listing.id}?edit=1`);
+                }}
+                className="w-full text-left px-4 py-3 text-[13px] font-medium active:bg-surface-muted"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push(`/property/${listing.id}/propertyfinder`);
+                }}
+                className="w-full text-left px-4 py-3 text-[13px] font-medium active:bg-surface-muted border-t border-border"
+              >
+                Publish to Portals
+              </button>
+              <button
+                type="button"
+                onClick={deleteListing}
+                className="w-full text-left px-4 py-3 text-[13px] font-medium text-danger active:bg-surface-muted border-t border-border"
+              >
+                Delete
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       <Link href={`/property/${listing.id}`} className="flex gap-3">
         <div className="relative shrink-0 w-[95px] h-[85px] sm:w-[136px] sm:h-[108px] rounded-lg overflow-hidden bg-surface-muted">
           {cover ? (
@@ -89,7 +168,7 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
         </div>
 
         <div className="min-w-0 flex-1 flex flex-col justify-between">
-          <div className="flex items-start justify-between gap-1.5">
+          <div className="flex items-start justify-between gap-1.5 pr-7">
             <span className="text-[11px] font-semibold text-muted shrink-0">{listingCode(listing.id)}</span>
             <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
               <span
@@ -124,6 +203,8 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
         </div>
       </Link>
 
+      {deleteError && <p className="text-[12px] text-danger mt-2">{deleteError}</p>}
+
       <div className="mt-2.5 pt-2.5 border-t border-border">
         <div className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-1.5">Availability</div>
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
@@ -148,7 +229,7 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
 
       <div className="flex gap-2 mt-2.5 pt-2.5 border-t border-border">
         <Link
-          href={`/property/${listing.id}`}
+          href={`/property/${listing.id}?edit=1`}
           className="flex-1 text-center rounded-lg py-2 text-[13px] font-semibold text-white active:opacity-80"
           style={{ background: "var(--primary)" }}
         >

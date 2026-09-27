@@ -6,6 +6,7 @@ import { UserDTO } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import AddUserModal from "@/components/AddUserModal";
 import ResetPasswordModal from "@/components/ResetPasswordModal";
+import LinkPropertyFinderModal from "@/components/LinkPropertyFinderModal";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Avatar from "@/components/Avatar";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -17,6 +18,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [resetUser, setResetUser] = useState<UserDTO | null>(null);
+  const [pfLinkUser, setPfLinkUser] = useState<UserDTO | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -136,37 +138,51 @@ export default function AdminUsersPage() {
                   <span>Joined {formatDate(u.createdAt)}</span>
                 </div>
 
-                {!isSelf && (
-                  <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
-                    <button
-                      onClick={() => setResetUser(u)}
-                      disabled={busyId === u.id}
-                      className="w-full rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60"
-                      style={{ background: "var(--accent-light)", color: "var(--primary)" }}
-                    >
-                      Reset Password
-                    </button>
-                    <div className="flex gap-2">
+                <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
+                  {/* Linking your own Property Finder account is safe and not
+                      self-locking (unlike reset/deactivate/remove below), so
+                      it's available on the admin's own row too - otherwise
+                      an admin who also publishes listings could never link
+                      themselves. */}
+                  <button
+                    onClick={() => setPfLinkUser(u)}
+                    disabled={busyId === u.id}
+                    className="w-full rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60 bg-surface-muted text-foreground"
+                  >
+                    {u.pfPublicProfileId ? "Property Finder: Linked" : "Link Property Finder Account"}
+                  </button>
+                  {!isSelf && (
+                    <>
                       <button
-                        onClick={() => toggleStatus(u)}
+                        onClick={() => setResetUser(u)}
                         disabled={busyId === u.id}
-                        className={`flex-1 rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60 ${
-                          u.status === "ACTIVE" ? "bg-danger-bg text-danger" : "bg-success-bg"
-                        }`}
-                        style={u.status === "INACTIVE" ? { color: "var(--success)" } : undefined}
+                        className="w-full rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60"
+                        style={{ background: "var(--accent-light)", color: "var(--primary)" }}
                       >
-                        {u.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                        Reset Password
                       </button>
-                      <button
-                        onClick={() => removeUser(u)}
-                        disabled={busyId === u.id}
-                        className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold bg-surface-muted text-foreground active:opacity-70 disabled:opacity-60"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => toggleStatus(u)}
+                          disabled={busyId === u.id}
+                          className={`flex-1 rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60 ${
+                            u.status === "ACTIVE" ? "bg-danger-bg text-danger" : "bg-success-bg"
+                          }`}
+                          style={u.status === "INACTIVE" ? { color: "var(--success)" } : undefined}
+                        >
+                          {u.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                        </button>
+                        <button
+                          onClick={() => removeUser(u)}
+                          disabled={busyId === u.id}
+                          className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold bg-surface-muted text-foreground active:opacity-70 disabled:opacity-60"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -175,6 +191,7 @@ export default function AdminUsersPage() {
 
       {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onCreated={load} />}
       {resetUser && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />}
+      {pfLinkUser && <LinkPropertyFinderModal user={pfLinkUser} onClose={() => setPfLinkUser(null)} onSaved={load} />}
     </div>
   );
 }

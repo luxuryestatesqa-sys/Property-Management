@@ -5,6 +5,7 @@ import { listingUpdateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
 import { isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
 import { canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { unpublishListingFromPropertyFinder } from "@/lib/propertyFinder/sync";
 import { PropertyCategory } from "@prisma/client";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -15,12 +16,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const listing = await prisma.listing.findUnique({
     where: { id: Number(id) },
     include: {
-      createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
+      createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true, pfPublicProfileId: true } },
       auditLogs: { include: { user: { select: { name: true } } }, orderBy: { timestamp: "desc" } },
       images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true } },
+      portalListings: { where: { portal: "PROPERTY_FINDER" } },
     },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // PortalListing is generic (one row per listing per portal, for when a
+  // second portal is added) - reshape Property Finder's row back into the
+  // singular `propertyFinderState` field the frontend expects, so this
+  // generalization doesn't ripple into any client code.
+  const { portalListings, ...listingRest } = listing;
+  const shapedListing = { ...listingRest, propertyFinderState: portalListings[0] ?? null };
 
   const duplicates = await prisma.listing.findMany({
     where: { dupKey: listing.dupKey, status: "ACTIVE", id: { not: listing.id } },
@@ -34,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAdmin = session!.user.role === "ADMIN";
   const viewerCanSeePrivate = canViewPrivateDetails(listing.createdById, session!.user.id, isAdmin);
   return NextResponse.json({
-    listing: redactPrivateFields(listing, session!.user.id, isAdmin),
+    listing: redactPrivateFields(shapedListing, session!.user.id, isAdmin),
     duplicates: redactPrivateFieldsList(duplicates, session!.user.id, isAdmin),
     // Lets the client tell "not filled in" apart from "hidden from you"
     // for its own private-details section, without leaking that via the
@@ -119,6 +128,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   trackChange("floor", listing.floor, data.floor, "FLOOR");
   trackChange("apartmentNumber", listing.apartmentNumber, data.apartmentNumber, "APARTMENT");
   trackChange("furnished", listing.furnished, data.furnished, "FURNISHED");
+  trackChange("bathrooms", listing.bathrooms, data.bathrooms, "BATHROOMS");
+  trackChange("title", listing.title, data.title, "TITLE");
+  trackChange("description", listing.description, data.description, "DESCRIPTION");
+  trackChange("titleAr", listing.titleAr, data.titleAr, "TITLE_AR");
+  trackChange("descriptionAr", listing.descriptionAr, data.descriptionAr, "DESCRIPTION_AR");
+  trackChange("pfLocationId", listing.pfLocationId, data.pfLocationId, "PROPERTY_FINDER_LOCATION");
+  if (data.amenities !== undefined && JSON.stringify(data.amenities) !== JSON.stringify(listing.amenities)) {
+    updateData.amenities = data.amenities;
+    auditEntries.push({ action: "AMENITIES_CHANGED", oldValue: listing.amenities.join(", ") || "-", newValue: data.amenities.join(", ") || "-" });
+  }
   // Bills included/excluded only makes sense for a rental - a listing's type
   // never changes after creation, so this self-heals any SALE listing back
   // to null on its next edit even if an older client ever sent a value.
@@ -206,4 +225,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   });
 
   return NextResponse.json({ listing: { ...updated, images } });
+}
+
+// Permanently removes a listing (unlike the reversible ACTIVE/INACTIVE
+// status toggle at .../status). Only the listing's own agent or an admin may
+// do this.
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { session, error } = await requireSession();
+  if (error) return error;
+
+  const { id } = await params;
+  const listingId = Number(id);
+  const listing = await prisma.listing.findUnique({
+    where: { id: listingId },
+    include: { portalListings: { where: { remoteListingId: { not: null } } } },
+  });
+  if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const isOwner = listing.createdById === session!.user.id;
+  const isAdmin = session!.user.role === "ADMIN";
+  if (!isOwner && !isAdmin) {
+    return NextResponse.json({ error: "You can only delete your own listings" }, { status: 403 });
+  }
+
+  // Best-effort: pull it off any portal it was ever created on first, so
+  // deleting it locally doesn't leave an orphaned listing live on Property
+  // Finder that this app can no longer manage. A failure here (already
+  // unpublished, API hiccup, etc.) shouldn't block the actual deletion.
+  for (const portalListing of listing.portalListings) {
+    if (portalListing.portal === "PROPERTY_FINDER") {
+      await unpublishListingFromPropertyFinder(listingId).catch(() => {});
+    }
+  }
+
+  await prisma.listing.delete({ where: { id: listingId } });
+  return NextResponse.json({ deleted: true });
 }

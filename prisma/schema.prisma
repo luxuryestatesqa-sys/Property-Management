@@ -88,6 +88,12 @@ model User {
   status       UserStatus @default(ACTIVE)
   createdAt    DateTime   @default(now())
 
+  // This agent's Property Finder public profile id (GET /v1/users), picked by
+  // an admin from the real PF account list - never free text - so listings
+  // this agent publishes are correctly attributed and their leads route to
+  // them. See lib/propertyFinder/client.ts.
+  pfPublicProfileId Int?
+
   listings  Listing[]  @relation("CreatedListings")
   auditLogs AuditLog[]
 
@@ -101,7 +107,24 @@ model Listing {
 
   propertyCategory PropertyCategory
   bedrooms         BedroomCount? // null for non-residential categories (Office / Retail / Land)
+  bathrooms        String? // Property Finder's own enum shape ("none", "1".."20"); required to publish there except Land/Farm
   sizeSqm          Float? // optional, in square meters
+
+  // Marketing copy, not required for internal use but required to publish to
+  // any external portal (Property Finder needs title.en/description.en).
+  title       String?
+  description String?
+  // Optional Arabic variants (Property Finder's own listing form has an
+  // English/Arabic toggle for both fields - title.ar/description.ar - unlike
+  // title/description above, these are never required to publish.
+  titleAr       String?
+  descriptionAr String?
+  amenities     String[] @default([]) // Property Finder amenity enum values, filtered per lib/propertyFinder/mapping.ts
+
+  // Property Finder's own location-tree id (GET /v1/locations), chosen by the
+  // agent via autocomplete rather than derived from area/community - PF
+  // recommends manual selection to avoid misassigning the listing.
+  pfLocationId Int?
 
   // Location hierarchy: area (top-level location) -> community (area/community) -> buildingName -> floor -> apartmentNumber
   area            String
@@ -138,8 +161,9 @@ model Listing {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  auditLogs AuditLog[]
-  images    ListingImage[]
+  auditLogs      AuditLog[]
+  images         ListingImage[]
+  portalListings PortalListing[]
 
   @@index([area])
   @@index([community])
@@ -171,7 +195,7 @@ model ListingImage {
 model AuditLog {
   id        String   @id @default(cuid())
   listingId Int
-  listing   Listing  @relation(fields: [listingId], references: [id])
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   action    String
@@ -181,4 +205,66 @@ model AuditLog {
 
   @@index([listingId])
   @@index([userId])
+}
+
+// Tracks a listing's state on ONE external portal. One row per
+// (listing, portal) pair, only created once an agent first opts a listing
+// into that portal - a listing with no row for a portal has never been
+// published there. Generic across portals (not Property-Finder-specific) so
+// adding a second portal later is a new enum value + new rows, not a schema
+// change or data migration.
+model PortalListing {
+  id        String  @id @default(cuid())
+  listingId Int
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  portal    Portal
+
+  remoteListingId String? // the portal's own id for this listing, once created
+  state           String? // portal-specific state string (e.g. Property Finder's state.stage: draft / live / takendown / archived)
+  enabled         Boolean @default(false) // the agent wants this published; drives the publish/unpublish flow
+
+  // Agent-chosen reference/listing number sent to the portal instead of the
+  // auto-generated default (e.g. "LE-123") - null means use the default.
+  // Property Finder requires this to be unique across the whole account.
+  reference String?
+
+  // Overrides which account on this portal the listing publishes under
+  // (e.g. a Property Finder public profile id) - null means "use the
+  // listing's own agent's linked account for this portal"
+  // (User.pfPublicProfileId today; a per-portal field if a second portal
+  // ever needs its own separate account link). Set from the portal's
+  // publish page, for when a listing should be attributed to a different
+  // agent's account than whoever created it.
+  assignedProfileId Int?
+
+  lastSyncedAt DateTime?
+  lastError    String? // most recent failure detail, shown to the agent
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([listingId, portal])
+  @@index([remoteListingId])
+}
+
+// One row per external listing portal this agency connects to - lets an
+// admin manage API credentials from the Settings page instead of editing
+// server env vars, and makes adding a second portal later ("later i will add
+// more") an enum value + a settings card, not a schema redesign. Stored in
+// plaintext (protected by admin-only access) rather than app-level
+// encryption - acceptable for an internal tool now, but revisit if that
+// changes.
+enum Portal {
+  PROPERTY_FINDER
+}
+
+model PortalCredential {
+  id     String @id @default(cuid())
+  portal Portal @unique
+
+  apiKey        String?
+  apiSecret     String?
+  webhookSecret String?
+
+  updatedAt DateTime @updatedAt
 }

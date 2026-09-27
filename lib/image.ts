@@ -46,3 +46,13 @@ export function resizeListingPhoto(file: File): Promise<string> {
 export function resizeDocumentPhoto(file: File): Promise<string> {
   return resizeImageFile(file, 1600, 0.82);
 }
+
+// Server-safe (no `document`/`canvas`) decode of a stored data URL back into
+// raw bytes, for routes that need to serve a listing photo as a real image
+// response instead of embedding it as base64 in JSON.
+export function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string } {
+  const match = /^data:([^;]+);base64,([\s\S]*)$/.exec(dataUrl);
+  if (!match) throw new Error("Not a base64 data URL");
+  const [, contentType, base64] = match;
+  return { buffer: Buffer.from(base64, "base64"), contentType };
+}

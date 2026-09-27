@@ -7,6 +7,7 @@ import { resizeImageFile } from "@/lib/image";
 import { extractErrorMessage } from "@/lib/errors";
 import Avatar from "@/components/Avatar";
 import ProfileSkeleton from "@/components/ProfileSkeleton";
+import PropertyFinderSettingsCard from "@/components/PropertyFinderSettingsCard";
 
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024; // 10MB raw upload cap, before client-side resize
 
@@ -48,6 +49,7 @@ export default function ProfilePage() {
 
   if (!session || loadingProfile) return <ProfileSkeleton />;
   const user = session.user;
+  const isAdmin = user.role === "ADMIN";
 
   async function handleAvatarSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -146,7 +148,7 @@ export default function ProfilePage() {
   return (
     <div className="px-4 pb-10">
       <div className="safe-top pt-4 pb-3">
-        <h1 className="text-xl font-bold">Profile</h1>
+        <h1 className="text-xl font-bold">Settings</h1>
       </div>
 
       <div className="flex flex-col items-center py-6">
@@ -254,6 +256,15 @@ export default function ProfilePage() {
           </span>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="mt-5">
+          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Portal Integrations</h2>
+          <div className="flex flex-col gap-3">
+            <PropertyFinderSettingsCard />
+          </div>
+        </div>
+      )}
 
       {!changingPassword ? (
         <div className="flex flex-col gap-3 mt-5">

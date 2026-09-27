@@ -19,6 +19,7 @@ export async function GET() {
       role: true,
       status: true,
       createdAt: true,
+      pfPublicProfileId: true,
       _count: { select: { listings: true } },
     },
   });

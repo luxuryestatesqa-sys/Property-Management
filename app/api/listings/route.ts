@@ -205,6 +205,12 @@ export async function POST(req: NextRequest) {
       titleDeedNumber: data.listingType === "SALE" ? data.titleDeedNumber ?? null : null,
       titleDeedImage: data.listingType === "SALE" ? data.titleDeedImage ?? null : null,
       authorizationFormImage: data.listingType === "RENT" ? data.authorizationFormImage ?? null : null,
+      title: data.title ?? null,
+      description: data.description ?? null,
+      titleAr: data.titleAr ?? null,
+      descriptionAr: data.descriptionAr ?? null,
+      amenities: data.amenities ?? [],
+      bathrooms: data.bathrooms ?? null,
       createdById: session!.user.id,
     },
   });

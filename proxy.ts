@@ -12,8 +12,17 @@ export default auth((req) => {
   // The public share link (/listing/[id]) and its API are opened by clients
   // with no CRM account at all - they must never be redirected to /login.
   const isPublicShare = nextUrl.pathname.startsWith("/listing/") || nextUrl.pathname.startsWith("/api/public/");
+  // Listing photos fetched by an external portal's own crawler (e.g.
+  // Property Finder downloading images for a published listing) - no
+  // session exists on that request at all, so redirecting it to /login
+  // would silently break every portal's ability to ever fetch a photo.
+  const isPortalImageFetch = /^\/api\/listings\/[^/]+\/images\/[^/]+$/.test(nextUrl.pathname);
+  // Webhook deliveries from an external portal (e.g. Property Finder calling
+  // back with a listing's publish status) - authenticated by HMAC signature
+  // in the route itself, not a session; same redirect risk as above.
+  const isPortalWebhook = nextUrl.pathname.startsWith("/api/portals/") && nextUrl.pathname.endsWith("/webhook");
 
-  if (isApiAuth || isPublicShare) return NextResponse.next();
+  if (isApiAuth || isPublicShare || isPortalImageFetch || isPortalWebhook) return NextResponse.next();
 
   if (!isLoggedIn && !isAuthPage) {
     const loginUrl = new URL("/login", nextUrl);

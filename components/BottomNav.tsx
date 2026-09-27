@@ -57,7 +57,7 @@ export default function BottomNav() {
   ];
   const rightItems = [
     ...(isAdmin ? [{ href: "/admin/users", label: "Users", icon: icons.users }] : []),
-    { href: "/profile", label: "Profile", icon: icons.profile },
+    { href: "/profile", label: "Settings", icon: icons.profile },
   ];
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));

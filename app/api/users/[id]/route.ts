@@ -38,14 +38,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
   }
 
+  // The agent's Property Finder public profile id, picked by an admin from
+  // the real PF account list (see /api/portals/propertyfinder/users) - not
+  // free text, so listings this agent publishes are correctly attributed.
+  let pfPublicProfileId: number | null | undefined;
+  if (body.pfPublicProfileId !== undefined) {
+    if (body.pfPublicProfileId !== null && typeof body.pfPublicProfileId !== "number") {
+      return NextResponse.json({ error: "Invalid Property Finder profile id" }, { status: 400 });
+    }
+    pfPublicProfileId = body.pfPublicProfileId;
+  }
+
   const user = await prisma.user.update({
     where: { id },
     data: {
       ...(status ? { status } : {}),
       ...(whatsapp ? { whatsapp } : {}),
       ...(passwordHash ? { passwordHash } : {}),
+      ...(pfPublicProfileId !== undefined ? { pfPublicProfileId } : {}),
     },
-    select: { id: true, name: true, email: true, whatsapp: true, avatarUrl: true, role: true, status: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      whatsapp: true,
+      avatarUrl: true,
+      role: true,
+      status: true,
+      createdAt: true,
+      pfPublicProfileId: true,
+    },
   });
 
   return NextResponse.json({ user });

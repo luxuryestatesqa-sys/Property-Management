@@ -39,10 +39,18 @@ export interface ListingDTO {
   listingType: ListingType;
   propertyCategory: PropertyCategory;
   bedrooms: BedroomCount | null;
+  bathrooms: string | null;
   sizeSqm: number | null;
   // List endpoints return only the cover photo (sortOrder 0); the detail
   // endpoint returns the full set, in order.
   images: ListingImageDTO[];
+  title: string | null;
+  description: string | null;
+  titleAr: string | null;
+  descriptionAr: string | null;
+  amenities: string[];
+  // Property Finder's own location-tree id, chosen via autocomplete.
+  pfLocationId: number | null;
   area: string;
   community: string;
   buildingName: string;
@@ -69,9 +77,20 @@ export interface ListingDTO {
   deactivatedAt: string | null;
   availabilityStatus: AvailabilityStatus;
   createdById: string;
-  createdBy: { id: string; name: string; whatsapp: string; avatarUrl: string | null };
+  createdBy: { id: string; name: string; whatsapp: string; avatarUrl: string | null; pfPublicProfileId: number | null };
   createdAt: string;
   updatedAt: string;
+  propertyFinderState: PropertyFinderListingDTO | null;
+}
+
+export interface PropertyFinderListingDTO {
+  remoteListingId: string | null;
+  state: string | null;
+  enabled: boolean;
+  lastError: string | null;
+  lastSyncedAt: string | null;
+  assignedProfileId: number | null;
+  reference: string | null;
 }
 
 // Safe-to-share subset of ListingDTO returned by the public (unauthenticated)
@@ -125,4 +144,6 @@ export interface UserDTO {
   status: UserStatus;
   createdAt: string;
   activeListingsCount?: number;
+  // This agent's Property Finder public profile id, if an admin has linked one.
+  pfPublicProfileId: number | null;
 }

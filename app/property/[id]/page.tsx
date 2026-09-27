@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { ListingDTO, AuditLogDTO, AvailabilityStatus, PropertyCategory, BedroomCount } from "@/lib/types";
@@ -33,15 +33,19 @@ import PhotoPicker from "@/components/PhotoPicker";
 import PhotoGallery from "@/components/PhotoGallery";
 import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } from "@/components/PrivateDetailsSection";
 import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
+import PropertyFinderPublishPanel from "@/components/PropertyFinderPublishPanel";
+import { bathroomsToInputValue, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
 
 export default function PropertyDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const confirm = useConfirm();
   const id = params.id as string;
+  const openInEditMode = searchParams.get("edit") === "1";
 
   const [listing, setListing] = useState<ListingDTO | null>(null);
   const [duplicates, setDuplicates] = useState<ListingDTO[]>([]);
@@ -72,7 +76,10 @@ export default function PropertyDetailPage() {
       setForm({
         propertyCategory: data.listing.propertyCategory,
         bedrooms: data.listing.bedrooms ?? "",
+        bathrooms: bathroomsToInputValue(data.listing.bathrooms),
         sizeSqm: data.listing.sizeSqm ? String(data.listing.sizeSqm) : "",
+        title: data.listing.title ?? "",
+        description: data.listing.description ?? "",
         area: data.listing.area,
         community: data.listing.community,
         buildingName: data.listing.buildingName,
@@ -106,6 +113,15 @@ export default function PropertyDetailPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!openInEditMode || !listing || !session?.user) return;
+    const canManage = session.user.id === listing.createdById || session.user.role === "ADMIN";
+    if (canManage) setEditing(true);
+    router.replace(`/property/${id}`, { scroll: false });
+    // Only meant to fire once, right after the initial load navigated here with ?edit=1.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openInEditMode, listing, session]);
+
   if (loading) {
     return <PropertyDetailSkeleton />;
   }
@@ -132,13 +148,24 @@ export default function PropertyDetailPage() {
       setError("Bedrooms is required for this property type.");
       return;
     }
+    if (!form.sizeSqm) {
+      setError("Size is required.");
+      return;
+    }
+    if (images.length === 0) {
+      setError("At least one photo is required.");
+      return;
+    }
     setSaving(true);
     try {
       const category = form.propertyCategory as PropertyCategory;
       const body: Record<string, unknown> = {
         propertyCategory: category,
         bedrooms: isResidentialCategory(category) ? form.bedrooms || null : null,
-        sizeSqm: form.sizeSqm ? Number(form.sizeSqm) : null,
+        bathrooms: category !== "LAND" ? bathroomsFromInputValue(form.bathrooms) : null,
+        sizeSqm: Number(form.sizeSqm),
+        title: form.title.trim() || null,
+        description: form.description.trim() || null,
         area: form.area,
         community: form.community,
         buildingName: form.buildingName,
@@ -400,6 +427,10 @@ export default function PropertyDetailPage() {
             </section>
           )}
 
+          {canManage && (
+            <PropertyFinderPublishPanel listing={listing} state={listing.propertyFinderState} />
+          )}
+
           <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Listing Information</h3>
             <dl className="flex flex-col gap-2.5 text-[14px]">
@@ -607,7 +638,7 @@ export default function PropertyDetailPage() {
         <div className="flex flex-col gap-4">
           <section>
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">
-              Photos <span className="text-muted font-normal normal-case">(optional)</span>
+              Photos
             </h3>
             <PhotoPicker images={images} onChange={setImages} />
           </section>
@@ -639,9 +670,55 @@ export default function PropertyDetailPage() {
             />
           )}
 
+          {form.propertyCategory !== "LAND" && (
+            <div>
+              <label className="text-sm font-medium text-foreground block mb-1.5">Bathrooms</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="20"
+                value={form.bathrooms}
+                onChange={(e) => setForm((f) => ({ ...f, bathrooms: e.target.value }))}
+                placeholder="2"
+                className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
+              />
+            </div>
+          )}
+
+          <section>
+            <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">
+              Marketing <span className="text-muted font-normal normal-case">(optional, needed to publish to Property Finder)</span>
+            </h3>
+            <div className="flex flex-col gap-3">
+              <div>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Listing title, e.g. Spacious 2BR with Marina View"
+                  maxLength={50}
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
+                />
+                <div className="text-right text-[12px] text-muted mt-1">{form.title.length}/50</div>
+              </div>
+              <div>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Describe the property..."
+                  rows={4}
+                  maxLength={2000}
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary resize-none"
+                />
+                <div className="text-right text-[12px] text-muted mt-1">{form.description.length}/2000</div>
+              </div>
+            </div>
+          </section>
+
           <section>
             <label className="text-sm font-medium text-foreground block mb-1.5">
-              Size <span className="text-muted font-normal">(optional)</span>
+              Size
             </label>
             <div className="flex items-center rounded-xl border border-border bg-surface px-4">
               <input
