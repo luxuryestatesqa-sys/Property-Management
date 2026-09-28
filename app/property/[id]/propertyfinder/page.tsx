@@ -73,7 +73,7 @@ export default function PropertyFinderPublishPage() {
   const [credits, setCredits] = useState<{
     accountBalance: { remaining: number; total: number } | null;
     usedByThisListing: number | null;
-    estimatedCost: number | null;
+    publishOptions: { name: string; total: number }[] | null;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -287,10 +287,24 @@ export default function PropertyFinderPublishPage() {
                 <span className="font-semibold">{credits.usedByThisListing.toLocaleString()}</span>
               </div>
             )}
-            {credits.estimatedCost !== null && (
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Cost to publish</span>
-                <span className="font-semibold">{credits.estimatedCost.toLocaleString()}</span>
+            {credits.publishOptions && credits.publishOptions.length > 0 && (
+              <div className="flex flex-col gap-1 pt-1 border-t border-border mt-0.5">
+                <span className="text-muted">Publishing options</span>
+                {credits.publishOptions.map((opt) => {
+                  const isStandard = opt.name.toLowerCase() === "standard";
+                  return (
+                    <div key={opt.name} className="flex items-center justify-between">
+                      <span className={isStandard ? "font-semibold capitalize" : "text-muted capitalize"}>
+                        {opt.name}
+                        {isStandard && <span className="text-muted font-normal"> (used here)</span>}
+                      </span>
+                      <span className={isStandard ? "font-semibold" : "text-muted"}>{opt.total.toLocaleString()} credits</span>
+                    </div>
+                  );
+                })}
+                <p className="text-[11px] text-muted">
+                  This app always publishes as Standard. Upgrade to Featured or Premium from PF Expert directly if needed.
+                </p>
               </div>
             )}
           </div>

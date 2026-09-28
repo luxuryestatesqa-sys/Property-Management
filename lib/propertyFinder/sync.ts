@@ -169,15 +169,16 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     // Publishing needs a publishing type selected (standard/featured/premium)
     // to actually deduct credits and move the listing out of draft - only
     // answered for a listing that exists on PF in draft state, which it now
-    // does. Defaults to the cheapest/first option (matches the "Cost to
-    // publish" figure already shown to the agent before they hit publish).
+    // does. This app only ever publishes as "standard" - featured/premium are
+    // paid upgrades an agent can still apply manually from PF Expert, but
+    // shouldn't be picked implicitly (e.g. by array order) from here.
     const prices = await getPublishPrice(newRemoteListingId);
     const publishOption = prices.find((p) => p.feature === "publish");
-    const publishType = publishOption?.purchasableProducts[0]?.name;
-    if (!publishType) {
-      throw new Error("Property Finder didn't offer a publishing option for this listing");
+    const standardProduct = publishOption?.purchasableProducts.find((p) => p.name.toLowerCase() === "standard");
+    if (!standardProduct) {
+      throw new Error("Property Finder didn't offer a standard publishing option for this listing");
     }
-    await publishListing(newRemoteListingId, publishType);
+    await publishListing(newRemoteListingId, standardProduct.name);
 
     await prisma.portalListing.upsert({
       where: portalKey(listingId),

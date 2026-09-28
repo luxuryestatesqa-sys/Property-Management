@@ -42,7 +42,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const accountBalance = assignedProfileId ? await getCreditBalance(assignedProfileId) : null;
 
     let usedByThisListing: number | null = null;
-    let estimatedCost: number | null = null;
+    // All tiers PF is willing to sell for this listing - shown so the agent
+    // can see what featured/premium cost too, even though this app only ever
+    // publishes as "standard" (see publishListingToPropertyFinder).
+    let publishOptions: { name: string; total: number }[] | null = null;
     if (portalListing?.remoteListingId) {
       const spent = await getCreditsSpent([portalListing.remoteListingId]);
       usedByThisListing = spent.listings.find((l) => l.listingId === portalListing.remoteListingId)?.totalSpent ?? 0;
@@ -53,13 +56,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         // now" (e.g. already live), not a real failure.
         const prices = await getPublishPrice(portalListing.remoteListingId);
         const publishOption = prices.find((p) => p.feature === "publish");
-        estimatedCost = publishOption?.purchasableProducts[0]?.price.total ?? null;
+        publishOptions = publishOption?.purchasableProducts.map((p) => ({ name: p.name, total: p.price.total })) ?? null;
       } catch {
-        estimatedCost = null;
+        publishOptions = null;
       }
     }
 
-    return NextResponse.json({ accountBalance, usedByThisListing, estimatedCost });
+    return NextResponse.json({ accountBalance, usedByThisListing, publishOptions });
   } catch (err) {
     return NextResponse.json({ error: describePropertyFinderError(err) }, { status: 502 });
   }
