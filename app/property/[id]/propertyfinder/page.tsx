@@ -70,7 +70,6 @@ export default function PropertyFinderPublishPage() {
   const [savedNotice, setSavedNotice] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [resetConfirming, setResetConfirming] = useState(false);
 
   const [credits, setCredits] = useState<{
     accountBalance: { remaining: number; total: number } | null;
@@ -252,14 +251,15 @@ export default function PropertyFinderPublishPage() {
   // photo fetch for (updates never re-trigger a fresh image fetch on their
   // side) - unpublishes and forgets the remote listing id, so the next Save
   // & Publish creates a brand-new PF listing instead of updating the broken
-  // one. Two-click confirm since this is a deliberate, rare action, not
-  // something to trigger by a stray tap.
+  // one. Uses a native confirm() rather than a two-tap button state - on a
+  // touch UI a second tap can land after the button (or the page) has
+  // already lost focus/reflowed, silently resetting a two-tap "are you
+  // sure" back to its first state with no visible error, which is exactly
+  // what happened testing this the first time.
   async function handleReset() {
-    if (!resetConfirming) {
-      setResetConfirming(true);
+    if (!window.confirm("Unpublish this Property Finder listing and forget its link? The next Save & Publish will create a brand-new listing there instead of updating this one.")) {
       return;
     }
-    setResetConfirming(false);
     setError(null);
     setResetting(true);
     try {
@@ -574,17 +574,11 @@ export default function PropertyFinderPublishPage() {
             <button
               type="button"
               onClick={handleReset}
-              onBlur={() => setResetConfirming(false)}
               disabled={resetting}
               className="w-full rounded-xl py-3 text-[13px] font-semibold border border-danger text-danger active:opacity-70 disabled:opacity-60"
             >
-              {resetting ? "Resetting..." : resetConfirming ? "Tap again to confirm reset" : "Reset Property Finder listing"}
+              {resetting ? "Resetting..." : "Reset Property Finder listing"}
             </button>
-          )}
-          {resetConfirming && (
-            <p className="text-[11px] text-muted text-center -mt-1">
-              Unpublishes the current PF listing and forgets its link - the next publish creates a brand-new one. Use this only if photos are stuck broken on PF's side.
-            </p>
           )}
         </div>
       </div>

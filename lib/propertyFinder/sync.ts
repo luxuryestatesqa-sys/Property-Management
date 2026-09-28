@@ -255,8 +255,17 @@ export async function resetPropertyFinderListing(listingId: number): Promise<voi
       // Best-effort, same as unpublishListingFromPropertyFinder above.
     }
   }
+
+  // Also force a new reference - if PF treats reference as an idempotency/
+  // dedup key on create (unconfirmed, but plausible), reusing the same one
+  // could route a "new" createListing call back to the same underlying
+  // listing even with remoteListingId cleared, carrying forward whatever
+  // made its photos stick as broken.
+  const baseReference = portalListing.reference || `LE-${listingId}`;
+  const newReference = `${baseReference}-r${Date.now().toString(36).slice(-4)}`;
+
   await prisma.portalListing.update({
     where: portalKey(listingId),
-    data: { remoteListingId: null, state: null, lastError: null, enabled: false, lastSyncedAt: new Date() },
+    data: { remoteListingId: null, state: null, lastError: null, enabled: false, reference: newReference, lastSyncedAt: new Date() },
   });
 }
