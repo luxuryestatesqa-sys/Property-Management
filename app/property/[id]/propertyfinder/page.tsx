@@ -290,20 +290,26 @@ export default function PropertyFinderPublishPage() {
             {credits.publishOptions && credits.publishOptions.length > 0 && (
               <div className="flex flex-col gap-1 pt-1 border-t border-border mt-0.5">
                 <span className="text-muted">Publishing options</span>
-                {credits.publishOptions.map((opt) => {
-                  const isStandard = opt.name.toLowerCase() === "standard";
-                  return (
-                    <div key={opt.name} className="flex items-center justify-between">
-                      <span className={isStandard ? "font-semibold capitalize" : "text-muted capitalize"}>
-                        {opt.name}
-                        {isStandard && <span className="text-muted font-normal"> (used here)</span>}
-                      </span>
-                      <span className={isStandard ? "font-semibold" : "text-muted"}>{opt.total.toLocaleString()} credits</span>
-                    </div>
-                  );
-                })}
+                {(() => {
+                  // Matches the server's own selection logic - the cheapest
+                  // tier is what actually gets used when publishing from
+                  // here, regardless of what PF happens to name it.
+                  const cheapest = credits.publishOptions!.reduce((min, o) => (o.total < min.total ? o : min));
+                  return credits.publishOptions!.map((opt) => {
+                    const isUsed = opt.name === cheapest.name && opt.total === cheapest.total;
+                    return (
+                      <div key={opt.name} className="flex items-center justify-between">
+                        <span className={isUsed ? "font-semibold capitalize" : "text-muted capitalize"}>
+                          {opt.name}
+                          {isUsed && <span className="text-muted font-normal"> (used here)</span>}
+                        </span>
+                        <span className={isUsed ? "font-semibold" : "text-muted"}>{opt.total.toLocaleString()} credits</span>
+                      </div>
+                    );
+                  });
+                })()}
                 <p className="text-[11px] text-muted">
-                  This app always publishes as Standard. Upgrade to Featured or Premium from PF Expert directly if needed.
+                  This app always publishes at the lowest tier. Upgrade to a higher tier from PF Expert directly if needed.
                 </p>
               </div>
             )}
