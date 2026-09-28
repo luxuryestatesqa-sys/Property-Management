@@ -587,11 +587,14 @@ export default function PropertyFinderPublishPage() {
           <div className="rounded-2xl bg-danger-bg text-danger text-[13px] px-4 py-3">Still needed to publish: {missing.join(", ")}.</div>
         )}
         {reasons.length > 0 && (
-          <ul className="text-[13px] text-danger list-disc list-inside px-1">
-            {reasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
+          <div className="rounded-2xl bg-danger-bg text-danger text-[13px] px-4 py-3">
+            <p className="font-semibold mb-1">Property Finder rejected this:</p>
+            <ul className="list-disc list-inside">
+              {reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </div>
         )}
         {error && <div className="rounded-2xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
         {actionNotice && (
@@ -660,7 +663,7 @@ export default function PropertyFinderPublishPage() {
           <button
             type="button"
             onClick={() => handleSave(true)}
-            disabled={saving || !options}
+            disabled={saving || !options || missing.length > 0}
             className="w-full rounded-xl py-3.5 text-base font-semibold text-white active:opacity-80 disabled:opacity-60"
             style={{ background: "var(--primary)" }}
           >
