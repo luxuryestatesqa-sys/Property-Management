@@ -172,6 +172,20 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     const response = remoteListingId ? await updateListing(remoteListingId, payload) : await createListing(payload);
     const newRemoteListingId = remoteListingId ?? response.id;
 
+    // Persist the id the moment we have it, before the two steps below that
+    // can still fail - createListing had already fully succeeded on PF's
+    // side at this point (a real listing now exists there under this
+    // reference), and previously this was only saved after publishListing
+    // ALSO succeeded. If getPublishPrice/publishListing then failed, the
+    // catch block below recorded the failure but never learned this id, so
+    // the listing sat on PF fully created (and blocking that reference from
+    // ever being reused) while this app still thought remoteListingId was
+    // null - the next attempt would call createListing again with the same
+    // reference and PF would correctly reject it as a duplicate, forever.
+    if (!remoteListingId) {
+      await prisma.portalListing.update({ where: portalKey(listingId), data: { remoteListingId: newRemoteListingId, lastSyncedAt: new Date() } });
+    }
+
     // Publishing needs a publishing type selected (standard/featured/premium)
     // to actually deduct credits and move the listing out of draft - only
     // answered for a listing that exists on PF in draft state, which it now
@@ -200,7 +214,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     });
   } catch (err) {
     const message = err instanceof PropertyFinderApiError
-      ? [err.message, ...err.fieldErrors.map((f) => `${f.pointer ?? ""} ${f.detail ?? ""}`.trim())].join("; ")
+      ? [err.message, ...err.fieldErrors.map((f) => [f.pointer, f.title, f.detail].filter(Boolean).join(": "))].join("; ")
       : err instanceof Error
         ? err.message
         : "Failed to reach Property Finder";

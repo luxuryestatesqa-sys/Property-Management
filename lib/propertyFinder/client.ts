@@ -6,8 +6,9 @@ import { getAccessToken, PF_BASE_URL, PropertyFinderNotConfiguredError } from ".
 // opts into this one.
 export interface PFFieldError {
   type?: string;
+  title?: string; // short human label, e.g. "Duplicate Reference" - present on this sub-problem shape (no pointer)
   detail?: string;
-  pointer?: string; // JSON Pointer to the offending field, e.g. "/bathrooms"
+  pointer?: string; // JSON Pointer to the offending field, e.g. "/bathrooms" - present on the field-validation shape (no title)
 }
 
 export class PropertyFinderApiError extends Error {
