@@ -166,8 +166,14 @@ export async function getListing(pfListingId: string): Promise<PFListingResponse
   return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}`);
 }
 
-export async function publishListing(pfListingId: string): Promise<PFListingResponse> {
-  return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}/publish`, { method: "POST" });
+// Publishing on Property Finder is a paid action - per their own docs, you
+// "select your publishing type (standard, featured, or premium) and confirm
+// the credits deduction." Calling this with no type selected accepts the
+// request but deducts nothing and leaves the listing sitting in draft -
+// `type` should be one of the names from getPublishPrice's purchasableProducts
+// for the "publish" feature (typically "standard" unless upgrading).
+export async function publishListing(pfListingId: string, type: string): Promise<PFListingResponse> {
+  return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}/publish`, { method: "POST", body: JSON.stringify({ type }) });
 }
 
 export async function unpublishListing(pfListingId: string): Promise<PFListingResponse> {

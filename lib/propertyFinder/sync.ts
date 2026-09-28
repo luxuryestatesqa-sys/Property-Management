@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Listing } from "@prisma/client";
 import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
-import { createListing, updateListing, publishListing, unpublishListing, listUsers, PFListingPayload, PropertyFinderApiError } from "./client";
+import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, PFListingPayload, PropertyFinderApiError } from "./client";
 
 // This portal's identity in the generic PortalListing/PortalCredential
 // tables (see prisma/schema.prisma's Portal enum) - the one constant that
@@ -137,6 +137,19 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
 
   const reference = portalListing?.reference || `LE-${listing.id}`;
 
+  // The per-image route (app/api/listings/[id]/images/[imageId]/route.ts)
+  // only serves a photo once its listing has an *enabled* PortalListing row -
+  // and that must be true before PF fetches the image URLs we're about to
+  // send them (which happens as part of processing createListing/
+  // updateListing below), not after. Flipping it to true only on success
+  // left every photo 404ing at the exact moment PF tried to ingest them,
+  // silently falling back to blank/blurred placeholders on their side.
+  await prisma.portalListing.upsert({
+    where: portalKey(listingId),
+    update: { enabled: true },
+    create: { listingId, portal: PORTAL, enabled: true },
+  });
+
   try {
     // PF's own user id for whoever's public profile this listing is assigned
     // to - required for createdBy, and distinct from assignedProfileId (see
@@ -152,7 +165,19 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     const remoteListingId = portalListing?.remoteListingId;
     const response = remoteListingId ? await updateListing(remoteListingId, payload) : await createListing(payload);
     const newRemoteListingId = remoteListingId ?? response.id;
-    await publishListing(newRemoteListingId);
+
+    // Publishing needs a publishing type selected (standard/featured/premium)
+    // to actually deduct credits and move the listing out of draft - only
+    // answered for a listing that exists on PF in draft state, which it now
+    // does. Defaults to the cheapest/first option (matches the "Cost to
+    // publish" figure already shown to the agent before they hit publish).
+    const prices = await getPublishPrice(newRemoteListingId);
+    const publishOption = prices.find((p) => p.feature === "publish");
+    const publishType = publishOption?.purchasableProducts[0]?.name;
+    if (!publishType) {
+      throw new Error("Property Finder didn't offer a publishing option for this listing");
+    }
+    await publishListing(newRemoteListingId, publishType);
 
     await prisma.portalListing.upsert({
       where: portalKey(listingId),
