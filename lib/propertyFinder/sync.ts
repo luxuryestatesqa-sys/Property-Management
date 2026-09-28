@@ -210,29 +210,48 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
 
     // Publishing needs a publishing type selected (standard/featured/premium)
     // to actually deduct credits and move the listing out of draft - only
-    // answered for a listing that exists on PF in draft state, which it now
-    // does. This app only ever publishes at the cheapest (standard) tier -
+    // answered for a listing that's still in DRAFT state on PF's side (see
+    // the same caveat in credits/route.ts). A listing being updated here for
+    // the second-plus time is very likely already past draft (pending/live),
+    // in which case getPublishPrice/publishListing legitimately 404 with
+    // "not found" - that 404 does NOT mean the update above failed or that
+    // the listing is inaccessible, it means there's no publish step left to
+    // do. Treating it as a hard failure was exactly why updating an already-
+    // live listing kept wrongly showing "not found" as if it needed fixing.
+    // This app only ever publishes at the cheapest (standard) tier -
     // featured/premium are paid upgrades an agent can still apply manually
     // from PF Expert, but shouldn't be picked implicitly from here. Picking
     // by lowest price rather than matching the name "standard" exactly,
     // since PF's actual product name for that tier isn't confirmed (their
     // schema docs are behind a login) and a strict name match broke on a
     // real response that didn't include that literal string.
-    const prices = await getPublishPrice(newRemoteListingId);
-    const publishOption = prices.find((p) => p.feature === "publish");
-    const cheapestProduct = publishOption?.purchasableProducts.reduce<(typeof publishOption.purchasableProducts)[number] | null>(
-      (min, p) => (min === null || p.price.total < min.price.total ? p : min),
-      null
-    );
-    if (!cheapestProduct) {
-      throw new Error("Property Finder didn't offer any publishing option for this listing");
+    let finalState = "pending_publishing";
+    try {
+      const prices = await getPublishPrice(newRemoteListingId);
+      const publishOption = prices.find((p) => p.feature === "publish");
+      const cheapestProduct = publishOption?.purchasableProducts.reduce<(typeof publishOption.purchasableProducts)[number] | null>(
+        (min, p) => (min === null || p.price.total < min.price.total ? p : min),
+        null
+      );
+      if (!cheapestProduct) {
+        throw new Error("Property Finder didn't offer any publishing option for this listing");
+      }
+      await publishListing(newRemoteListingId, cheapestProduct.name);
+    } catch (publishErr) {
+      if (publishErr instanceof PropertyFinderApiError && publishErr.status === 404) {
+        // Already past draft - the update we just sent still applied. The
+        // next status refresh (refreshPropertyFinderListingStatus) will
+        // correct this to PF's exact real stage right after.
+        finalState = "live";
+      } else {
+        throw publishErr;
+      }
     }
-    await publishListing(newRemoteListingId, cheapestProduct.name);
 
     await prisma.portalListing.upsert({
       where: portalKey(listingId),
-      update: { remoteListingId: newRemoteListingId, state: "pending_publishing", enabled: true, lastError: null, lastSyncedAt: new Date() },
-      create: { listingId, portal: PORTAL, remoteListingId: newRemoteListingId, state: "pending_publishing", enabled: true, lastSyncedAt: new Date() },
+      update: { remoteListingId: newRemoteListingId, state: finalState, enabled: true, lastError: null, lastSyncedAt: new Date() },
+      create: { listingId, portal: PORTAL, remoteListingId: newRemoteListingId, state: finalState, enabled: true, lastSyncedAt: new Date() },
     });
   } catch (err) {
     const message = err instanceof PropertyFinderApiError
