@@ -67,7 +67,7 @@ export default function PropertyFinderPublishPage() {
   const [error, setError] = useState<string | null>(null);
   const [reasons, setReasons] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [actionNotice, setActionNotice] = useState<"published" | "unpublished" | "draft" | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -219,7 +219,7 @@ export default function PropertyFinderPublishPage() {
   async function handleSave(publish: boolean | null) {
     setError(null);
     setReasons([]);
-    setSavedNotice(false);
+    setActionNotice(null);
     setSaving(true);
     try {
       const savedListing = await saveListingFields();
@@ -239,7 +239,7 @@ export default function PropertyFinderPublishPage() {
       }
       await load();
       await loadCredits();
-      setSavedNotice(true);
+      setActionNotice(publish === true ? "published" : publish === false ? "unpublished" : "draft");
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -528,9 +528,57 @@ export default function PropertyFinderPublishPage() {
           </ul>
         )}
         {error && <div className="rounded-2xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
-        {savedNotice && (
-          <div className="rounded-2xl bg-success-bg text-[13px] px-4 py-3" style={{ color: "var(--success)" }}>
-            Saved.
+        {actionNotice && (
+          <div
+            className="rounded-2xl px-4 py-3 flex items-start gap-3"
+            style={
+              actionNotice === "published"
+                ? { background: "var(--success-bg)" }
+                : actionNotice === "draft"
+                  ? { background: "var(--accent-light)" }
+                  : { background: "var(--surface-muted)" }
+            }
+          >
+            <span
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{
+                background: "rgba(255,255,255,0.55)",
+                color: actionNotice === "published" ? "var(--success)" : actionNotice === "draft" ? "var(--primary)" : "var(--muted)",
+              }}
+            >
+              {actionNotice === "published" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              )}
+              {actionNotice === "draft" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+                  <path d="M17 21v-8H7v8M7 3v5h8" />
+                </svg>
+              )}
+              {actionNotice === "unpublished" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 12s3.5-7 10-7c2 0 3.7.6 5.1 1.5M22 12s-3.5 7-10 7c-2 0-3.7-.6-5.1-1.5" />
+                  <path d="m4 4 16 16" />
+                </svg>
+              )}
+            </span>
+            <div className="min-w-0">
+              <p
+                className="text-[14px] font-semibold"
+                style={{ color: actionNotice === "published" ? "var(--success)" : actionNotice === "draft" ? "var(--primary)" : "var(--foreground)" }}
+              >
+                {actionNotice === "published" && "Listing published"}
+                {actionNotice === "draft" && "Saved as draft"}
+                {actionNotice === "unpublished" && "Listing unpublished"}
+              </p>
+              <p className="text-[12px] text-muted mt-0.5">
+                {actionNotice === "published" && (badge ? `Property Finder status: ${badge.label}` : "Sent to Property Finder.")}
+                {actionNotice === "draft" && "Not published to Property Finder yet - publish anytime from here."}
+                {actionNotice === "unpublished" && "No longer visible on Property Finder."}
+              </p>
+            </div>
           </div>
         )}
 
@@ -558,7 +606,7 @@ export default function PropertyFinderPublishPage() {
             disabled={saving || !options}
             className="w-full rounded-xl py-3 text-[14px] font-semibold text-foreground bg-surface-muted active:opacity-70 disabled:opacity-60"
           >
-            Save for later
+            Save as Draft
           </button>
           {enabled && (
             <button
