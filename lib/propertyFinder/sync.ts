@@ -106,8 +106,14 @@ function buildListingPayload(
     createdBy: { id: pfUserId },
     price: { type: priceType, amounts: { [priceType]: priceAmount ?? undefined } },
     media: {
+      // Cache-busted with the listing's own updatedAt (which saveListingFields
+      // bumps on every publish attempt) so PF always sees a URL it hasn't
+      // fetched before - otherwise a URL that failed once (e.g. during the
+      // enabled-flag race this app used to have) can stay cached as broken on
+      // their side indefinitely, even after our fix, since the URL itself
+      // never changes between updates.
       images: listing.images.map((img) => ({
-        original: { url: `${baseUrl}/api/listings/${listing.id}/images/${img.id}` },
+        original: { url: `${baseUrl}/api/listings/${listing.id}/images/${img.id}?v=${listing.updatedAt.getTime()}` },
       })),
     },
   };
