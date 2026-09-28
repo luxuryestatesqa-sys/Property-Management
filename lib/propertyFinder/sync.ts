@@ -235,3 +235,28 @@ export async function unpublishListingFromPropertyFinder(listingId: number): Pro
     data: { enabled: false, lastSyncedAt: new Date() },
   });
 }
+
+// Unpublishes (like above) but also forgets the remote listing id, so the
+// next publish calls createListing instead of updateListing - a distinct,
+// deliberate recovery action, not the default unpublish behavior, since most
+// agents unpublishing/republishing want to resume the SAME PF listing (kept
+// lead history, quality score) rather than start a new one each time.
+// Exists for the one real case that needs it: a listing PF appears to have
+// permanently cached a bad photo fetch for, where updateListing calls never
+// re-trigger a fresh image fetch on their side no matter what URL is sent.
+export async function resetPropertyFinderListing(listingId: number): Promise<void> {
+  const portalListing = await prisma.portalListing.findUnique({ where: portalKey(listingId) });
+  if (!portalListing) return;
+
+  if (portalListing.remoteListingId) {
+    try {
+      await unpublishListing(portalListing.remoteListingId);
+    } catch {
+      // Best-effort, same as unpublishListingFromPropertyFinder above.
+    }
+  }
+  await prisma.portalListing.update({
+    where: portalKey(listingId),
+    data: { remoteListingId: null, state: null, lastError: null, enabled: false, lastSyncedAt: new Date() },
+  });
+}

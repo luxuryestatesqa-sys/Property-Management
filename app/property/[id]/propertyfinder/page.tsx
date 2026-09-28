@@ -69,6 +69,8 @@ export default function PropertyFinderPublishPage() {
   const [saving, setSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetConfirming, setResetConfirming] = useState(false);
 
   const [credits, setCredits] = useState<{
     accountBalance: { remaining: number; total: number } | null;
@@ -243,6 +245,35 @@ export default function PropertyFinderPublishPage() {
       setError("Network error. Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Recovery action for a listing PF seems to have permanently cached a bad
+  // photo fetch for (updates never re-trigger a fresh image fetch on their
+  // side) - unpublishes and forgets the remote listing id, so the next Save
+  // & Publish creates a brand-new PF listing instead of updating the broken
+  // one. Two-click confirm since this is a deliberate, rare action, not
+  // something to trigger by a stray tap.
+  async function handleReset() {
+    if (!resetConfirming) {
+      setResetConfirming(true);
+      return;
+    }
+    setResetConfirming(false);
+    setError(null);
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/listings/${id}/propertyfinder/reset`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(extractErrorMessage(data.error, "Failed to reset"));
+        return;
+      }
+      await load();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -538,6 +569,22 @@ export default function PropertyFinderPublishPage() {
             >
               Unpublish from Property Finder
             </button>
+          )}
+          {isAdmin && listing.propertyFinderState?.remoteListingId && (
+            <button
+              type="button"
+              onClick={handleReset}
+              onBlur={() => setResetConfirming(false)}
+              disabled={resetting}
+              className="w-full rounded-xl py-3 text-[13px] font-semibold border border-danger text-danger active:opacity-70 disabled:opacity-60"
+            >
+              {resetting ? "Resetting..." : resetConfirming ? "Tap again to confirm reset" : "Reset Property Finder listing"}
+            </button>
+          )}
+          {resetConfirming && (
+            <p className="text-[11px] text-muted text-center -mt-1">
+              Unpublishes the current PF listing and forgets its link - the next publish creates a brand-new one. Use this only if photos are stuck broken on PF's side.
+            </p>
           )}
         </div>
       </div>
