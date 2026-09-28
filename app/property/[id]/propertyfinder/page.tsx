@@ -543,6 +543,13 @@ export default function PropertyFinderPublishPage() {
           <p className="text-[12px] text-muted mt-2">
             Every listing publishes at Property Finder&apos;s standard tier - Featured/Premium upgrades are a separate paid step this app doesn&apos;t do automatically.
           </p>
+          <p className="text-[12px] text-muted mt-1.5 flex items-start gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+              <rect x="3" y="11" width="18" height="10" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Building name, floor, and apartment number stay internal - never sent to Property Finder.
+          </p>
         </section>
 
         <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">

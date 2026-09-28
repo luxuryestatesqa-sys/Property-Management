@@ -150,6 +150,13 @@ export async function searchLocations(query: string): Promise<PFLocation[]> {
 // Only the fields this app actually sends/reads - the full PF schema is far
 // larger (see the Enterprise API's request-combined-flat/response-combined-flat
 // schemas) but this app only ever needs this subset.
+//
+// Deliberately excludes Listing.buildingName/floor/apartmentNumber - those
+// are internal-only (exact unit details agents track for their own company,
+// not for a public listing site) and must never reach Property Finder. If a
+// future field ever needs to reference the property's address, route it
+// through `location` (PF's own location-tree id) or free text the agent
+// writes themselves for `title`/`description`, never these raw fields.
 export interface PFListingPayload {
   reference: string;
   category: "residential" | "commercial";
