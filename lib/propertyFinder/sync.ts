@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Listing } from "@prisma/client";
 import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
-import { createListing, updateListing, publishListing, unpublishListing, PFListingPayload, PropertyFinderApiError } from "./client";
+import { createListing, updateListing, publishListing, unpublishListing, listUsers, PFListingPayload, PropertyFinderApiError } from "./client";
 
 // This portal's identity in the generic PortalListing/PortalCredential
 // tables (see prisma/schema.prisma's Portal enum) - the one constant that
@@ -74,6 +74,7 @@ export function getPropertyFinderEligibility(
 function buildListingPayload(
   listing: Listing & { images: { id: string }[] },
   assignedProfileId: number,
+  pfUserId: number,
   reference: string
 ): PFListingPayload {
   const { category, type } = pfCategoryAndType(listing.propertyCategory);
@@ -102,6 +103,7 @@ function buildListingPayload(
     amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
     location: { id: listing.pfLocationId! },
     assignedTo: { id: assignedProfileId },
+    createdBy: { id: pfUserId },
     price: { type: priceType, amounts: { [priceType]: priceAmount ?? undefined } },
     media: {
       images: listing.images.map((img) => ({
@@ -134,9 +136,19 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
   }
 
   const reference = portalListing?.reference || `LE-${listing.id}`;
-  const payload = buildListingPayload(listing, assignedProfileId!, reference);
 
   try {
+    // PF's own user id for whoever's public profile this listing is assigned
+    // to - required for createdBy, and distinct from assignedProfileId (see
+    // buildListingPayload). Looked up fresh each publish rather than stored,
+    // since it's just derived from the account picker's own directory call.
+    const pfUsers = await listUsers();
+    const pfUser = pfUsers.find((u) => u.publicProfile?.id === assignedProfileId);
+    if (!pfUser) {
+      throw new Error(`No active Property Finder user found for public profile ${assignedProfileId}`);
+    }
+    const payload = buildListingPayload(listing, assignedProfileId!, pfUser.id, reference);
+
     const remoteListingId = portalListing?.remoteListingId;
     const response = remoteListingId ? await updateListing(remoteListingId, payload) : await createListing(payload);
     const newRemoteListingId = remoteListingId ?? response.id;
@@ -148,7 +160,11 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
       create: { listingId, portal: PORTAL, remoteListingId: newRemoteListingId, state: "pending_publishing", enabled: true, lastSyncedAt: new Date() },
     });
   } catch (err) {
-    const message = err instanceof PropertyFinderApiError ? [err.message, ...err.fieldErrors.map((f) => `${f.pointer ?? ""} ${f.detail ?? ""}`.trim())].join("; ") : "Failed to reach Property Finder";
+    const message = err instanceof PropertyFinderApiError
+      ? [err.message, ...err.fieldErrors.map((f) => `${f.pointer ?? ""} ${f.detail ?? ""}`.trim())].join("; ")
+      : err instanceof Error
+        ? err.message
+        : "Failed to reach Property Finder";
     await prisma.portalListing.upsert({
       where: portalKey(listingId),
       update: { state: "publishing_failed", lastError: message, lastSyncedAt: new Date() },

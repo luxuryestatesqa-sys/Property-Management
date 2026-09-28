@@ -134,6 +134,13 @@ export interface PFListingPayload {
   amenities?: string[];
   location: { id: number };
   assignedTo: { id: number };
+  // The PF *user* id (distinct from assignedTo's public-profile id - see
+  // PFUser.id vs PFUser.publicProfile.id above) that's creating this listing.
+  // Left unset, PF appears to default it to the API credential's own owning
+  // user, which then fails its own validation against a listing assigned to
+  // a different agent's public profile ("/createdBy/id ... does not satisfy
+  // the constraints for this listing") - so this must be sent explicitly.
+  createdBy?: { id: number };
   price: {
     type: "sale" | "yearly" | "monthly" | "weekly" | "daily";
     amounts: Partial<Record<"sale" | "yearly" | "monthly" | "weekly" | "daily", number>>;
