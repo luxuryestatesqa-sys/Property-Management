@@ -38,24 +38,46 @@ export function describePropertyFinderError(err: unknown): string {
   return "Failed to reach Property Finder";
 }
 
+// Every PF API call funnels through here, so this is the one place that
+// needs to log request/response - never the Authorization header or
+// anything from auth.ts's token exchange (that logs its own, separately
+// redacted line). Bodies are truncated, not omitted: seeing the actual
+// payload/response shape is exactly what's needed to debug a rejected
+// listing, silent no-op, or field mismatch without re-guessing blind.
+const REDACTED_BODY_KEYS = /"(secret|apiKey|apiSecret|password|token|accessToken)"\s*:\s*"[^"]*"/gi;
+
+function logPfCall(method: string, path: string, status: number | "network-error", requestBody: unknown, responseSnippet: string) {
+  const rawSummary = requestBody ? (typeof requestBody === "string" ? requestBody : JSON.stringify(requestBody)) : "(no body)";
+  const summary = rawSummary.replace(REDACTED_BODY_KEYS, (_m, key) => `"${key}":"[redacted]"`).slice(0, 500);
+  // eslint-disable-next-line no-console
+  console.log(`[PF API] ${method} ${path} -> ${status}\n  request: ${summary}\n  response: ${responseSnippet.slice(0, 500)}`);
+}
+
 async function pfFetch<T>(path: string, init: RequestInit = {}, retryOn401 = true): Promise<T> {
   const token = await getAccessToken();
-  const res = await fetch(`${PF_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "X-PF-Error-Format": "problem-json-v2",
-      // Undocumented but confirmed in practice: /v1/locations returns a bare
-      // "404 page not found" (not even their structured error shape) when
-      // this header is missing, despite the docs listing it as optional with
-      // an "en" default. Sending it explicitly on every request sidesteps
-      // whatever routing quirk causes that.
-      "Accept-Language": "en",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
-    },
-  });
+  const method = init.method ?? "GET";
+  let res: Response;
+  try {
+    res = await fetch(`${PF_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "X-PF-Error-Format": "problem-json-v2",
+        // Undocumented but confirmed in practice: /v1/locations returns a bare
+        // "404 page not found" (not even their structured error shape) when
+        // this header is missing, despite the docs listing it as optional with
+        // an "en" default. Sending it explicitly on every request sidesteps
+        // whatever routing quirk causes that.
+        "Accept-Language": "en",
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+  } catch (err) {
+    logPfCall(method, path, "network-error", init.body, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
 
   if (res.status === 401 && retryOn401) {
     const { clearCachedToken } = await import("./auth");
@@ -65,6 +87,7 @@ async function pfFetch<T>(path: string, init: RequestInit = {}, retryOn401 = tru
 
   if (!res.ok) {
     const rawText = await res.text().catch(() => "");
+    logPfCall(method, path, res.status, init.body, rawText);
     let body: { detail?: string; title?: string; code?: string; errors?: PFFieldError[] } | null = null;
     try {
       body = rawText ? JSON.parse(rawText) : null;
@@ -76,14 +99,19 @@ async function pfFetch<T>(path: string, init: RequestInit = {}, retryOn401 = tru
     // body means this never reached PF's own app layer at all (a gateway/WAF
     // rejection), which is a very different problem than a business-rule 403
     // from PF itself, and "request failed: 403" alone can't tell them apart.
-    const fallback = `Property Finder request failed: ${res.status} (${init.method ?? "GET"} ${path})${
+    const fallback = `Property Finder request failed: ${res.status} (${method} ${path})${
       body === null && rawText ? ` - ${rawText.slice(0, 200)}` : ""
     }`;
     throw new PropertyFinderApiError(res.status, body?.detail || body?.title || fallback, body?.code, body?.errors ?? []);
   }
 
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  if (res.status === 204) {
+    logPfCall(method, path, 204, init.body, "(no content)");
+    return undefined as T;
+  }
+  const text = await res.text();
+  logPfCall(method, path, res.status, init.body, text);
+  return JSON.parse(text) as T;
 }
 
 export interface PFPublicProfile {

@@ -43,9 +43,14 @@ export async function getAccessToken(): Promise<string> {
     body: JSON.stringify({ apiKey: credential.apiKey, apiSecret: credential.apiSecret }),
   });
   if (!res.ok) {
-    throw new Error(`Property Finder auth failed: ${res.status} ${await res.text()}`);
+    const text = await res.text();
+    // eslint-disable-next-line no-console
+    console.log(`[PF API] POST /v1/auth/token -> ${res.status}\n  request: {"apiKey":"[redacted]","apiSecret":"[redacted]"}\n  response: ${text.slice(0, 500)}`);
+    throw new Error(`Property Finder auth failed: ${res.status} ${text}`);
   }
   const data = (await res.json()) as { accessToken: string; expiresIn: number };
+  // eslint-disable-next-line no-console
+  console.log(`[PF API] POST /v1/auth/token -> ${res.status}\n  request: {"apiKey":"[redacted]","apiSecret":"[redacted]"}\n  response: {"accessToken":"[redacted]","expiresIn":${data.expiresIn}}`);
   cached = { accessToken: data.accessToken, expiresAt: Date.now() + data.expiresIn * 1000 };
   return cached.accessToken;
 }

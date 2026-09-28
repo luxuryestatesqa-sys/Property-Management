@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ListingDTO } from "@/lib/types";
@@ -30,12 +30,26 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+// Two vocabularies share this same field: states this app sets itself right
+// after a publish/unpublish call (pending_publishing, publishing_failed) and
+// PF's own raw state.stage values from a live status refresh (draft, live,
+// takendown, archived, per PortalListing.state's field comment) or from
+// their webhook. Anything not listed here still renders - see badgeFor -
+// just without special styling, so an unrecognized PF stage is never hidden.
 const STATE_LABELS: Record<string, { label: string; bg: string; text: string }> = {
   pending_publishing: { label: "Publishing…", bg: "var(--accent-light)", text: "var(--primary)" },
   live: { label: "Live", bg: "var(--success-bg)", text: "var(--success)" },
   publishing_failed: { label: "Failed", bg: "var(--danger-bg)", text: "var(--danger)" },
   unpublished: { label: "Unpublished", bg: "var(--surface-muted)", text: "var(--muted)" },
+  draft: { label: "Draft on PF", bg: "var(--surface-muted)", text: "var(--muted)" },
+  takendown: { label: "Taken Down", bg: "var(--danger-bg)", text: "var(--danger)" },
+  archived: { label: "Archived", bg: "var(--surface-muted)", text: "var(--muted)" },
 };
+
+function badgeFor(state: string | null | undefined): { label: string; bg: string; text: string } | null {
+  if (!state) return null;
+  return STATE_LABELS[state] ?? { label: state.charAt(0).toUpperCase() + state.slice(1), bg: "var(--surface-muted)", text: "var(--foreground)" };
+}
 
 // A dedicated page (not a bottom-sheet modal) for the full "review the exact
 // mapping, fix what's missing, pick which account, publish" workflow - a
@@ -104,6 +118,38 @@ export default function PropertyFinderPublishPage() {
     load();
   }, [load]);
 
+  const [statusRefreshing, setStatusRefreshing] = useState(false);
+  const refreshedRemoteIdRef = useRef<string | null>(null);
+
+  // Pulls the listing's real state straight from Property Finder (not just
+  // whatever their webhook has or hasn't told us) so "Published" here means
+  // "we just asked PF and this is what they said," not "we assumed success
+  // and are waiting to be told otherwise." Auto-runs once per remote listing
+  // id whenever one is present (below), plus a manual button for on-demand
+  // re-checks.
+  const refreshStatus = useCallback(async () => {
+    setStatusRefreshing(true);
+    try {
+      const res = await fetch(`/api/listings/${id}/propertyfinder/refresh`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setListing((prev) => (prev ? { ...prev, propertyFinderState: data.propertyFinderState } : prev));
+      }
+    } catch {
+      // Non-critical - the badge just keeps showing whatever we already had.
+    } finally {
+      setStatusRefreshing(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const remoteId = listing?.propertyFinderState?.remoteListingId;
+    if (remoteId && refreshedRemoteIdRef.current !== remoteId) {
+      refreshedRemoteIdRef.current = remoteId;
+      refreshStatus();
+    }
+  }, [listing?.propertyFinderState?.remoteListingId, refreshStatus]);
+
   const loadCredits = useCallback(async () => {
     try {
       // Scoped to this listing and the specific account it publishes
@@ -168,7 +214,7 @@ export default function PropertyFinderPublishPage() {
   const effectiveAssignedProfileId = selectedProfileId ?? listing.createdBy.pfPublicProfileId;
   const chosenOption = options?.find((o) => o.publicProfileId === effectiveAssignedProfileId);
   const amenityOptions = amenityOptionsFor(listing.propertyCategory);
-  const badge = listing.propertyFinderState?.state ? STATE_LABELS[listing.propertyFinderState.state] : null;
+  const badge = badgeFor(listing.propertyFinderState?.state);
 
   const missing: string[] = [];
   if (!title.trim()) missing.push("title");
@@ -299,6 +345,26 @@ export default function PropertyFinderPublishPage() {
       </div>
 
       <div className="flex flex-col gap-4">
+        {listing.propertyFinderState?.remoteListingId && (
+          <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-[12px] flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-muted">
+                PF listing <span className="font-mono text-foreground">{listing.propertyFinderState.remoteListingId}</span>
+              </p>
+              {listing.propertyFinderState.lastSyncedAt && (
+                <p className="text-muted mt-0.5">Status checked {new Date(listing.propertyFinderState.lastSyncedAt).toLocaleString()}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={refreshStatus}
+              disabled={statusRefreshing}
+              className="shrink-0 text-[12px] font-semibold px-3 py-2 rounded-lg bg-surface-muted active:opacity-70 disabled:opacity-60"
+            >
+              {statusRefreshing ? "Checking..." : "Refresh status"}
+            </button>
+          </div>
+        )}
         {credits && (
           <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] flex flex-col gap-1.5">
             {credits.accountBalance ? (

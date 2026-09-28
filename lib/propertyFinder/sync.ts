@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Listing } from "@prisma/client";
 import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
-import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, PFListingPayload, PropertyFinderApiError } from "./client";
+import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, getListing, PFListingPayload, PropertyFinderApiError } from "./client";
 
 // This portal's identity in the generic PortalListing/PortalCredential
 // tables (see prisma/schema.prisma's Portal enum) - the one constant that
@@ -268,4 +268,38 @@ export async function resetPropertyFinderListing(listingId: number): Promise<voi
     where: portalKey(listingId),
     data: { remoteListingId: null, state: null, lastError: null, enabled: false, reference: newReference, lastSyncedAt: new Date() },
   });
+}
+
+export interface PropertyFinderStatus {
+  remoteListingId: string | null;
+  // PF's own raw state.stage string (e.g. draft/live/takendown/archived per
+  // PortalListing.state's own field comment) - stored verbatim, not mapped
+  // into this app's own pending_publishing/publishing_failed vocabulary,
+  // since that vocabulary is this app's own invention for states PF hasn't
+  // confirmed yet (webhook-derived), not a translation of PF's real enum.
+  stage: string | null;
+  reasons: string[];
+}
+
+// Pulls the listing's actual current state directly from PF (GET
+// /v1/listings/{id}) rather than only ever relying on the webhook - the
+// webhook requires PF to be correctly configured to call back to this app AND
+// for that delivery to succeed, neither of which is guaranteed (and can't be
+// observed from here if it silently isn't happening). This is the
+// authoritative alternative: ask PF directly, right now, what it thinks this
+// listing's state is, and persist exactly that.
+export async function refreshPropertyFinderListingStatus(listingId: number): Promise<PropertyFinderStatus | null> {
+  const portalListing = await prisma.portalListing.findUnique({ where: portalKey(listingId) });
+  if (!portalListing?.remoteListingId) return null;
+
+  const response = await getListing(portalListing.remoteListingId);
+  const stage = response.state?.stage ?? null;
+  const reasons = response.state?.reasons?.map((r) => r.en).filter(Boolean) ?? [];
+
+  await prisma.portalListing.update({
+    where: portalKey(listingId),
+    data: { state: stage, lastError: reasons.length > 0 ? reasons.join("; ") : null, lastSyncedAt: new Date() },
+  });
+
+  return { remoteListingId: portalListing.remoteListingId, stage, reasons };
 }
