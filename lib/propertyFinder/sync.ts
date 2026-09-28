@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Listing } from "@prisma/client";
 import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
-import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, getListing, PFListingPayload, PropertyFinderApiError } from "./client";
+import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, getListing, PFListingPayload, PFListingResponse, PropertyFinderApiError } from "./client";
 
 // This portal's identity in the generic PortalListing/PortalCredential
 // tables (see prisma/schema.prisma's Portal enum) - the one constant that
@@ -169,11 +169,33 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     const payload = buildListingPayload(listing, assignedProfileId!, pfUser.id, reference);
 
     const remoteListingId = portalListing?.remoteListingId;
-    const response = remoteListingId ? await updateListing(remoteListingId, payload) : await createListing(payload);
-    const newRemoteListingId = remoteListingId ?? response.id;
+    let response: PFListingResponse;
+    let isNewRemoteListing = !remoteListingId;
+    if (remoteListingId) {
+      try {
+        response = await updateListing(remoteListingId, payload);
+      } catch (err) {
+        // A 404 here means PF no longer recognizes this id at all (seen in
+        // practice as "The listing was not found or you do not have access
+        // to it") - the stored remoteListingId is stale (e.g. PF expired or
+        // otherwise dropped it). Retrying update forever can never succeed,
+        // so self-heal by creating a fresh listing in the same attempt
+        // instead of leaving the agent stuck with no path forward short of
+        // the manual admin-only reset action.
+        if (err instanceof PropertyFinderApiError && err.status === 404) {
+          response = await createListing(payload);
+          isNewRemoteListing = true;
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      response = await createListing(payload);
+    }
+    const newRemoteListingId = isNewRemoteListing ? response.id : remoteListingId!;
 
     // Persist the id the moment we have it, before the two steps below that
-    // can still fail - createListing had already fully succeeded on PF's
+    // can still fail - create/update had already fully succeeded on PF's
     // side at this point (a real listing now exists there under this
     // reference), and previously this was only saved after publishListing
     // ALSO succeeded. If getPublishPrice/publishListing then failed, the
@@ -182,7 +204,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     // ever being reused) while this app still thought remoteListingId was
     // null - the next attempt would call createListing again with the same
     // reference and PF would correctly reject it as a duplicate, forever.
-    if (!remoteListingId) {
+    if (isNewRemoteListing) {
       await prisma.portalListing.update({ where: portalKey(listingId), data: { remoteListingId: newRemoteListingId, lastSyncedAt: new Date() } });
     }
 

@@ -324,6 +324,25 @@ export default function PropertyFinderPublishPage() {
   }
 
   const enabled = listing.propertyFinderState?.enabled ?? false;
+  // Drives which actions actually make sense to show/label right now,
+  // instead of always presenting the same five buttons regardless of
+  // whether this listing has ever touched Property Finder - the confusion
+  // this was causing (tapping "Save & Publish" on something already live,
+  // with no sense of that from the button itself) is exactly what this
+  // fixes.
+  const pfState = listing.propertyFinderState?.state ?? null;
+  const neverPublished = !listing.propertyFinderState?.remoteListingId;
+  const isLive = pfState === "live";
+  const isFailed = pfState === "publishing_failed" || pfState === "takendown";
+  const publishLabel = saving
+    ? "Saving..."
+    : neverPublished
+      ? "Save & Publish to Property Finder"
+      : isFailed
+        ? "Retry Publish to Property Finder"
+        : isLive
+          ? "Update Live Listing"
+          : "Save & Publish to Property Finder";
 
   return (
     <div className="px-4 pb-10">
@@ -672,18 +691,20 @@ export default function PropertyFinderPublishPage() {
             onClick={() => handleSave(true)}
             disabled={saving || !options || missing.length > 0}
             className="w-full rounded-xl py-3.5 text-base font-semibold text-white active:opacity-80 disabled:opacity-60"
-            style={{ background: "var(--primary)" }}
+            style={{ background: isFailed ? "var(--danger)" : "var(--primary)" }}
           >
-            {saving ? "Saving..." : "Save & Publish to Property Finder"}
+            {publishLabel}
           </button>
-          <button
-            type="button"
-            onClick={() => handleSave(null)}
-            disabled={saving || !options}
-            className="w-full rounded-xl py-3 text-[14px] font-semibold text-foreground bg-surface-muted active:opacity-70 disabled:opacity-60"
-          >
-            Save as Draft
-          </button>
+          {!enabled && (
+            <button
+              type="button"
+              onClick={() => handleSave(null)}
+              disabled={saving || !options}
+              className="w-full rounded-xl py-3 text-[14px] font-semibold text-foreground bg-surface-muted active:opacity-70 disabled:opacity-60"
+            >
+              Save as Draft
+            </button>
+          )}
           {enabled && (
             <button
               type="button"
