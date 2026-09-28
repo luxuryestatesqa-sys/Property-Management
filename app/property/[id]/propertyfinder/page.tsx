@@ -106,14 +106,17 @@ export default function PropertyFinderPublishPage() {
   const loadCredits = useCallback(async () => {
     try {
       // Scoped to this listing and the specific account it publishes
-      // under - not the company-wide total.
-      const res = await fetch(`/api/listings/${id}/propertyfinder/credits`);
+      // under - not the company-wide total. Passing the currently selected
+      // (possibly unsaved) account so switching it in the picker updates
+      // this balance right away instead of only after Save.
+      const query = selectedProfileId ? `?profileId=${selectedProfileId}` : "";
+      const res = await fetch(`/api/listings/${id}/propertyfinder/credits${query}`);
       const data = await res.json();
       if (res.ok) setCredits(data);
     } catch {
       // Non-critical - just don't show the credits line if this fails.
     }
-  }, [id]);
+  }, [id, selectedProfileId]);
 
   useEffect(() => {
     loadCredits();
@@ -227,6 +230,10 @@ export default function PropertyFinderPublishPage() {
       if (!savedState.ok) {
         if (savedState.reasons) setReasons(savedState.reasons);
         else setError(savedState.error ?? "Something went wrong");
+        // Reload even on failure - a failed publish attempt still persists
+        // state: publishing_failed + lastError on the listing, and the agent
+        // needs to see that (badge + banner), not just this inline message.
+        await load();
         return;
       }
       await load();

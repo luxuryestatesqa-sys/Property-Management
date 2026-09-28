@@ -64,13 +64,22 @@ async function pfFetch<T>(path: string, init: RequestInit = {}, retryOn401 = tru
   }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new PropertyFinderApiError(
-      res.status,
-      body?.detail || body?.title || `Property Finder request failed: ${res.status}`,
-      body?.code,
-      body?.errors ?? []
-    );
+    const rawText = await res.text().catch(() => "");
+    let body: { detail?: string; title?: string; code?: string; errors?: PFFieldError[] } | null = null;
+    try {
+      body = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      body = null;
+    }
+    // Falls back to method+path plus a snippet of the raw body when PF's
+    // error has no detail/title - a 403 with an unparseable (e.g. HTML)
+    // body means this never reached PF's own app layer at all (a gateway/WAF
+    // rejection), which is a very different problem than a business-rule 403
+    // from PF itself, and "request failed: 403" alone can't tell them apart.
+    const fallback = `Property Finder request failed: ${res.status} (${init.method ?? "GET"} ${path})${
+      body === null && rawText ? ` - ${rawText.slice(0, 200)}` : ""
+    }`;
+    throw new PropertyFinderApiError(res.status, body?.detail || body?.title || fallback, body?.code, body?.errors ?? []);
   }
 
   if (res.status === 204) return undefined as T;

@@ -29,9 +29,24 @@ export function effectiveAssignedProfileId(
 // so this is new: set APP_BASE_URL explicitly (recommended - stable across
 // deploys), or it falls back to Vercel's own VERCEL_URL at runtime.
 export function getAppBaseUrl(): string {
-  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  throw new Error("APP_BASE_URL (or VERCEL_URL) is not set - required to build publicly-fetchable image URLs for Property Finder");
+  const raw = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.replace(/\/$/, "") : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+  if (!raw) {
+    throw new Error("APP_BASE_URL (or VERCEL_URL) is not set - required to build publicly-fetchable image URLs for Property Finder");
+  }
+
+  // A loopback/private hostname here (e.g. APP_BASE_URL left at its local-dev
+  // default of http://localhost:3000) builds image/webhook URLs Property
+  // Finder's servers can never reach - their edge rejects the request outright
+  // (a generic HTML block page, not their normal JSON error), which otherwise
+  // shows up as an unexplained 403 on publish with no clue why.
+  const hostname = new URL(raw).hostname;
+  const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname);
+  if (isLocal) {
+    throw new Error(
+      `APP_BASE_URL is set to ${raw}, which Property Finder can't reach over the public internet - publishing and webhooks will fail. Set it to your deployed site's public URL, or use a public tunnel (e.g. ngrok) while testing from local dev.`
+    );
+  }
+  return raw;
 }
 
 export interface PropertyFinderEligibility {
@@ -112,10 +127,10 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
   if (!eligibility.eligible) {
     await prisma.portalListing.upsert({
       where: portalKey(listingId),
-      update: { lastError: eligibility.reasons.join("; "), lastSyncedAt: new Date() },
-      create: { listingId, portal: PORTAL, enabled: true, lastError: eligibility.reasons.join("; "), lastSyncedAt: new Date() },
+      update: { state: "publishing_failed", lastError: eligibility.reasons.join("; "), lastSyncedAt: new Date() },
+      create: { listingId, portal: PORTAL, enabled: true, state: "publishing_failed", lastError: eligibility.reasons.join("; "), lastSyncedAt: new Date() },
     });
-    return;
+    throw new Error(eligibility.reasons.join("; "));
   }
 
   const reference = portalListing?.reference || `LE-${listing.id}`;
@@ -136,9 +151,10 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     const message = err instanceof PropertyFinderApiError ? [err.message, ...err.fieldErrors.map((f) => `${f.pointer ?? ""} ${f.detail ?? ""}`.trim())].join("; ") : "Failed to reach Property Finder";
     await prisma.portalListing.upsert({
       where: portalKey(listingId),
-      update: { lastError: message, lastSyncedAt: new Date() },
-      create: { listingId, portal: PORTAL, enabled: true, lastError: message, lastSyncedAt: new Date() },
+      update: { state: "publishing_failed", lastError: message, lastSyncedAt: new Date() },
+      create: { listingId, portal: PORTAL, enabled: true, state: "publishing_failed", lastError: message, lastSyncedAt: new Date() },
     });
+    throw new Error(message);
   }
 }
 

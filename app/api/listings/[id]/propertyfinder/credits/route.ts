@@ -10,7 +10,7 @@ const PORTAL = "PROPERTY_FINDER" as const;
 // account it publishes under - not the company-wide total, and not
 // browsable for a listing you don't own/manage (same access rule as the
 // publish toggle route).
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireSession();
   if (error) return error;
 
@@ -29,7 +29,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const portalListing = listing.portalListings[0] ?? null;
-  const assignedProfileId = effectiveAssignedProfileId(portalListing, listing.createdBy);
+  // Admins can reassign which Property Finder account a listing publishes
+  // under (see the account picker on the publish page) before saving - let
+  // the balance preview follow that unsaved choice instead of freezing on
+  // whatever's persisted, so switching accounts updates this immediately.
+  const previewProfileId = isAdmin ? Number(req.nextUrl.searchParams.get("profileId")) || null : null;
+  const assignedProfileId = previewProfileId ?? effectiveAssignedProfileId(portalListing, listing.createdBy);
 
   try {
     // Each Property Finder account has its own credit pool - pass the

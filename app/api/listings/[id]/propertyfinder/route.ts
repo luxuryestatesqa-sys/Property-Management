@@ -88,7 +88,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!eligibility.eligible) {
       return NextResponse.json({ error: "Not ready to publish", reasons: eligibility.reasons }, { status: 400 });
     }
-    await publishListingToPropertyFinder(listingId);
+    try {
+      await publishListingToPropertyFinder(listingId);
+    } catch (err) {
+      // publishListingToPropertyFinder already persisted the failure detail
+      // on PortalListing (state: publishing_failed, lastError) - surface it
+      // here too so the caller gets a non-200 instead of a false "Saved."
+      const state = await prisma.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to publish to Property Finder", propertyFinderState: state }, { status: 502 });
+    }
   } else if (body.enabled === false) {
     await unpublishListingFromPropertyFinder(listingId);
   }
