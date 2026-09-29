@@ -30,17 +30,27 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (
     !image ||
     image.listingId !== Number(id) ||
-    image.listing.status !== "ACTIVE" ||
     image.listing.portalListings.length === 0
   ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { buffer, contentType } = dataUrlToBuffer(image.url);
-  return new NextResponse(new Uint8Array(buffer), {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
-    },
-  });
+  // If the image URL is a remote HTTP/HTTPS URL, redirect to it
+  if (image.url.startsWith("http://") || image.url.startsWith("https://")) {
+    return NextResponse.redirect(image.url, 302);
+  }
+
+  try {
+    const { buffer, contentType } = dataUrlToBuffer(image.url);
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": buffer.length.toString(),
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  } catch (err) {
+    console.error("Failed to parse listing image data URL:", err);
+    return NextResponse.json({ error: "Invalid image data" }, { status: 500 });
+  }
 }

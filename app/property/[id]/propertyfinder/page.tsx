@@ -365,23 +365,30 @@ export default function PropertyFinderPublishPage() {
 
       <div className="flex flex-col gap-4">
         {listing.propertyFinderState?.remoteListingId && (
-          <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-[12px] flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-muted">
-                PF listing <span className="font-mono text-foreground">{listing.propertyFinderState.remoteListingId}</span>
-              </p>
-              {listing.propertyFinderState.lastSyncedAt && (
-                <p className="text-muted mt-0.5">Status checked {new Date(listing.propertyFinderState.lastSyncedAt).toLocaleString()}</p>
-              )}
+          <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-[12px] flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-muted">
+                  PF listing <span className="font-mono text-foreground font-semibold">{listing.propertyFinderState.remoteListingId}</span>
+                </p>
+                {listing.propertyFinderState.lastSyncedAt && (
+                  <p className="text-muted mt-0.5">Status checked {new Date(listing.propertyFinderState.lastSyncedAt).toLocaleString()}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={refreshStatus}
+                disabled={statusRefreshing}
+                className="shrink-0 text-[12px] font-semibold px-3 py-2 rounded-lg bg-surface-muted active:opacity-70 disabled:opacity-60"
+              >
+                {statusRefreshing ? "Checking..." : "Refresh status"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={refreshStatus}
-              disabled={statusRefreshing}
-              className="shrink-0 text-[12px] font-semibold px-3 py-2 rounded-lg bg-surface-muted active:opacity-70 disabled:opacity-60"
-            >
-              {statusRefreshing ? "Checking..." : "Refresh status"}
-            </button>
+            {listing.propertyFinderState.state && listing.propertyFinderState.state !== "live" && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-500/10 p-2 rounded-lg">
+                <strong>Note:</strong> Property Finder listings only open on propertyfinder.qa once they transition to <strong>Live</strong> status. While in <em>{listing.propertyFinderState.state}</em> status or during initial photo sync/review, visiting Property Finder returns a 404 &quot;page not found&quot;.
+              </p>
+            )}
           </div>
         )}
         {credits && (

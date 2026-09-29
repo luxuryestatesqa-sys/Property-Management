@@ -29,9 +29,13 @@ export function effectiveAssignedProfileId(
 // so this is new: set APP_BASE_URL explicitly (recommended - stable across
 // deploys), or it falls back to Vercel's own VERCEL_URL at runtime.
 export function getAppBaseUrl(): string {
-  const raw = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.replace(/\/$/, "") : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+  let raw = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.trim().replace(/\/$/, "") : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
   if (!raw) {
     throw new Error("APP_BASE_URL (or VERCEL_URL) is not set - required to build publicly-fetchable image URLs for Property Finder");
+  }
+
+  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+    raw = `https://${raw}`;
   }
 
   // A loopback/private hostname here (e.g. APP_BASE_URL left at its local-dev
