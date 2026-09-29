@@ -29,7 +29,14 @@ export function effectiveAssignedProfileId(
 // so this is new: set APP_BASE_URL explicitly (recommended - stable across
 // deploys), or it falls back to Vercel's own VERCEL_URL at runtime.
 export function getAppBaseUrl(): string {
-  let raw = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.trim().replace(/\/$/, "") : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+  let raw = process.env.APP_BASE_URL?.trim().replace(/\/$/, "");
+
+  // If APP_BASE_URL is unset or a local URL (e.g. http://localhost:3000), but VERCEL_URL exists, use VERCEL_URL
+  const isRawLocal = raw ? (raw.includes("localhost") || raw.includes("127.0.0.1") || raw.includes("0.0.0.0")) : true;
+  if ((!raw || isRawLocal) && process.env.VERCEL_URL) {
+    raw = `https://${process.env.VERCEL_URL}`;
+  }
+
   if (!raw) {
     throw new Error("APP_BASE_URL (or VERCEL_URL) is not set - required to build publicly-fetchable image URLs for Property Finder");
   }
@@ -38,16 +45,11 @@ export function getAppBaseUrl(): string {
     raw = `https://${raw}`;
   }
 
-  // A loopback/private hostname here (e.g. APP_BASE_URL left at its local-dev
-  // default of http://localhost:3000) builds image/webhook URLs Property
-  // Finder's servers can never reach - their edge rejects the request outright
-  // (a generic HTML block page, not their normal JSON error), which otherwise
-  // shows up as an unexplained 403 on publish with no clue why.
   const hostname = new URL(raw).hostname;
   const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname);
   if (isLocal) {
     throw new Error(
-      `APP_BASE_URL is set to ${raw}, which Property Finder can't reach over the public internet - publishing and webhooks will fail. Set it to your deployed site's public URL, or use a public tunnel (e.g. ngrok) while testing from local dev.`
+      `APP_BASE_URL is set to ${raw}, which Property Finder can't reach over the public internet - publishing and webhooks will fail. Set APP_BASE_URL in your environment variables to your deployed site's public URL (e.g. https://yourdomain.com), or use a public tunnel while testing locally.`
     );
   }
   return raw;
