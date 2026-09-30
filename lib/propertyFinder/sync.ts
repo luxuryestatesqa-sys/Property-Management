@@ -118,9 +118,12 @@ function buildListingPayload(
       // enabled-flag race this app used to have) can stay cached as broken on
       // their side indefinitely, even after our fix, since the URL itself
       // never changes between updates.
-      images: listing.images.map((img) => ({
-        original: { url: `${baseUrl}/api/listings/${listing.id}/images/${img.id}?v=${listing.updatedAt.getTime()}` },
-      })),
+      images: listing.images.map((img) => {
+        const imageUrl = `${baseUrl}/api/listings/${listing.id}/images/${img.id}.jpg?v=${Date.now()}`;
+        return {
+          original: { url: imageUrl },
+        };
+      }),
     },
   };
 }
@@ -242,7 +245,11 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
       if (!cheapestProduct) {
         throw new Error("Property Finder didn't offer any publishing option for this listing");
       }
-      await publishListing(newRemoteListingId, cheapestProduct.name);
+      try {
+        await publishListing(newRemoteListingId, "standard");
+      } catch {
+        await publishListing(newRemoteListingId, cheapestProduct.name);
+      }
     } catch (publishErr) {
       if (publishErr instanceof PropertyFinderApiError && publishErr.status === 404) {
         // Already past draft - the update we just sent still applied. The

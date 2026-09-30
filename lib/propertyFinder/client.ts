@@ -181,7 +181,7 @@ export interface PFListingPayload {
     type: "sale" | "yearly" | "monthly" | "weekly" | "daily";
     amounts: Partial<Record<"sale" | "yearly" | "monthly" | "weekly" | "daily", number>>;
   };
-  media: { images: { original: { url: string } }[] };
+  media: { images: { url?: string; original?: { url: string } }[] };
 }
 
 export interface PFListingResponse {
