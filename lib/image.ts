@@ -1,7 +1,14 @@
 // Resizes an image file client-side (longer side capped at maxDimension) and
 // re-encodes it as a compressed JPEG data URL, so avatar uploads stay small
-// without needing a separate file-storage service.
-export function resizeImageFile(file: File, maxDimension = 320, quality = 0.82): Promise<string> {
+// without needing a separate file-storage service. minDimension rejects a
+// source whose longer side falls short of it - this only ever shrinks an
+// image, so a low-resolution source (a screenshot, a cropped thumbnail)
+// would otherwise pass through close to its original, often-tiny size.
+// Property Finder's own image spec requires at least 5KB per photo and
+// rejects anything smaller as a processing failure; a real property photo at
+// a sensible resolution is never naturally that small, so this catches it at
+// upload time with a clear reason instead of a portal rejecting it later.
+export function resizeImageFile(file: File, maxDimension = 320, quality = 0.82, minDimension = 0): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Failed to read file"));
@@ -9,6 +16,10 @@ export function resizeImageFile(file: File, maxDimension = 320, quality = 0.82):
       const img = new Image();
       img.onerror = () => reject(new Error("Could not load image"));
       img.onload = () => {
+        if (minDimension > 0 && Math.max(img.width, img.height) < minDimension) {
+          reject(new Error(`Photo resolution is too low (${img.width}×${img.height}px) - use a photo at least ${minDimension}px on its longest side`));
+          return;
+        }
         let { width, height } = img;
         if (width > height && width > maxDimension) {
           height = Math.round((height * maxDimension) / width);
@@ -35,9 +46,11 @@ export function resizeImageFile(file: File, maxDimension = 320, quality = 0.82):
 }
 
 // Listing photos are shown larger than avatars (full-width cards, gallery),
-// so they get more headroom than the 320px/0.82 avatar preset.
+// so they get more headroom than the 320px/0.82 avatar preset. The 640px
+// floor is well above a typical screenshot/thumbnail but comfortably below
+// what any real phone or camera photo shoots at.
 export function resizeListingPhoto(file: File): Promise<string> {
-  return resizeImageFile(file, 1280, 0.75);
+  return resizeImageFile(file, 1280, 0.75, 640);
 }
 
 // Document photos (title deed, authorization form) need enough resolution

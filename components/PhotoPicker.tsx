@@ -37,11 +37,17 @@ export default function PhotoPicker({ images, onChange }: PhotoPickerProps) {
     setProcessing(true);
     try {
       const resized: string[] = [];
+      const failures: string[] = [];
       for (const file of toProcess) {
         if (!file.type.startsWith("image/")) continue;
-        resized.push(await resizeListingPhoto(file));
+        try {
+          resized.push(await resizeListingPhoto(file));
+        } catch (err) {
+          failures.push(`${file.name}: ${err instanceof Error ? err.message : "Failed to process"}`);
+        }
       }
-      onChange([...images, ...resized]);
+      if (resized.length > 0) onChange([...images, ...resized]);
+      if (failures.length > 0) setError(failures.join("; "));
     } catch {
       setError("Failed to process one or more photos");
     } finally {
