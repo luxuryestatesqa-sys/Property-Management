@@ -30,7 +30,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0f3d3e",
+  themeColor: "#8a6d1f",
   // Lets the page draw under the status bar/notch on devices that need it,
   // which is what makes env(safe-area-inset-*) resolve to real values
   // instead of always 0 - without this, .safe-top/.safe-bottom do nothing.

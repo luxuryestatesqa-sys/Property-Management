@@ -17,8 +17,8 @@ export default function manifest(): MetadataRoute.Manifest {
     // Matches #app-splash's background (globals.css) so the OS's own
     // app-launch splash (icon + this color) hands off to our splash with no
     // visible color jump - only the foreground (icon -> real logo) changes.
-    background_color: "#0f3d3e",
-    theme_color: "#0f3d3e",
+    background_color: "#8a6d1f",
+    theme_color: "#8a6d1f",
     icons: [
       { src: `/icons/icon-192.png?v=${ICON_VERSION}`, sizes: "192x192", type: "image/png" },
       { src: `/icons/icon-512.png?v=${ICON_VERSION}`, sizes: "512x512", type: "image/png" },
