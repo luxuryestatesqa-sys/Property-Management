@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/api-helpers";
+import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingUpdateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
 import { isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
@@ -19,17 +19,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true, pfPublicProfileId: true } },
       auditLogs: { include: { user: { select: { name: true } } }, orderBy: { timestamp: "desc" } },
       images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true } },
-      portalListings: { where: { portal: "PROPERTY_FINDER" } },
+      portalListings: true,
     },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // PortalListing is generic (one row per listing per portal, for when a
-  // second portal is added) - reshape Property Finder's row back into the
-  // singular `propertyFinderState` field the frontend expects, so this
-  // generalization doesn't ripple into any client code.
+  // PortalListing is generic (one row per listing per portal) - reshape it
+  // into the shapes each part of the frontend expects: the singular
+  // `propertyFinderState` field existing PF UI already reads, plus a
+  // `channelStates` map (by portal) for the newer Website/Qatar
+  // Living/Property Oryx channel toggles.
   const { portalListings, ...listingRest } = listing;
-  const shapedListing = { ...listingRest, propertyFinderState: portalListings[0] ?? null };
+  const shapedListing = {
+    ...listingRest,
+    propertyFinderState: portalListings.find((p) => p.portal === "PROPERTY_FINDER") ?? null,
+    channelStates: {
+      WEBSITE: portalListings.find((p) => p.portal === "WEBSITE") ?? null,
+      QATAR_LIVING: portalListings.find((p) => p.portal === "QATAR_LIVING") ?? null,
+      PROPERTY_ORYX: portalListings.find((p) => p.portal === "PROPERTY_ORYX") ?? null,
+    },
+  };
 
   const duplicates = await prisma.listing.findMany({
     where: { dupKey: listing.dupKey, status: "ACTIVE", id: { not: listing.id } },
@@ -66,7 +75,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "You can only edit your own listings" }, { status: 403 });
   }
 
-  const body = await req.json();
+  const { value: body, error: bodyError } = await parseJsonBody(req);
+  if (bodyError) return bodyError;
   const parsed = listingUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

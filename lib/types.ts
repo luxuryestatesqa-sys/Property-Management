@@ -81,6 +81,7 @@ export interface ListingDTO {
   createdAt: string;
   updatedAt: string;
   propertyFinderState: PropertyFinderListingDTO | null;
+  channelStates: Record<PullChannel, ChannelStateDTO | null>;
 }
 
 export interface PropertyFinderListingDTO {
@@ -91,6 +92,16 @@ export interface PropertyFinderListingDTO {
   lastSyncedAt: string | null;
   assignedProfileId: number | null;
   reference: string | null;
+}
+
+// The channels that are just a PortalListing.enabled flag (read by the
+// public listing page / that portal's feed) rather than a real API push
+// like Property Finder.
+export type PullChannel = "WEBSITE" | "QATAR_LIVING" | "PROPERTY_ORYX";
+
+export interface ChannelStateDTO {
+  enabled: boolean;
+  updatedAt: string;
 }
 
 // Safe-to-share subset of ListingDTO returned by the public (unauthenticated)

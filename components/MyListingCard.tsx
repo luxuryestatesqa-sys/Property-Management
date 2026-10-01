@@ -134,7 +134,7 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  router.push(`/property/${listing.id}/propertyfinder`);
+                  router.push(`/property/${listing.id}/portals`);
                 }}
                 className="w-full text-left px-4 py-3 text-[13px] font-medium active:bg-surface-muted border-t border-border"
               >

@@ -33,7 +33,7 @@ import PhotoPicker from "@/components/PhotoPicker";
 import PhotoGallery from "@/components/PhotoGallery";
 import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } from "@/components/PrivateDetailsSection";
 import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
-import PropertyFinderPublishPanel from "@/components/PropertyFinderPublishPanel";
+import PublishToPortalsCard from "@/components/PublishToPortalsCard";
 import { bathroomsToInputValue, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
@@ -427,9 +427,7 @@ export default function PropertyDetailPage() {
             </section>
           )}
 
-          {canManage && (
-            <PropertyFinderPublishPanel listing={listing} state={listing.propertyFinderState} />
-          )}
+          <PublishToPortalsCard listing={listing} readOnly={!canManage} />
 
           <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Listing Information</h3>

@@ -172,12 +172,17 @@ export default function AddPropertyPage() {
           confirmDuplicate,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(extractErrorMessage(data.error, "Something went wrong. Please check the form and try again."));
+        if (res.status === 401) {
+          setError("Session expired. Please log in again.");
+          router.push("/login");
+          return;
+        }
+        setError(extractErrorMessage(data?.error, "Something went wrong. Please check the form and try again."));
         return;
       }
-      if (data.duplicate) {
+      if (data?.duplicate) {
         setDuplicates(data.existing);
         return;
       }
@@ -186,8 +191,8 @@ export default function AddPropertyPage() {
       setTimeout(() => {
         router.push(`/property/${data.listing.id}`);
       }, 900);
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setSubmitting(false);
     }

@@ -11,6 +11,7 @@ export default auth((req) => {
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
   // The public share link (/listing/[id]) and its API are opened by clients
   // with no CRM account at all - they must never be redirected to /login.
+  const isApiRoute = nextUrl.pathname.startsWith("/api/");
   const isPublicShare = nextUrl.pathname.startsWith("/listing/") || nextUrl.pathname.startsWith("/api/public/");
   // Listing photos fetched by an external portal's own crawler (e.g.
   // Property Finder downloading images for a published listing) - no
@@ -24,10 +25,15 @@ export default auth((req) => {
 
   if (isApiAuth || isPublicShare || isPortalImageFetch || isPortalWebhook) return NextResponse.next();
 
-  if (!isLoggedIn && !isAuthPage) {
-    const loginUrl = new URL("/login", nextUrl);
-    loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+  if (!isLoggedIn) {
+    if (isApiRoute) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAuthPage) {
+      const loginUrl = new URL("/login", nextUrl);
+      loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   if (isLoggedIn && isAuthPage) {

@@ -245,6 +245,7 @@ model PortalListing {
 
   @@unique([listingId, portal])
   @@index([remoteListingId])
+  @@index([portal, enabled])
 }
 
 // One row per external listing portal this agency connects to - lets an
@@ -256,6 +257,9 @@ model PortalListing {
 // changes.
 enum Portal {
   PROPERTY_FINDER
+  WEBSITE
+  QATAR_LIVING
+  PROPERTY_ORYX
 }
 
 model PortalCredential {
@@ -265,6 +269,15 @@ model PortalCredential {
   apiKey        String?
   apiSecret     String?
   webhookSecret String?
+
+  // Public XML feed access (WEBSITE excluded - it has no feed, just the
+  // enabled flag on PortalListing). feedAgencyId is a plain identifier
+  // shown in the feed URL (?agency=ID&token=SECRET); feedToken is the
+  // actual secret. Both are admin-set/regenerated from the settings page,
+  // not derived from apiKey/apiSecret above - a portal can have a live API
+  // integration, a feed, both, or neither.
+  feedToken    String? @unique
+  feedAgencyId String?
 
   updatedAt DateTime @updatedAt
 }

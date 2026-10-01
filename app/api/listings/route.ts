@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/api-helpers";
+import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingCreateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
 import { redactPrivateFieldsList } from "@/lib/listingPrivacy";
@@ -151,7 +151,8 @@ export async function POST(req: NextRequest) {
   const { session, error } = await requireSession();
   if (error) return error;
 
-  const body = await req.json();
+  const { value: body, error: bodyError } = await parseJsonBody(req);
+  if (bodyError) return bodyError;
   const parsed = listingCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

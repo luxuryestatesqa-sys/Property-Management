@@ -46,22 +46,22 @@ export default function PropertyFinderSettingsCard() {
   async function loadStatus() {
     try {
       const res = await fetch(`/api/admin/portals/${PORTAL}`);
-      const data = await res.json();
-      if (res.ok) setStatus(data);
-      else setLoadError(extractErrorMessage(data.error, "Failed to load status"));
-    } catch {
-      setLoadError("Network error. Please try again.");
+      const data = await res.json().catch(() => null);
+      if (res.ok && data) setStatus(data);
+      else setLoadError(extractErrorMessage(data?.error, "Failed to load status"));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Network error. Please try again.");
     }
   }
 
   async function loadWebhookStatus() {
     try {
       const res = await fetch("/api/portals/propertyfinder/webhooks");
-      const data = await res.json();
-      if (res.ok) setWebhookStatus(data);
-      else setWebhookError(data.error ?? "Failed to check webhook status");
-    } catch {
-      setWebhookError("Network error. Please try again.");
+      const data = await res.json().catch(() => null);
+      if (res.ok && data) setWebhookStatus(data);
+      else setWebhookError(extractErrorMessage(data?.error, "Failed to check webhook status"));
+    } catch (err) {
+      setWebhookError(err instanceof Error ? err.message : "Network error. Please try again.");
     }
   }
 
@@ -87,9 +87,9 @@ export default function PropertyFinderSettingsCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setSaveError(extractErrorMessage(data.error, "Failed to save"));
+        setSaveError(extractErrorMessage(data?.error, "Failed to save"));
         return;
       }
       setApiKeyInput("");
@@ -97,8 +97,8 @@ export default function PropertyFinderSettingsCard() {
       setEditing(false);
       setTestResult(null);
       await loadStatus();
-    } catch {
-      setSaveError("Network error. Please try again.");
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -109,14 +109,14 @@ export default function PropertyFinderSettingsCard() {
     setTestResult(null);
     try {
       const res = await fetch("/api/admin/portals/propertyfinder/test", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.ok) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
         setTestResult({ ok: true, message: `Connected — ${data.balance.remaining} of ${data.balance.total} credits remaining` });
       } else {
-        setTestResult({ ok: false, message: data.error ?? "Connection failed" });
+        setTestResult({ ok: false, message: extractErrorMessage(data?.error, "Connection failed") });
       }
-    } catch {
-      setTestResult({ ok: false, message: "Network error. Please try again." });
+    } catch (err) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : "Network error. Please try again." });
     } finally {
       setTesting(false);
     }
@@ -127,12 +127,14 @@ export default function PropertyFinderSettingsCard() {
     setWebhookError("");
     try {
       const res = await fetch("/api/portals/propertyfinder/webhooks", { method: "POST" });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setWebhookError(data.error ?? "Failed to set up webhooks");
+        setWebhookError(extractErrorMessage(data?.error, "Failed to set up webhooks"));
         return;
       }
       await loadWebhookStatus();
+    } catch (err) {
+      setWebhookError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setWebhookBusy(false);
     }

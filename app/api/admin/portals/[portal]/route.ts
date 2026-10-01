@@ -36,6 +36,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ por
     apiSecretPreview: mask(credential?.apiSecret ?? null),
     webhookSecretConfigured: Boolean(credential?.webhookSecret),
     updatedAt: credential?.updatedAt ?? null,
+    // Unlike apiKey/apiSecret above (real API credentials, never
+    // round-tripped in full), the feed token is a capability URL an admin
+    // needs to hand to a portal and copy again later - like a calendar app's
+    // "secret iCal address," it's returned in full here rather than masked.
+    feedAgencyId: credential?.feedAgencyId ?? null,
+    feedToken: credential?.feedToken ?? null,
   });
 }
 
@@ -54,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ po
 
   const body = await req.json();
   const data: Record<string, string> = {};
-  for (const field of ["apiKey", "apiSecret", "webhookSecret"] as const) {
+  for (const field of ["apiKey", "apiSecret", "webhookSecret", "feedAgencyId"] as const) {
     if (typeof body[field] === "string" && body[field].trim() !== "") {
       data[field] = body[field].trim();
     }
