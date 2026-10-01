@@ -45,9 +45,12 @@ function badgeFor(state: string | null | undefined): { label: string; bg: string
   return STATE_LABELS[state] ?? { label: state.charAt(0).toUpperCase() + state.slice(1), bg: "var(--surface-muted)", text: "var(--foreground)" };
 }
 
-const PULL_CHANNELS: { key: PullChannel; label: string; slug: string; desc: string; type: "json" | "xml" }[] = [
+const PULL_CHANNELS: { key: PullChannel; label: string; slug: string | null; desc: string; type: "json" | "xml" | "api" }[] = [
   { key: "WEBSITE", label: "Company Website", slug: "website.json", desc: "JSON feed for your official website", type: "json" },
-  { key: "QATAR_LIVING", label: "Qatar Living", slug: "qatarliving.xml", desc: "XML feed for Qatar Living portal import", type: "xml" },
+  // No copyable feed link - Qatar Living's real listings API
+  // (app/api/qatar-living/listings) authenticates with an API key managed
+  // from the Profile page, not a URL token (see components/QatarLivingApiCard).
+  { key: "QATAR_LIVING", label: "Qatar Living", slug: null, desc: "Listed via the Qatar Living API (manage the key on your Profile page)", type: "api" },
   { key: "PROPERTY_ORYX", label: "Property Oryx", slug: "oryx.xml", desc: "XML feed for Property Oryx portal import", type: "xml" },
 ];
 
@@ -502,6 +505,12 @@ export default function MultiPortalPublishingPage() {
               ) : (
                 <div className="text-muted">Select a Property Finder account to view credit balance.</div>
               )}
+              {credits.usedByThisListing !== null && (
+                <div className="flex items-center justify-between pt-1.5 border-t border-border">
+                  <span className="text-muted">Credits spent on this listing</span>
+                  <span className="font-semibold">{credits.usedByThisListing.toLocaleString()}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -783,10 +792,10 @@ export default function MultiPortalPublishingPage() {
                     </button>
                   )}
 
-                  {cred?.agencyId && cred?.token && (
+                  {ch.slug && cred?.agencyId && cred?.token && (
                     <button
                       type="button"
-                      onClick={() => copyFeedUrl(ch.slug, ch.key)}
+                      onClick={() => copyFeedUrl(ch.slug!, ch.key)}
                       className="rounded-xl px-3 py-3 text-[12px] font-semibold bg-surface-muted text-foreground active:opacity-70 shrink-0"
                     >
                       {copiedFeed === ch.slug ? "Copied Feed URL!" : "Copy Feed URL"}

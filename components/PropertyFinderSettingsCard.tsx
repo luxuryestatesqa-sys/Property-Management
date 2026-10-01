@@ -38,6 +38,7 @@ export default function PropertyFinderSettingsCard() {
 
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [imageCheck, setImageCheck] = useState<{ ok: boolean; detail: string } | null>(null);
 
   const [webhookStatus, setWebhookStatus] = useState<WebhookStatus | null>(null);
   const [webhookError, setWebhookError] = useState("");
@@ -107,6 +108,7 @@ export default function PropertyFinderSettingsCard() {
   async function testConnection() {
     setTesting(true);
     setTestResult(null);
+    setImageCheck(null);
     try {
       const res = await fetch("/api/admin/portals/propertyfinder/test", { method: "POST" });
       const data = await res.json().catch(() => null);
@@ -114,6 +116,9 @@ export default function PropertyFinderSettingsCard() {
         setTestResult({ ok: true, message: `Connected — ${data.balance.remaining} of ${data.balance.total} credits remaining` });
       } else {
         setTestResult({ ok: false, message: extractErrorMessage(data?.error, "Connection failed") });
+      }
+      if (data?.imageReachability) {
+        setImageCheck({ ok: data.imageReachability.ok, detail: data.imageReachability.detail });
       }
     } catch (err) {
       setTestResult({ ok: false, message: err instanceof Error ? err.message : "Network error. Please try again." });
@@ -252,6 +257,12 @@ export default function PropertyFinderSettingsCard() {
           {testResult && (
             <p className="text-[12px] mt-2" style={{ color: testResult.ok ? "var(--success)" : "var(--danger)" }}>
               {testResult.message}
+            </p>
+          )}
+          {imageCheck && (
+            <p className="text-[12px] mt-2" style={{ color: imageCheck.ok ? "var(--success)" : "var(--danger)" }}>
+              {imageCheck.ok ? "✓ " : "⚠ "}
+              {imageCheck.detail}
             </p>
           )}
         </div>
