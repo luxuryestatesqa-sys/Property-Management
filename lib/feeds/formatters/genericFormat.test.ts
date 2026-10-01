@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { buildGenericListingsXml } from "./genericFormat";
-import { formatQatarLivingFeed } from "./qatarLiving";
 import { formatPropertyOryxFeed } from "./propertyOryx";
 import { formatPropertyFinderFeed } from "./propertyFinder";
 import { FeedListing } from "../types";
@@ -65,7 +64,6 @@ describe("buildGenericListingsXml", () => {
 
 describe("per-portal formatters", () => {
   it("each uses its own root tag but the same generic listing shape", () => {
-    expect(formatQatarLivingFeed([SAMPLE])).toContain("<qatarliving_listings");
     expect(formatPropertyOryxFeed([SAMPLE])).toContain("<propertyoryx_listings");
     expect(formatPropertyFinderFeed([SAMPLE])).toContain("<propertyfinder_listings");
   });

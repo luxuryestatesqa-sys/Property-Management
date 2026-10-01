@@ -20,12 +20,13 @@ export async function OPTIONS() {
 
 // Public, unauthenticated (by design - a portal's crawler or your own
 // website's server has no CRM session) feed, one per entry in
-// lib/feeds/generateFeed's FEED_SLUGS: /feeds/pf.xml, /feeds/qatarliving.xml,
-// /feeds/oryx.xml (portal import formats, XML) and /feeds/website.json (for
-// your own site's templates, JSON) - each requiring
-// ?agency=<id>&token=<secret> matching that feed's PortalCredential row.
-// Reached with no proxy.ts change needed - its middleware matcher already
-// excludes any path ending in .xml or .json.
+// lib/feeds/generateFeed's FEED_SLUGS: /feeds/pf.xml, /feeds/oryx.xml
+// (portal import formats, XML) and /feeds/website.json (for your own site's
+// templates, JSON) - each requiring ?agency=<id>&token=<secret> matching
+// that feed's PortalCredential row. Qatar Living isn't here - see
+// app/api/qatar-living/listings for its own real, paginated API. Reached
+// with no proxy.ts change needed - its middleware matcher already excludes
+// any path ending in .xml or .json.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ portal: string }> }) {
   const { portal: slug } = await params;
   const entry = FEED_SLUGS[slug];

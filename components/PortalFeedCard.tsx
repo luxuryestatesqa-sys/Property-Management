@@ -9,8 +9,8 @@ interface FeedStatus {
 }
 
 interface PortalFeedCardProps {
-  portal: "WEBSITE" | "PROPERTY_FINDER" | "QATAR_LIVING" | "PROPERTY_ORYX";
-  slug: "website.json" | "pf.xml" | "qatarliving.xml" | "oryx.xml";
+  portal: "WEBSITE" | "PROPERTY_FINDER" | "PROPERTY_ORYX";
+  slug: "website.json" | "pf.xml" | "oryx.xml";
   label: string;
 }
 

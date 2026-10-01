@@ -22,8 +22,12 @@ export default auth((req) => {
   // back with a listing's publish status) - authenticated by HMAC signature
   // in the route itself, not a session; same redirect risk as above.
   const isPortalWebhook = nextUrl.pathname.startsWith("/api/portals/") && nextUrl.pathname.endsWith("/webhook");
+  // Qatar Living's own crawler polling its listings feed API - no CRM
+  // session either, authenticated by the X-API-Key header in the route
+  // itself (lib/qatarLiving/auth.ts); same redirect risk as above.
+  const isQatarLivingFeed = nextUrl.pathname.startsWith("/api/qatar-living/");
 
-  if (isApiAuth || isPublicShare || isPortalImageFetch || isPortalWebhook) return NextResponse.next();
+  if (isApiAuth || isPublicShare || isPortalImageFetch || isPortalWebhook || isQatarLivingFeed) return NextResponse.next();
 
   if (!isLoggedIn) {
     if (isApiRoute) {

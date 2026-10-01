@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
-import { getChannelEligibility } from "@/lib/portals/eligibility";
+import { getEligibilityForPortal } from "@/lib/portals/eligibility";
 import { Portal } from "@prisma/client";
 
 // The pull-based channels this route handles - each is just a
@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (body.enabled) {
-    const eligibility = getChannelEligibility(listing, listing.images);
+    const eligibility = getEligibilityForPortal(portal, listing, listing.images);
     if (!eligibility.eligible) {
       return NextResponse.json({ error: "Not ready to publish", reasons: eligibility.reasons }, { status: 400 });
     }

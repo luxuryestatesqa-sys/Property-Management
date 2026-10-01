@@ -270,12 +270,14 @@ model PortalCredential {
   apiSecret     String?
   webhookSecret String?
 
-  // Public XML feed access (WEBSITE excluded - it has no feed, just the
-  // enabled flag on PortalListing). feedAgencyId is a plain identifier
-  // shown in the feed URL (?agency=ID&token=SECRET); feedToken is the
-  // actual secret. Both are admin-set/regenerated from the settings page,
-  // not derived from apiKey/apiSecret above - a portal can have a live API
-  // integration, a feed, both, or neither.
+  // Public feed/API access, shared across two different auth shapes:
+  // PROPERTY_FINDER/PROPERTY_ORYX/WEBSITE use feedAgencyId+feedToken as a
+  // URL query string (?agency=ID&token=SECRET) against app/feeds/[portal];
+  // QATAR_LIVING uses feedToken alone as a static X-API-Key header against
+  // app/api/qatar-living/listings (feedAgencyId unused there - QL's spec has
+  // no agency concept). Regenerated from the settings page, not derived from
+  // apiKey/apiSecret above - a portal can have a live push-API integration,
+  // a pull feed/API, both, or neither.
   feedToken    String? @unique
   feedAgencyId String?
 

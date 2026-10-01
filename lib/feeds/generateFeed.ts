@@ -6,22 +6,30 @@ import { getChannelEligibility } from "@/lib/portals/eligibility";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_LABELS } from "@/lib/propertyCategory";
 import { FeedListing, FeedResult } from "./types";
 import { formatPropertyFinderFeed } from "./formatters/propertyFinder";
-import { formatQatarLivingFeed } from "./formatters/qatarLiving";
 import { formatPropertyOryxFeed } from "./formatters/propertyOryx";
 import { formatWebsiteFeed } from "./formatters/websiteJson";
 
 // The public feed URL slug (e.g. /feeds/pf.xml) for each portal - the one
 // place mapping a URL to a Portal enum value, its formatter, and its content
 // type, so adding a feed here doesn't touch the route handler itself.
+// Qatar Living isn't here - once its real spec arrived, it got its own
+// paginated, header-authenticated REST API (app/api/qatar-living/listings)
+// instead of this single-file XML pull-feed pattern, which only fits
+// portals that just need one importable file at a URL.
 export const FEED_SLUGS: Record<string, { portal: Portal; format: (listings: FeedListing[]) => string; contentType: string }> = {
   "pf.xml": { portal: "PROPERTY_FINDER", format: formatPropertyFinderFeed, contentType: "application/xml; charset=utf-8" },
-  "qatarliving.xml": { portal: "QATAR_LIVING", format: formatQatarLivingFeed, contentType: "application/xml; charset=utf-8" },
   "oryx.xml": { portal: "PROPERTY_ORYX", format: formatPropertyOryxFeed, contentType: "application/xml; charset=utf-8" },
   // Your own website's feed - JSON, meant for a separate site's own
   // templates to fetch and render however they like (not a third-party
-  // portal import format like the three above).
+  // portal import format like the ones above).
   "website.json": { portal: "WEBSITE", format: formatWebsiteFeed, contentType: "application/json; charset=utf-8" },
 };
+
+// Portals an admin can generate/regenerate a secret token for, independent
+// of FEED_SLUGS - Qatar Living has a token (used as its API key, see
+// lib/qatarLiving/auth.ts) but no entry in FEED_SLUGS since it's not a
+// single-file pull feed.
+export const TOKEN_PORTALS = new Set<Portal>(["PROPERTY_FINDER", "QATAR_LIVING", "PROPERTY_ORYX", "WEBSITE"]);
 
 async function loadFeedListings(portal: Portal): Promise<FeedListing[]> {
   const baseUrl = getAppBaseUrl();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getChannelEligibility, getEligibilityForPortal } from "./eligibility";
+import { getChannelEligibility, getEligibilityForPortal, getQatarLivingEligibility } from "./eligibility";
 
 const BASE_LISTING = {
   title: "2BR Apartment",
@@ -10,11 +10,13 @@ const BASE_LISTING = {
   area: "Lusail",
   community: "Marina District",
   buildingName: "Marina Tower 5",
-  // Only relevant to getEligibilityForPortal's PROPERTY_FINDER branch, but
-  // its signature requires them for every portal - see that test below.
+  // Only relevant to getEligibilityForPortal's PROPERTY_FINDER/QATAR_LIVING
+  // branches, but its signature requires them for every portal - see those
+  // tests below.
   propertyCategory: "APARTMENT" as const,
   bathrooms: "2",
   pfLocationId: null,
+  sizeSqm: 120,
 };
 
 const ONE_IMAGE = [{ id: "img1" }];
@@ -72,12 +74,31 @@ describe("getChannelEligibility", () => {
   });
 });
 
+describe("getQatarLivingEligibility", () => {
+  it("is eligible once a size is set, on top of the generic requirements", () => {
+    const result = getQatarLivingEligibility(BASE_LISTING, ONE_IMAGE);
+    expect(result.eligible).toBe(true);
+  });
+
+  it("requires a size (sqm)", () => {
+    const result = getQatarLivingEligibility({ ...BASE_LISTING, sizeSqm: null }, ONE_IMAGE);
+    expect(result.eligible).toBe(false);
+    expect(result.reasons).toContain("Set the size (sqm)");
+  });
+});
+
 describe("getEligibilityForPortal", () => {
-  it("routes WEBSITE/QATAR_LIVING/PROPERTY_ORYX through the generic check", () => {
-    for (const portal of ["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX"] as const) {
+  it("routes WEBSITE/PROPERTY_ORYX through the generic check", () => {
+    for (const portal of ["WEBSITE", "PROPERTY_ORYX"] as const) {
       const result = getEligibilityForPortal(portal, BASE_LISTING, ONE_IMAGE);
       expect(result.eligible).toBe(true);
     }
+  });
+
+  it("routes QATAR_LIVING through its own stricter check (also requires a size)", () => {
+    const result = getEligibilityForPortal("QATAR_LIVING", { ...BASE_LISTING, sizeSqm: null }, ONE_IMAGE);
+    expect(result.eligible).toBe(false);
+    expect(result.reasons).toContain("Set the size (sqm)");
   });
 
   it("routes PROPERTY_FINDER through its own stricter check (requires pfLocationId + an account)", () => {

@@ -30,6 +30,17 @@ export function getChannelEligibility(
   return { eligible: reasons.length === 0, reasons };
 }
 
+// Qatar Living's real listings API requires unitBuiltupArea on every
+// listing (lib/qatarLiving/listingMapper.ts) - WEBSITE and PROPERTY_ORYX
+// have no such requirement, so this only tightens the generic check for
+// this one portal rather than changing it for everyone.
+export function getQatarLivingEligibility(listing: Pick<Listing, "title" | "description" | "listingType" | "rentPrice" | "salePrice" | "area" | "community" | "buildingName" | "sizeSqm">, images: { id: string }[]): ChannelEligibility {
+  const base = getChannelEligibility(listing, images);
+  const reasons = [...base.reasons];
+  if (!listing.sizeSqm) reasons.push("Set the size (sqm)");
+  return { eligible: reasons.length === 0, reasons };
+}
+
 // Single entry point the channel-toggle route and feed generation both call,
 // so which check applies to which portal lives in exactly one place.
 // Property Finder keeps its own existing, stricter, push-API-specific check
@@ -38,7 +49,18 @@ export function getEligibilityForPortal(
   portal: Portal,
   listing: Pick<
     Listing,
-    "title" | "description" | "listingType" | "rentPrice" | "salePrice" | "area" | "community" | "buildingName" | "bathrooms" | "propertyCategory" | "pfLocationId"
+    | "title"
+    | "description"
+    | "listingType"
+    | "rentPrice"
+    | "salePrice"
+    | "area"
+    | "community"
+    | "buildingName"
+    | "bathrooms"
+    | "propertyCategory"
+    | "pfLocationId"
+    | "sizeSqm"
   >,
   images: { id: string }[],
   options: { portalListing?: { assignedProfileId: number | null } | null; createdBy?: { pfPublicProfileId: number | null } } = {}
@@ -46,6 +68,9 @@ export function getEligibilityForPortal(
   if (portal === "PROPERTY_FINDER") {
     const assignedProfileId = options.createdBy ? effectiveAssignedProfileId(options.portalListing, options.createdBy) : null;
     return getPropertyFinderEligibility(listing, images, assignedProfileId);
+  }
+  if (portal === "QATAR_LIVING") {
+    return getQatarLivingEligibility(listing, images);
   }
   return getChannelEligibility(listing, images);
 }
