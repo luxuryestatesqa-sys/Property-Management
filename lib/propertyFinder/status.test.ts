@@ -35,3 +35,47 @@ describe("getPfStatus", () => {
     expect(s("something_new", false)).toMatchObject({ kind: "not_live", active: false });
   });
 });
+
+import { getPropertyFinderEligibility, describePropertyFinderRejection } from "./sync";
+import { PropertyFinderApiError } from "./client";
+
+const READY = {
+  title: "t",
+  description: "d",
+  bathrooms: "2",
+  propertyCategory: "APARTMENT" as const,
+  pfLocationId: 1,
+  listingType: "RENT" as const,
+  rentPrice: 5000,
+  salePrice: null,
+};
+
+describe("getPropertyFinderEligibility price check", () => {
+  it("passes with a rent price on a rent listing", () => {
+    expect(getPropertyFinderEligibility(READY, [{ id: "a" }], 7).eligible).toBe(true);
+  });
+
+  it("blocks a rent listing with no rent price (even if it has a sale price)", () => {
+    const r = getPropertyFinderEligibility({ ...READY, rentPrice: null, salePrice: 900000 }, [{ id: "a" }], 7);
+    expect(r.eligible).toBe(false);
+    expect(r.reasons).toContain("Set a monthly rent price");
+  });
+
+  it("blocks a sale listing with no sale price", () => {
+    const r = getPropertyFinderEligibility({ ...READY, listingType: "SALE", rentPrice: 5000, salePrice: null }, [{ id: "a" }], 7);
+    expect(r.reasons).toContain("Set a sale price");
+  });
+});
+
+describe("describePropertyFinderRejection", () => {
+  it("turns PF field pointers into labelled plain lines", () => {
+    const err = new PropertyFinderApiError(400, "One or more fields failed validation.", undefined, [
+      { pointer: "/price/paymentMethods", title: "Invalid Price", detail: "The price details are invalid or incomplete for this listing type." },
+    ]);
+    expect(describePropertyFinderRejection(err)).toBe("Price: The price details are invalid or incomplete for this listing type.");
+  });
+
+  it("falls back to the message when there are no field errors", () => {
+    expect(describePropertyFinderRejection(new PropertyFinderApiError(500, "Boom"))).toBe("Boom");
+  });
+});

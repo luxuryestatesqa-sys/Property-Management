@@ -265,6 +265,7 @@ export default function MultiPortalPublishingPage() {
   if (listing.images.length === 0) missing.push("photos");
   if (!pfLocationId) missing.push("location");
   if (!effectiveAssignedProfileId) missing.push("Property Finder account");
+  if (!price || price <= 0) missing.push(isRent ? "monthly rent price (edit it on the listing page)" : "sale price (edit it on the listing page)");
 
   async function toggleChannel(portal: PullChannel, nextEnabled: boolean) {
     setChannelBusy((prev) => ({ ...prev, [portal]: true }));
@@ -556,7 +557,14 @@ export default function MultiPortalPublishingPage() {
           )}
 
           {listing.propertyFinderState?.lastError && (
-            <div className="rounded-2xl bg-danger-bg text-danger text-sm px-4 py-3">{listing.propertyFinderState.lastError}</div>
+            <div className="rounded-2xl bg-danger-bg text-danger text-sm px-4 py-3">
+              <p className="font-semibold mb-1">Property Finder rejected this - fix the following, then publish again:</p>
+              <ul className="list-disc list-inside">
+                {listing.propertyFinderState.lastError.split("; ").map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">

@@ -68,11 +68,16 @@ export interface PropertyFinderEligibility {
 // Shared by the toggle API route and the publish UI, so both enforce
 // (and explain) exactly the same rules.
 export function getPropertyFinderEligibility(
-  listing: Pick<Listing, "title" | "description" | "bathrooms" | "propertyCategory" | "pfLocationId">,
+  listing: Pick<Listing, "title" | "description" | "bathrooms" | "propertyCategory" | "pfLocationId" | "listingType" | "rentPrice" | "salePrice">,
   images: { id: string }[],
   assignedProfileId: number | null
 ): PropertyFinderEligibility {
   const reasons: string[] = [];
+  // Property Finder rejects a listing whose price block is empty ("Invalid
+  // Price: The price details are invalid or incomplete") - catch it here with
+  // a clear instruction instead of after a failed publish.
+  const price = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
+  if (!price || price <= 0) reasons.push(listing.listingType === "RENT" ? "Set a monthly rent price" : "Set a sale price");
   if (!listing.title) reasons.push("Add a title");
   if (!listing.description) reasons.push("Add a description");
   if (listing.propertyCategory !== "LAND" && !listing.bathrooms) reasons.push("Set the number of bathrooms");
@@ -80,6 +85,38 @@ export function getPropertyFinderEligibility(
   if (!listing.pfLocationId) reasons.push("Choose a Property Finder location");
   if (!assignedProfileId) reasons.push("Pick which Property Finder account this publishes under");
   return { eligible: reasons.length === 0, reasons };
+}
+
+// Property Finder's own field names, in words an agent recognises.
+const PF_FIELD_LABELS: Record<string, string> = {
+  price: "Price",
+  bathrooms: "Bathrooms",
+  bedrooms: "Bedrooms",
+  size: "Size",
+  location: "Location",
+  title: "Title",
+  description: "Description",
+  media: "Photos",
+  assignedTo: "Agent account",
+  createdBy: "Agent account",
+  amenities: "Amenities",
+  reference: "Reference number",
+  furnishingType: "Furnishing",
+  type: "Property type",
+  category: "Category",
+};
+
+// "One or more fields failed validation.; /price/paymentMethods: Invalid
+// Price: ..." -> "Price: The price details are invalid or incomplete..." - one
+// "; "-separated line per problem, labelled by the field it's about.
+export function describePropertyFinderRejection(err: PropertyFinderApiError): string {
+  if (err.fieldErrors.length === 0) return err.message;
+  const lines = err.fieldErrors.map((f) => {
+    const field = f.pointer?.split("/").filter(Boolean)[0];
+    const label = field ? PF_FIELD_LABELS[field] ?? field : f.title;
+    return [label, f.detail ?? f.title].filter(Boolean).join(": ");
+  });
+  return Array.from(new Set(lines)).join("; ");
 }
 
 function buildListingPayload(
@@ -278,13 +315,16 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     });
   } catch (err) {
     const message = err instanceof PropertyFinderApiError
-      ? [err.message, ...err.fieldErrors.map((f) => [f.pointer, f.title, f.detail].filter(Boolean).join(": "))].join("; ")
+      ? describePropertyFinderRejection(err)
       : err instanceof Error
         ? err.message
         : "Failed to reach Property Finder";
+    // The flag was switched on before the attempt (so PF can fetch photos).
+    // If this listing never made it to PF, switch it back off so the app
+    // doesn't claim "published" next to a failure.
     await prisma.portalListing.upsert({
       where: portalKey(listingId),
-      update: { state: "publishing_failed", lastError: message, lastSyncedAt: new Date() },
+      update: { state: "publishing_failed", enabled: Boolean(portalListing?.remoteListingId), lastError: message, lastSyncedAt: new Date() },
       create: { listingId, portal: PORTAL, enabled: true, state: "publishing_failed", lastError: message, lastSyncedAt: new Date() },
     });
     throw new Error(message);
