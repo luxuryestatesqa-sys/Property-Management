@@ -109,6 +109,48 @@ export default function AddPropertyPage() {
   const [error, setError] = useState("");
   const [duplicates, setDuplicates] = useState<ListingDTO[] | null>(null);
   const [success, setSuccess] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  // Writes the title + description from what's already filled in above; the
+  // agent can edit the result before saving. Same generator the Publishing
+  // Hub uses, run on this unsaved form's values.
+  async function generateWithAi() {
+    setAiError("");
+    if (!form.propertyCategory || !form.area.trim()) {
+      setAiError("Choose the property type and location first, so the AI has details to write about");
+      return;
+    }
+    if ((form.title.trim() || form.description.trim()) && !window.confirm("Replace the current title and description with AI-written text?")) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/ai/generate-copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingType: form.listingType,
+          propertyCategory: form.propertyCategory,
+          bedrooms: form.bedrooms || null,
+          bathrooms: bathroomsFromInputValue(form.bathrooms),
+          sizeSqm: form.sizeSqm,
+          furnished: form.furnished,
+          area: form.area,
+          community: form.community,
+          amenities: form.amenities,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setAiError(extractErrorMessage(data?.error, "Couldn't generate text"));
+        return;
+      }
+      setForm((prev) => ({ ...prev, title: data.title, description: data.description }));
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Network error. Please try again.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   function update<K extends keyof typeof initialState>(key: K, value: (typeof initialState)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -367,6 +409,16 @@ export default function AddPropertyPage() {
         <Card>
           <FormSectionHeader icon={ICONS.marketing} label="Title & Description" badge="(optional, needed to publish to Property Finder)" />
           <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={generateWithAi}
+              disabled={aiBusy}
+              className="w-full rounded-xl py-3 text-[14px] font-bold active:opacity-80 disabled:opacity-60"
+              style={{ background: "var(--accent-light)", color: "var(--primary)" }}
+            >
+              {aiBusy ? "Writing..." : "Generate Title & Description with AI"}
+            </button>
+            {aiError && <div className="rounded-xl bg-danger-bg text-danger text-[13px] px-3 py-2.5">{aiError}</div>}
             <div>
               <input
                 type="text"
@@ -383,7 +435,7 @@ export default function AddPropertyPage() {
                 value={form.description}
                 onChange={(e) => update("description", e.target.value)}
                 placeholder="Describe the property..."
-                rows={4}
+                rows={9}
                 maxLength={2000}
                 className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary resize-none"
               />
