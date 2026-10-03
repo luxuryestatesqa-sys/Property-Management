@@ -41,8 +41,8 @@ export interface FeedFilters {
   updatedSince?: Date;
 }
 
-async function loadFeedListings(portal: Portal, filters: FeedFilters = {}): Promise<FeedListing[]> {
-  const baseUrl = getAppBaseUrl();
+async function loadFeedListings(portal: Portal, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedListing[]> {
+  const baseUrl = getAppBaseUrl(requestOrigin);
   const rows = await prisma.listing.findMany({
     where: {
       status: "ACTIVE",
@@ -117,11 +117,11 @@ function computeEtag(portal: Portal, listings: FeedListing[]): string {
 // separate cache-clearing step needed.
 const bodyCache = new Map<string, string>();
 
-export async function generateFeed(slug: string, filters: FeedFilters = {}): Promise<FeedResult | null> {
+export async function generateFeed(slug: string, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedResult | null> {
   const entry = FEED_SLUGS[slug];
   if (!entry) return null;
 
-  const listings = await loadFeedListings(entry.portal, filters);
+  const listings = await loadFeedListings(entry.portal, filters, requestOrigin);
   const etag = computeEtag(entry.portal, listings);
 
   let body = bodyCache.get(etag);

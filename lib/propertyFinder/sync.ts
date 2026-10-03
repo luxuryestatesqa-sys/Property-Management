@@ -28,7 +28,11 @@ export function effectiveAssignedProfileId(
 // (buildListingShareUrl derives it from window.location, client-side only),
 // so this is new: set APP_BASE_URL explicitly (recommended - stable across
 // deploys), or it falls back to Vercel's own VERCEL_URL at runtime.
-export function getAppBaseUrl(): string {
+// `localFallback` (the origin a pull feed was just requested on) is used only
+// when the configured URL is a local one - so a feed still renders while
+// testing on localhost, whereas the Property Finder push (no fallback passed)
+// keeps refusing a URL the portal could never fetch.
+export function getAppBaseUrl(localFallback?: string): string {
   let raw = process.env.APP_BASE_URL?.trim().replace(/\/$/, "");
 
   // If APP_BASE_URL is unset or a local URL (e.g. http://localhost:3000), but VERCEL_URL exists, use VERCEL_URL
@@ -48,6 +52,7 @@ export function getAppBaseUrl(): string {
   const hostname = new URL(raw).hostname;
   const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname);
   if (isLocal) {
+    if (localFallback) return localFallback.replace(/\/$/, "");
     throw new Error(
       `APP_BASE_URL is set to ${raw}, which Property Finder can't reach over the public internet - publishing and webhooks will fail. Set APP_BASE_URL in your environment variables to your deployed site's public URL (e.g. https://yourdomain.com), or use a public tunnel while testing locally.`
     );

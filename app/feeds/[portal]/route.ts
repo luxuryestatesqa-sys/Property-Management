@@ -52,7 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ port
     filters.updatedSince = since;
   }
 
-  const result = await generateFeed(slug, filters);
+  const result = await generateFeed(slug, filters, req.nextUrl.origin);
   if (!result) return NextResponse.json({ error: "Unknown feed" }, { status: 404, headers: CORS_HEADERS });
 
   const ifNoneMatch = req.headers.get("if-none-match");
