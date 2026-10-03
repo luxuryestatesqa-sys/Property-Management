@@ -10,6 +10,7 @@ import ProfileSkeleton from "@/components/ProfileSkeleton";
 import PropertyFinderSettingsCard from "@/components/PropertyFinderSettingsCard";
 import PortalFeedCard from "@/components/PortalFeedCard";
 import MasterFeedCard from "@/components/MasterFeedCard";
+import OpenAiSettingsCard from "@/components/OpenAiSettingsCard";
 import QatarLivingApiCard from "@/components/QatarLivingApiCard";
 
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024; // 10MB raw upload cap, before client-side resize
@@ -270,6 +271,7 @@ export default function ProfilePage() {
             <QatarLivingApiCard />
             <PortalFeedCard portal="PROPERTY_ORYX" slug="oryx.xml" label="Property Oryx" />
             <MasterFeedCard />
+            <OpenAiSettingsCard />
           </div>
         </div>
       )}

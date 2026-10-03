@@ -263,6 +263,9 @@ enum Portal {
   // The single master XML feed (/feeds/all.xml) for every portal other than
   // Property Finder - one agent-controlled switch per listing.
   OTHER_PORTALS
+  // Not a portal: the OpenAI API key for "Generate with AI" is stored in the
+  // same admin-managed credential table (apiKey), so it needs no new table.
+  OPENAI
 }
 
 model PortalCredential {

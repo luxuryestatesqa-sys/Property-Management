@@ -72,6 +72,8 @@ export default function MultiPortalPublishingPage() {
   const [titleAr, setTitleAr] = useState("");
   const [descriptionAr, setDescriptionAr] = useState("");
   const [detailsLang, setDetailsLang] = useState<"en" | "ar">("en");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [reference, setReference] = useState("");
   const [amenities, setAmenities] = useState<string[]>([]);
   const [pfLocationId, setPfLocationId] = useState<number | null>(null);
@@ -289,6 +291,40 @@ export default function MultiPortalPublishingPage() {
       setChannelErrors((prev) => ({ ...prev, [portal]: [err instanceof Error ? err.message : "Network error"] }));
     } finally {
       setChannelBusy((prev) => ({ ...prev, [portal]: false }));
+    }
+  }
+
+  // Asks the server (which holds the OpenAI key) to write the title and
+  // description for the language tab currently shown. Fills the fields only -
+  // the agent reviews/edits and saves with the rest of the form as usual.
+  async function generateWithAi() {
+    const isEn = detailsLang === "en";
+    const hasText = isEn ? title.trim() || description.trim() : titleAr.trim() || descriptionAr.trim();
+    if (hasText && !window.confirm("Replace the current title and description with AI-written text?")) return;
+    setAiError(null);
+    setAiBusy(true);
+    try {
+      const res = await fetch(`/api/listings/${id}/generate-copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: detailsLang, amenities, locationLabel: pfLocationLabel }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setAiError(extractErrorMessage(data?.error, "Couldn't generate text"));
+        return;
+      }
+      if (isEn) {
+        setTitle(data.title);
+        setDescription(data.description);
+      } else {
+        setTitleAr(data.title);
+        setDescriptionAr(data.description);
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Network error. Please try again.");
+    } finally {
+      setAiBusy(false);
     }
   }
 
@@ -579,6 +615,17 @@ export default function MultiPortalPublishingPage() {
                 onChange={setDetailsLang}
               />
 
+              <button
+                type="button"
+                onClick={generateWithAi}
+                disabled={aiBusy}
+                className="w-full rounded-xl py-3 text-[14px] font-bold active:opacity-80 disabled:opacity-60"
+                style={{ background: "var(--accent-light)", color: "var(--primary)" }}
+              >
+                {aiBusy ? "Writing..." : detailsLang === "en" ? "Generate Title & Description with AI" : "Generate Arabic Title & Description with AI"}
+              </button>
+              {aiError && <div className="rounded-xl bg-danger-bg text-danger text-[13px] px-3 py-2.5">{aiError}</div>}
+
               {detailsLang === "en" ? (
                 <>
                   <div>
@@ -603,7 +650,7 @@ export default function MultiPortalPublishingPage() {
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Describe the property..."
-                      rows={4}
+                      rows={9}
                       maxLength={2000}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-[15px] outline-none focus:border-primary resize-none"
                     />
@@ -632,7 +679,7 @@ export default function MultiPortalPublishingPage() {
                       value={descriptionAr}
                       onChange={(e) => setDescriptionAr(e.target.value)}
                       placeholder="صف العقار..."
-                      rows={4}
+                      rows={9}
                       maxLength={2000}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-[15px] outline-none focus:border-primary resize-none"
                     />
