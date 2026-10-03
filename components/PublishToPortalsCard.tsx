@@ -2,30 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { ListingDTO } from "@/lib/types";
+import { getPfStatus, PF_TONE_COLORS } from "@/lib/propertyFinder/status";
 
 interface PublishToPortalsCardProps {
   listing: ListingDTO;
   readOnly?: boolean;
 }
 
-const PF_STATE_LABELS: Record<string, { label: string; bg: string; text: string }> = {
-  pending_publishing: { label: "Publishing…", bg: "var(--accent-light)", text: "var(--primary)" },
-  live: { label: "Live", bg: "var(--success-bg)", text: "var(--success)" },
-  publishing_failed: { label: "Failed", bg: "var(--danger-bg)", text: "var(--danger)" },
-  unpublished: { label: "Unpublished", bg: "var(--surface-muted)", text: "var(--muted)" },
-  draft: { label: "Draft", bg: "var(--surface-muted)", text: "var(--muted)" },
-};
-
 export default function PublishToPortalsCard({ listing, readOnly }: PublishToPortalsCardProps) {
   const router = useRouter();
 
-  const pfState = listing.propertyFinderState?.state;
-  const pfEnabled = listing.propertyFinderState?.enabled ?? false;
-  const pfBadge = pfEnabled
-    ? { label: "Already Published", bg: "var(--success-bg)", text: "var(--success)" }
-    : pfState
-      ? PF_STATE_LABELS[pfState] ?? { label: pfState, bg: "var(--surface-muted)", text: "var(--foreground)" }
-      : null;
+  const pfView = getPfStatus(listing.propertyFinderState);
+  const pfEnabled = pfView.active;
+  const pfBadge = pfView.kind === "not_published" ? null : { label: pfView.kind === "live" ? "Live" : pfView.label, ...PF_TONE_COLORS[pfView.tone] };
 
   const websiteLive = listing.channelStates?.WEBSITE?.enabled ?? false;
   const qatarLivingLive = listing.channelStates?.QATAR_LIVING?.enabled ?? false;
@@ -60,9 +49,9 @@ export default function PublishToPortalsCard({ listing, readOnly }: PublishToPor
         <div className="rounded-xl border border-border bg-surface-muted/60 p-2.5 flex flex-col justify-between min-h-[60px]">
           <span className="text-[11px] font-semibold text-muted">Property Finder</span>
           <div>
-            {pfEnabled ? (
+            {pfView.kind === "live" ? (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
-                ✓ Already Published
+                ✓ Live on Property Finder
               </span>
             ) : pfBadge ? (
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full inline-block mt-1" style={{ background: pfBadge.bg, color: pfBadge.text }}>

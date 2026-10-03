@@ -369,9 +369,15 @@ export async function refreshPropertyFinderListingStatus(listingId: number): Pro
   const stage = response.state?.stage ?? null;
   const reasons = response.state?.reasons?.map((r) => r.en).filter(Boolean) ?? [];
 
+  // Keep this app's own "published" flag in step with what Property Finder
+  // actually reports, so a listing live there is never shown here as merely
+  // "ready to publish" (and one PF unpublished/took down isn't shown live).
+  const enabledPatch =
+    stage === "live" ? { enabled: true } : stage === "unpublished" || stage === "archived" || stage === "takendown" ? { enabled: false } : {};
+
   await prisma.portalListing.update({
     where: portalKey(listingId),
-    data: { state: stage, lastError: reasons.length > 0 ? reasons.join("; ") : null, lastSyncedAt: new Date() },
+    data: { state: stage, ...enabledPatch, lastError: reasons.length > 0 ? reasons.join("; ") : null, lastSyncedAt: new Date() },
   });
 
   return { remoteListingId: portalListing.remoteListingId, stage, reasons };

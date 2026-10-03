@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ListingDTO, PropertyFinderListingDTO } from "@/lib/types";
+import { getPfStatus, PF_TONE_COLORS } from "@/lib/propertyFinder/status";
 
 interface PropertyFinderPublishPanelProps {
   listing: ListingDTO;
@@ -9,21 +10,15 @@ interface PropertyFinderPublishPanelProps {
   readOnly?: boolean;
 }
 
-const STATE_LABELS: Record<string, { label: string; bg: string; text: string }> = {
-  pending_publishing: { label: "Publishing…", bg: "var(--accent-light)", text: "var(--primary)" },
-  live: { label: "Live", bg: "var(--success-bg)", text: "var(--success)" },
-  publishing_failed: { label: "Failed", bg: "var(--danger-bg)", text: "var(--danger)" },
-  unpublished: { label: "Unpublished", bg: "var(--surface-muted)", text: "var(--muted)" },
-};
-
 // A short summary card on the listing detail page - the actual mapping
 // review, field editing, and publish/unpublish actions all live on their own
 // dedicated page (app/property/[id]/propertyfinder), which has the room a
 // task with this many moving parts needs.
 export default function PropertyFinderPublishPanel({ listing, state, readOnly }: PropertyFinderPublishPanelProps) {
   const router = useRouter();
-  const badge = state?.state ? STATE_LABELS[state.state] : null;
-  const enabled = state?.enabled ?? false;
+  const pfView = getPfStatus(state);
+  const badge = pfView.kind === "not_published" ? null : { label: pfView.label, ...PF_TONE_COLORS[pfView.tone] };
+  const enabled = pfView.active;
 
   return (
     <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">

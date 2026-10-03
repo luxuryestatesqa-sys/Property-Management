@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ListingDTO, PullChannel } from "@/lib/types";
+import { getPfStatus, PF_TONE_COLORS } from "@/lib/propertyFinder/status";
 import { BEDROOM_LABELS } from "@/lib/propertyCategory";
 import { pfCategoryAndType, PF_FURNISHING_TYPE, filterAmenitiesForCategory, amenityOptionsFor } from "@/lib/propertyFinder/mapping";
 import { extractErrorMessage } from "@/lib/errors";
@@ -172,6 +173,24 @@ export default function MultiPortalPublishingPage() {
     }
   }, [listing?.propertyFinderState?.remoteListingId, refreshStatus]);
 
+  // While Property Finder is still processing a publish, keep asking it for
+  // the real stage (every 8s, up to ~2 minutes) so the page flips to "Live" on
+  // its own instead of sitting on "Publishing…" until someone taps Refresh.
+  const isPublishingNow = getPfStatus(listing?.propertyFinderState).kind === "publishing";
+  useEffect(() => {
+    if (!isPublishingNow) return;
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts++;
+      if (attempts > 15) {
+        clearInterval(timer);
+        return;
+      }
+      refreshStatus();
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [isPublishingNow, refreshStatus]);
+
   const loadCredits = useCallback(async () => {
     try {
       const query = selectedProfileId ? `?profileId=${selectedProfileId}` : "";
@@ -234,7 +253,10 @@ export default function MultiPortalPublishingPage() {
   const effectiveAssignedProfileId = selectedProfileId ?? listing.createdBy.pfPublicProfileId;
   const chosenOption = options?.find((o) => o.publicProfileId === effectiveAssignedProfileId);
   const amenityOptions = amenityOptionsFor(listing.propertyCategory);
-  const badge = badgeFor(listing.propertyFinderState?.state);
+  const pfView = getPfStatus(listing.propertyFinderState);
+  const badge = listing.propertyFinderState?.remoteListingId
+    ? { label: pfView.label, ...PF_TONE_COLORS[pfView.tone] }
+    : badgeFor(listing.propertyFinderState?.state);
 
   const missing: string[] = [];
   if (!title.trim()) missing.push("title");
@@ -331,6 +353,7 @@ export default function MultiPortalPublishingPage() {
         return;
       }
       await load();
+      if (publish === true) await refreshStatus();
       await loadCredits();
       setActionNotice(publish === true ? "published" : publish === false ? "unpublished" : "draft");
     } catch (err) {
@@ -374,7 +397,9 @@ export default function MultiPortalPublishingPage() {
     }
   }
 
-  const enabled = listing.propertyFinderState?.enabled ?? false;
+  // "Published" means Property Finder has it live or is processing it - not
+  // just that this app's own flag was set.
+  const enabled = pfView.active;
   const pfState = listing.propertyFinderState?.state ?? null;
   const neverPublished = !listing.propertyFinderState?.remoteListingId;
   const isLive = pfState === "live";
@@ -452,8 +477,23 @@ export default function MultiPortalPublishingPage() {
             <div className="rounded-2xl bg-success-bg text-success border border-success/30 text-[13px] p-4 flex items-start gap-3 shadow-sm">
               <span className="text-xl">✅</span>
               <div>
-                <p className="font-bold text-[14px]">Already Published to Property Finder</p>
-                <p className="mt-0.5 opacity-90">This property is active on Property Finder. Re-publishing is disabled to prevent duplicate postings.</p>
+                <p className="font-bold text-[14px]">{pfView.kind === "live" ? "Live on Property Finder" : "Sent to Property Finder"}</p>
+                <p className="mt-0.5 opacity-90">
+                  {pfView.kind === "live"
+                    ? "This property is live. Use Update Live Listing to push edits - it updates the same listing, never a duplicate."
+                    : "Property Finder is processing this listing. Tap Refresh Status in a moment to see when it goes live."}
+                </p>
+              </div>
+            </div>
+          ) : pfView.kind === "failed" || pfView.kind === "not_live" ? (
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[13px] p-4 flex items-start gap-3">
+              <span className="text-lg">⚠️</span>
+              <div>
+                <p className="font-bold">{pfView.label} - not live on Property Finder</p>
+                <p className="mt-0.5 opacity-90">
+                  {pfView.detail}
+                  {missing.length > 0 ? ` Before publishing, complete: ${missing.join(", ")}.` : " Fix any issue shown below, then publish again."}
+                </p>
               </div>
             </div>
           ) : missing.length > 0 ? (
@@ -669,7 +709,16 @@ export default function MultiPortalPublishingPage() {
                   className="w-full rounded-xl py-4 text-base font-bold text-white opacity-90 cursor-not-allowed shadow-md flex items-center justify-center gap-2"
                   style={{ background: "var(--success)" }}
                 >
-                  <span>✓ Already Published to Property Finder</span>
+                  <span>{pfView.kind === "live" ? "✓ Live on Property Finder" : "⏳ Publishing on Property Finder…"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  disabled={saving || !options || missing.length > 0}
+                  className="w-full rounded-xl py-3.5 text-[14px] font-bold text-white active:opacity-80 disabled:opacity-60"
+                  style={{ background: "var(--primary)" }}
+                >
+                  {saving ? "Updating..." : "Update Live Listing"}
                 </button>
                 <button
                   type="button"

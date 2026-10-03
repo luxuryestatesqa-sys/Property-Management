@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   } else if (stateByEvent[event.type]) {
     await prisma.portalListing.updateMany({
       where: { portal: "PROPERTY_FINDER", remoteListingId: event.entity.id },
-      data: { state: stateByEvent[event.type], lastError: null, lastSyncedAt: new Date() },
+      data: { state: stateByEvent[event.type], enabled: event.type === "listing.published", lastError: null, lastSyncedAt: new Date() },
     });
   } else {
     // listing.action / listing.systemUpdated / anything else we don't
