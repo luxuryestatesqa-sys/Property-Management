@@ -131,8 +131,21 @@ export interface PFUser {
 }
 
 export async function listUsers(): Promise<PFUser[]> {
-  const data = await pfFetch<{ data: PFUser[] }>("/v1/users?perPage=100");
-  return data.data;
+  // Walks every page - a single perPage=100 call silently dropped any agent
+  // past the 100th, making them look "not found" at publish time. Capped, and
+  // stops if a page repeats (in case the API ignores `page`), so it can't loop.
+  const PER_PAGE = 100;
+  const MAX_PAGES = 10;
+  const all: PFUser[] = [];
+  const seen = new Set<number>();
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const data = await pfFetch<{ data: PFUser[] }>(`/v1/users?perPage=${PER_PAGE}&page=${page}`);
+    const fresh = data.data.filter((u) => !seen.has(u.id));
+    fresh.forEach((u) => seen.add(u.id));
+    all.push(...fresh);
+    if (data.data.length < PER_PAGE || fresh.length === 0) break;
+  }
+  return all;
 }
 
 export interface PFLocation {

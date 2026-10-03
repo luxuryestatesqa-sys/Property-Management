@@ -173,7 +173,12 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     const pfUsers = await listUsers();
     const pfUser = pfUsers.find((u) => u.publicProfile?.id === assignedProfileId);
     if (!pfUser) {
-      throw new Error(`No active Property Finder user found for public profile ${assignedProfileId}`);
+      throw new Error(`No Property Finder user found for public profile ${assignedProfileId} - re-link the agent's Property Finder account`);
+    }
+    // An inactive PF user is accepted by the API but the listing then shows
+    // "The agent could not be found" in Expert and its public page 404s.
+    if (pfUser.status !== "active") {
+      throw new Error(`The Property Finder account for ${pfUser.publicProfile?.name ?? `profile ${assignedProfileId}`} is inactive - activate it in Property Finder Expert or assign this listing to another agent`);
     }
     const payload = buildListingPayload(listing, assignedProfileId!, pfUser.id, reference);
 
