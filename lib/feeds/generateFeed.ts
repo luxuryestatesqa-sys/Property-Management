@@ -8,6 +8,7 @@ import { FeedListing, FeedResult } from "./types";
 import { formatPropertyFinderFeed } from "./formatters/propertyFinder";
 import { formatPropertyOryxFeed } from "./formatters/propertyOryx";
 import { formatWebsiteFeed } from "./formatters/websiteJson";
+import { formatOtherPortalsFeed } from "./formatters/otherPortals";
 
 // The public feed URL slug (e.g. /feeds/pf.xml) for each portal - the one
 // place mapping a URL to a Portal enum value, its formatter, and its content
@@ -23,23 +24,35 @@ export const FEED_SLUGS: Record<string, { portal: Portal; format: (listings: Fee
   // templates to fetch and render however they like (not a third-party
   // portal import format like the ones above).
   "website.json": { portal: "WEBSITE", format: formatWebsiteFeed, contentType: "application/json; charset=utf-8" },
+  // The one master feed for every portal other than Property Finder - only
+  // listings an agent switched on "Other portals (XML)" for.
+  "all.xml": { portal: "OTHER_PORTALS", format: formatOtherPortalsFeed, contentType: "application/xml; charset=utf-8" },
 };
 
 // Portals an admin can generate/regenerate a secret token for, independent
 // of FEED_SLUGS - Qatar Living has a token (used as its API key, see
 // lib/qatarLiving/auth.ts) but no entry in FEED_SLUGS since it's not a
 // single-file pull feed.
-export const TOKEN_PORTALS = new Set<Portal>(["PROPERTY_FINDER", "QATAR_LIVING", "PROPERTY_ORYX", "WEBSITE"]);
+export const TOKEN_PORTALS = new Set<Portal>(["PROPERTY_FINDER", "QATAR_LIVING", "PROPERTY_ORYX", "WEBSITE", "OTHER_PORTALS"]);
 
-async function loadFeedListings(portal: Portal): Promise<FeedListing[]> {
+// Optional narrowing a feed URL can ask for (?type=rent|sale, ?updated_since=ISO).
+export interface FeedFilters {
+  type?: "RENT" | "SALE";
+  updatedSince?: Date;
+}
+
+async function loadFeedListings(portal: Portal, filters: FeedFilters = {}): Promise<FeedListing[]> {
   const baseUrl = getAppBaseUrl();
   const rows = await prisma.listing.findMany({
     where: {
       status: "ACTIVE",
       portalListings: { some: { portal, enabled: true } },
+      ...(filters.type ? { listingType: filters.type } : {}),
+      ...(filters.updatedSince ? { updatedAt: { gte: filters.updatedSince } } : {}),
     },
     include: {
       images: { orderBy: { sortOrder: "asc" }, select: { id: true, createdAt: true } },
+      createdBy: { select: { name: true, whatsapp: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -85,6 +98,8 @@ async function loadFeedListings(portal: Portal): Promise<FeedListing[]> {
       // that see no real change.
       images: listing.images.map((img) => `${baseUrl}/api/listings/${listing.id}/images/${img.id}.jpg?v=${img.createdAt.getTime()}`),
       updatedAt: listing.updatedAt,
+      agentName: listing.createdBy.name,
+      agentPhone: listing.createdBy.whatsapp,
     });
   }
   return feedListings;
@@ -102,11 +117,11 @@ function computeEtag(portal: Portal, listings: FeedListing[]): string {
 // separate cache-clearing step needed.
 const bodyCache = new Map<string, string>();
 
-export async function generateFeed(slug: string): Promise<FeedResult | null> {
+export async function generateFeed(slug: string, filters: FeedFilters = {}): Promise<FeedResult | null> {
   const entry = FEED_SLUGS[slug];
   if (!entry) return null;
 
-  const listings = await loadFeedListings(entry.portal);
+  const listings = await loadFeedListings(entry.portal, filters);
   const etag = computeEtag(entry.portal, listings);
 
   let body = bodyCache.get(etag);

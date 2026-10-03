@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "Portal" ADD VALUE 'OTHER_PORTALS';

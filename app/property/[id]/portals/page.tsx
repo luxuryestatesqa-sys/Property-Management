@@ -52,6 +52,7 @@ const PULL_CHANNELS: { key: PullChannel; label: string; slug: string | null; des
   // from the Profile page, not a URL token (see components/QatarLivingApiCard).
   { key: "QATAR_LIVING", label: "Qatar Living", slug: null, desc: "Listed via the Qatar Living API (manage the key on your Profile page)", type: "api" },
   { key: "PROPERTY_ORYX", label: "Property Oryx", slug: "oryx.xml", desc: "XML feed for Property Oryx portal import", type: "xml" },
+  { key: "OTHER_PORTALS", label: "Other Portals (XML)", slug: "all.xml", desc: "One master XML feed any other portal can pull (not Property Finder)", type: "xml" },
 ];
 
 export default function MultiPortalPublishingPage() {
@@ -124,7 +125,7 @@ export default function MultiPortalPublishingPage() {
   // Load feed credentials for agency + tokens
   const loadFeedCredentials = useCallback(async () => {
     try {
-      const portals: PullChannel[] = ["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX"];
+      const portals: PullChannel[] = ["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX", "OTHER_PORTALS"];
       const results: Record<string, { agencyId: string | null; token: string | null }> = {};
       await Promise.all(
         portals.map(async (p) => {

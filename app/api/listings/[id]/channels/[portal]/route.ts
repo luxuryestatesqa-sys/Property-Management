@@ -10,7 +10,7 @@ import { Portal } from "@prisma/client";
 // Property Finder keeps its own dedicated route
 // (app/api/listings/[id]/propertyfinder) since publishing there is a real,
 // synchronous push to their API with its own stricter eligibility rules.
-const CHANNEL_PORTALS = new Set<Portal>(["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX"]);
+const CHANNEL_PORTALS = new Set<Portal>(["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX", "OTHER_PORTALS"]);
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; portal: string }> }) {
   const { session, error } = await requireSession();

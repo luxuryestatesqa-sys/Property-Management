@@ -246,7 +246,7 @@ async function main() {
     });
 
     await prisma.portalListing.createMany({
-      data: (["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX"] as const).map((portal) => ({
+      data: (["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX", "OTHER_PORTALS"] as const).map((portal) => ({
         listingId: listing.id,
         portal,
         enabled: false,

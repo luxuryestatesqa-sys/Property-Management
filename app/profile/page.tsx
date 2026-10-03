@@ -9,6 +9,7 @@ import Avatar from "@/components/Avatar";
 import ProfileSkeleton from "@/components/ProfileSkeleton";
 import PropertyFinderSettingsCard from "@/components/PropertyFinderSettingsCard";
 import PortalFeedCard from "@/components/PortalFeedCard";
+import MasterFeedCard from "@/components/MasterFeedCard";
 import QatarLivingApiCard from "@/components/QatarLivingApiCard";
 
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024; // 10MB raw upload cap, before client-side resize
@@ -268,6 +269,7 @@ export default function ProfilePage() {
             <PortalFeedCard portal="PROPERTY_FINDER" slug="pf.xml" label="Property Finder" />
             <QatarLivingApiCard />
             <PortalFeedCard portal="PROPERTY_ORYX" slug="oryx.xml" label="Property Oryx" />
+            <MasterFeedCard />
           </div>
         </div>
       )}

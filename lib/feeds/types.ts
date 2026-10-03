@@ -21,6 +21,9 @@ export interface FeedListing {
   availabilityStatus: string;
   images: string[];
   updatedAt: Date;
+  // Only filled for the master feed (the listing's own agent as the contact).
+  agentName?: string;
+  agentPhone?: string;
 }
 
 // `body` rather than `xml` - the Website feed is JSON, not XML, and shares

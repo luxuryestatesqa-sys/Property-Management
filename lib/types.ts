@@ -97,7 +97,7 @@ export interface PropertyFinderListingDTO {
 // The channels that are just a PortalListing.enabled flag (read by the
 // public listing page / that portal's feed) rather than a real API push
 // like Property Finder.
-export type PullChannel = "WEBSITE" | "QATAR_LIVING" | "PROPERTY_ORYX";
+export type PullChannel = "WEBSITE" | "QATAR_LIVING" | "PROPERTY_ORYX" | "OTHER_PORTALS";
 
 export interface ChannelStateDTO {
   enabled: boolean;

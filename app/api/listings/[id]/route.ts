@@ -37,6 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       WEBSITE: portalListings.find((p) => p.portal === "WEBSITE") ?? null,
       QATAR_LIVING: portalListings.find((p) => p.portal === "QATAR_LIVING") ?? null,
       PROPERTY_ORYX: portalListings.find((p) => p.portal === "PROPERTY_ORYX") ?? null,
+      OTHER_PORTALS: portalListings.find((p) => p.portal === "OTHER_PORTALS") ?? null,
     },
   };
 

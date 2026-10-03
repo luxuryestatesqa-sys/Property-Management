@@ -17,5 +17,7 @@ export function xmlTag(tag: string, value: string | number | null | undefined): 
 
 export function cdataTag(tag: string, value: string | null | undefined): string {
   if (!value) return `<${tag}/>`;
-  return `<${tag}><![CDATA[${value}]]></${tag}>`;
+  // A literal "]]>" inside the text would end the CDATA section early and
+  // produce invalid XML - split it across two sections instead.
+  return `<${tag}><![CDATA[${value.replace(/\]\]>/g, "]]]]><![CDATA[>")}]]></${tag}>`;
 }

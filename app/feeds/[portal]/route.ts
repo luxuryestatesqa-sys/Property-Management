@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { timingSafeEqual } from "crypto";
-import { FEED_SLUGS, generateFeed } from "@/lib/feeds/generateFeed";
+import { FEED_SLUGS, generateFeed, type FeedFilters } from "@/lib/feeds/generateFeed";
 
 // Permissive CORS, same rationale as the listing image route
 // (app/api/listings/[id]/images/[imageId]) - the token is already the whole
@@ -40,7 +40,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ port
     return NextResponse.json({ error: "Invalid agency or token" }, { status: 401, headers: CORS_HEADERS });
   }
 
-  const result = await generateFeed(slug);
+  const filters: FeedFilters = {};
+  const typeParam = req.nextUrl.searchParams.get("type")?.toUpperCase();
+  if (typeParam === "RENT" || typeParam === "SALE") filters.type = typeParam;
+  const sinceParam = req.nextUrl.searchParams.get("updated_since");
+  if (sinceParam) {
+    const since = new Date(sinceParam);
+    if (Number.isNaN(since.getTime())) {
+      return NextResponse.json({ error: "updated_since must be a valid ISO-8601 timestamp" }, { status: 400, headers: CORS_HEADERS });
+    }
+    filters.updatedSince = since;
+  }
+
+  const result = await generateFeed(slug, filters);
   if (!result) return NextResponse.json({ error: "Unknown feed" }, { status: 404, headers: CORS_HEADERS });
 
   const ifNoneMatch = req.headers.get("if-none-match");

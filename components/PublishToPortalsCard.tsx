@@ -31,8 +31,10 @@ export default function PublishToPortalsCard({ listing, readOnly }: PublishToPor
   const qatarLivingLive = listing.channelStates?.QATAR_LIVING?.enabled ?? false;
   const oryxLive = listing.channelStates?.PROPERTY_ORYX?.enabled ?? false;
 
-  const activeCount = [pfEnabled, websiteLive, qatarLivingLive, oryxLive].filter(Boolean).length;
-  const allPublished = activeCount === 4;
+  const otherLive = listing.channelStates?.OTHER_PORTALS?.enabled ?? false;
+
+  const activeCount = [pfEnabled, websiteLive, qatarLivingLive, oryxLive, otherLive].filter(Boolean).length;
+  const allPublished = activeCount === 5;
 
   return (
     <section className="rounded-2xl border border-border bg-surface shadow-sm p-4.5 transition-all">
@@ -47,10 +49,10 @@ export default function PublishToPortalsCard({ listing, readOnly }: PublishToPor
                 color: activeCount > 0 ? "var(--success)" : "var(--muted)",
               }}
             >
-              {activeCount} of 4 Active
+              {activeCount} of 5 Active
             </span>
           </div>
-          <p className="text-[12px] text-muted mt-0.5">Manage distribution across Property Finder, Website, Qatar Living & Oryx</p>
+          <p className="text-[12px] text-muted mt-0.5">Manage distribution across Property Finder, Website, Qatar Living, Oryx & other portals</p>
         </div>
       </div>
 
@@ -95,6 +97,15 @@ export default function PublishToPortalsCard({ listing, readOnly }: PublishToPor
           <div>
             <span className="text-[10px] font-bold inline-block mt-1 px-2 py-0.5 rounded-full" style={{ background: oryxLive ? "var(--success-bg)" : "transparent", color: oryxLive ? "var(--success)" : "var(--muted)" }}>
               {oryxLive ? "✓ Already Published" : "Off"}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-surface-muted/60 p-2.5 flex flex-col justify-between min-h-[60px]">
+          <span className="text-[11px] font-semibold text-muted">Other Portals</span>
+          <div>
+            <span className="text-[10px] font-bold inline-block mt-1 px-2 py-0.5 rounded-full" style={{ background: otherLive ? "var(--success-bg)" : "transparent", color: otherLive ? "var(--success)" : "var(--muted)" }}>
+              {otherLive ? "✓ Already Published" : "Off"}
             </span>
           </div>
         </div>

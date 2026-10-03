@@ -260,6 +260,9 @@ enum Portal {
   WEBSITE
   QATAR_LIVING
   PROPERTY_ORYX
+  // The single master XML feed (/feeds/all.xml) for every portal other than
+  // Property Finder - one agent-controlled switch per listing.
+  OTHER_PORTALS
 }
 
 model PortalCredential {

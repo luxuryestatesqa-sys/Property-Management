@@ -14,6 +14,7 @@ const PULL_CHANNEL_LABELS: Record<PullChannel, string> = {
   WEBSITE: "Website",
   QATAR_LIVING: "Qatar Living",
   PROPERTY_ORYX: "Property Oryx",
+  OTHER_PORTALS: "Other portals (XML feed)",
 };
 
 // The 3 channels that are just a PortalListing.enabled flag - read directly
