@@ -486,7 +486,7 @@ export default function MultiPortalPublishingPage() {
               </div>
             </div>
           ) : pfView.kind === "failed" || pfView.kind === "not_live" ? (
-            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[13px] p-4 flex items-start gap-3">
+            <div className="notice-warning rounded-2xl text-[13px] p-4 flex items-start gap-3">
               <span className="text-lg">⚠️</span>
               <div>
                 <p className="font-bold">{pfView.label} - not live on Property Finder</p>
@@ -497,7 +497,7 @@ export default function MultiPortalPublishingPage() {
               </div>
             </div>
           ) : missing.length > 0 ? (
-            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[13px] p-4 flex items-start gap-3">
+            <div className="notice-warning rounded-2xl text-[13px] p-4 flex items-start gap-3">
               <span className="text-lg">⚠️</span>
               <div>
                 <p className="font-bold">Property Finder Readiness Checklist</p>

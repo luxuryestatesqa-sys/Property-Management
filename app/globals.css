@@ -155,3 +155,28 @@ textarea {
     animation: none;
   }
 }
+
+/* Notices (warnings, errors, success messages) - always dark, high-contrast
+   text on a tinted card with a coloured edge, so they stay readable on any
+   device (including a phone in dark mode) instead of coloured-on-tint text. */
+.notice-warning,
+div.bg-danger-bg,
+div.bg-success-bg {
+  color: var(--foreground) !important;
+  border-left: 4px solid var(--notice-edge, var(--muted));
+}
+.notice-warning {
+  --notice-edge: #d89a00;
+  background: #fff4d1;
+  border-top: 1px solid #ecd28a;
+  border-right: 1px solid #ecd28a;
+  border-bottom: 1px solid #ecd28a;
+}
+div.bg-danger-bg {
+  --notice-edge: var(--danger);
+  background: #fde4e4;
+}
+div.bg-success-bg {
+  --notice-edge: var(--success);
+  background: #dff3e6;
+}
