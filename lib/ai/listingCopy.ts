@@ -7,6 +7,7 @@ export const TITLE_MAX = 50;
 export const DESCRIPTION_MAX = 2000;
 
 export type CopyLang = "en" | "ar";
+export type CopyField = "title" | "description" | "both";
 
 export interface ListingCopyInput {
   lang: CopyLang;
@@ -28,19 +29,21 @@ export interface ListingCopyInput {
 // number (internal-only, must never reach Property Finder) and the price (PF
 // shows it separately, and copy that repeats it goes stale when it changes).
 
-export function buildMessages(input: ListingCopyInput): { system: string; user: string } {
+export function buildMessages(input: ListingCopyInput, field: CopyField = "both", currentTitle?: string): { system: string; user: string } {
   const arabic = input.lang === "ar";
   const system = [
     "You write property listing copy for Property Finder Qatar.",
     `Write in ${arabic ? "Modern Standard Arabic" : "clear, professional English"}.`,
     "Rules, all mandatory:",
     "- Plain text only. No emojis, no symbols used as decoration, no markdown, no hashtags, no ALL CAPS words.",
-    `- Title: at most ${TITLE_MAX} characters, specific and factual (type, bedrooms, area). No quotation marks, no trailing full stop.`,
-    "- Description: 3 to 4 short paragraphs separated by a blank line, roughly 900 to 1400 characters. Open with the key selling point, then layout and features, then the location and neighbourhood.",
+    ...(field !== "description" ? [`- Title: at most ${TITLE_MAX} characters, specific and factual (type, bedrooms, area). No quotation marks, no trailing full stop.`] : []),
+    ...(field !== "title"
+      ? ["- Description: 3 to 4 short paragraphs separated by a blank line, roughly 900 to 1400 characters. Open with the key selling point, then layout and features, then the location and neighbourhood."]
+      : []),
     "- Use ONLY the facts provided. Never invent views, floors, finishes, distances, prices, or amenities that are not listed.",
     "- Never mention a building name, floor number, unit number, price, phone number, email or website.",
     "- Do not write a call to action or contact line - it is added separately.",
-    'Return JSON only: {"title": string, "description": string}.',
+    field === "title" ? 'Return JSON only: {"title": string}.' : field === "description" ? 'Return JSON only: {"description": string}.' : 'Return JSON only: {"title": string, "description": string}.',
   ].join("\n");
 
   const facts = [
@@ -56,7 +59,9 @@ export function buildMessages(input: ListingCopyInput): { system: string; user: 
     input.amenities.length > 0 ? `Amenities: ${input.amenities.join(", ")}` : null,
   ].filter(Boolean);
 
-  return { system, user: `Write the title and description for this listing.\n\n${facts.join("\n")}` };
+  const what = field === "title" ? "the title" : field === "description" ? "the description" : "the title and description";
+  const titleHint = field === "description" && currentTitle ? `\nThe listing's title is: ${currentTitle}` : "";
+  return { system, user: `Write ${what} for this listing.\n\n${facts.join("\n")}${titleHint}` };
 }
 
 const EMOJI_AND_JOINERS = /[\p{Extended_Pictographic}\p{Emoji_Presentation}︎️‍⃣]/gu;
@@ -113,18 +118,28 @@ export function buildDescription(rawBody: string, lang: CopyLang, agentName: str
 export class AiCopyError extends Error {}
 
 // Parses the model's JSON reply into the two cleaned fields.
-export function parseAndFinish(content: string, lang: CopyLang, agentName: string, agentPhone: string): { title: string; description: string } {
+export function parseAndFinish(
+  content: string,
+  lang: CopyLang,
+  agentName: string,
+  agentPhone: string,
+  field: CopyField = "both"
+): { title?: string; description?: string } {
   let parsed: { title?: unknown; description?: unknown };
   try {
     parsed = JSON.parse(content);
   } catch {
     throw new AiCopyError("The AI returned an unreadable answer. Please try again.");
   }
-  if (typeof parsed.title !== "string" || typeof parsed.description !== "string" || !parsed.title.trim() || !parsed.description.trim()) {
-    throw new AiCopyError("The AI didn't return a title and description. Please try again.");
+  const needTitle = field !== "description";
+  const needDescription = field !== "title";
+  const titleOk = typeof parsed.title === "string" && parsed.title.trim() !== "";
+  const descriptionOk = typeof parsed.description === "string" && parsed.description.trim() !== "";
+  if ((needTitle && !titleOk) || (needDescription && !descriptionOk)) {
+    throw new AiCopyError(`The AI didn't return ${field === "both" ? "a title and description" : `a ${field}`}. Please try again.`);
   }
   return {
-    title: cleanTitle(parsed.title),
-    description: buildDescription(parsed.description, lang, agentName, agentPhone),
+    ...(needTitle ? { title: cleanTitle(parsed.title as string) } : {}),
+    ...(needDescription ? { description: buildDescription(parsed.description as string, lang, agentName, agentPhone) } : {}),
   };
 }

@@ -98,3 +98,47 @@ describe("buildMessages", () => {
     expect(system).toMatch(/building name, floor number, unit number/);
   });
 });
+
+describe("single-field generation", () => {
+  const facts = {
+    lang: "en" as const,
+    listingType: "RENT" as const,
+    category: "Apartment",
+    bedrooms: "2 Bedroom",
+    bathrooms: "2",
+    sizeSqm: 120,
+    furnished: "FURNISHED" as const,
+    area: "Lusail",
+    community: "Marina District",
+    locationLabel: null,
+    amenities: [],
+    agentName: "Ahmed Ali",
+    agentPhone: "+974 5555 1234",
+  };
+
+  it("title-only asks for just a title and has no description rule", () => {
+    const { system, user } = buildMessages(facts, "title");
+    expect(system).toContain('{"title": string}');
+    expect(system).not.toMatch(/Description:/);
+    expect(user).toContain("Write the title for this listing");
+  });
+
+  it("description-only asks for just a description and passes the current title as context", () => {
+    const { system, user } = buildMessages(facts, "description", "Modern 2BR in Lusail");
+    expect(system).toContain('{"description": string}');
+    expect(system).not.toMatch(/- Title:/);
+    expect(user).toContain("Modern 2BR in Lusail");
+  });
+
+  it("returns only the requested field", () => {
+    const t = parseAndFinish(JSON.stringify({ title: "Modern 2BR in Lusail" }), "en", "A", "1", "title");
+    expect(t).toEqual({ title: "Modern 2BR in Lusail" });
+    const d = parseAndFinish(JSON.stringify({ description: "Bright home." }), "en", "Sara", "+974 1", "description");
+    expect(d.title).toBeUndefined();
+    expect(d.description).toContain("contact Sara on +974 1");
+  });
+
+  it("errors when the requested field is missing from the reply", () => {
+    expect(() => parseAndFinish(JSON.stringify({ description: "x" }), "en", "A", "1", "title")).toThrow(/a title/);
+  });
+});

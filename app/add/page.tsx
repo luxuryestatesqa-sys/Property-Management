@@ -9,6 +9,7 @@ import LocationCombinedInput from "@/components/LocationCombinedInput";
 import DuplicateWarningModal from "@/components/DuplicateWarningModal";
 import PhotoPicker from "@/components/PhotoPicker";
 import MultiChipSelect from "@/components/MultiChipSelect";
+import AiWriteButton from "@/components/AiWriteButton";
 import FormSectionHeader from "@/components/FormSectionHeader";
 import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } from "@/components/PrivateDetailsSection";
 import { ListingDTO, PropertyCategory, BedroomCount } from "@/lib/types";
@@ -109,25 +110,28 @@ export default function AddPropertyPage() {
   const [error, setError] = useState("");
   const [duplicates, setDuplicates] = useState<ListingDTO[] | null>(null);
   const [success, setSuccess] = useState(false);
-  const [aiBusy, setAiBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState<"title" | "description" | null>(null);
   const [aiError, setAiError] = useState("");
 
   // Writes the title + description from what's already filled in above; the
   // agent can edit the result before saving. Same generator the Publishing
   // Hub uses, run on this unsaved form's values.
-  async function generateWithAi() {
+  async function generateWithAi(field: "title" | "description") {
     setAiError("");
     if (!form.propertyCategory || !form.area.trim()) {
       setAiError("Choose the property type and location first, so the AI has details to write about");
       return;
     }
-    if ((form.title.trim() || form.description.trim()) && !window.confirm("Replace the current title and description with AI-written text?")) return;
-    setAiBusy(true);
+    const current = field === "title" ? form.title : form.description;
+    if (current.trim() && !window.confirm(`Replace the current ${field} with AI-written text?`)) return;
+    setAiBusy(field);
     try {
       const res = await fetch("/api/ai/generate-copy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          field,
+          currentTitle: form.title,
           listingType: form.listingType,
           propertyCategory: form.propertyCategory,
           bedrooms: form.bedrooms || null,
@@ -144,11 +148,11 @@ export default function AddPropertyPage() {
         setAiError(extractErrorMessage(data?.error, "Couldn't generate text"));
         return;
       }
-      setForm((prev) => ({ ...prev, title: data.title, description: data.description }));
+      setForm((prev) => ({ ...prev, ...(field === "title" ? { title: data.title } : { description: data.description }) }));
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
-      setAiBusy(false);
+      setAiBusy(null);
     }
   }
 
@@ -409,17 +413,12 @@ export default function AddPropertyPage() {
         <Card>
           <FormSectionHeader icon={ICONS.marketing} label="Title & Description" badge="(optional, needed to publish to Property Finder)" />
           <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={generateWithAi}
-              disabled={aiBusy}
-              className="w-full rounded-xl py-3 text-[14px] font-bold active:opacity-80 disabled:opacity-60"
-              style={{ background: "var(--accent-light)", color: "var(--primary)" }}
-            >
-              {aiBusy ? "Writing..." : "Generate Title & Description with AI"}
-            </button>
             {aiError && <div className="rounded-xl bg-danger-bg text-danger text-[13px] px-3 py-2.5">{aiError}</div>}
             <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-foreground">Title</span>
+                <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} />
+              </div>
               <input
                 type="text"
                 value={form.title}
@@ -431,6 +430,10 @@ export default function AddPropertyPage() {
               <div className="text-right text-[12px] text-muted mt-1">{form.title.length}/50</div>
             </div>
             <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-foreground">Description</span>
+                <AiWriteButton onClick={() => generateWithAi("description")} busy={aiBusy === "description"} disabled={aiBusy !== null} />
+              </div>
               <textarea
                 value={form.description}
                 onChange={(e) => update("description", e.target.value)}

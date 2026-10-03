@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ListingDTO, PullChannel } from "@/lib/types";
 import { getPfStatus, PF_TONE_COLORS } from "@/lib/propertyFinder/status";
+import AiWriteButton from "@/components/AiWriteButton";
 import { BEDROOM_LABELS } from "@/lib/propertyCategory";
 import { pfCategoryAndType, PF_FURNISHING_TYPE, filterAmenitiesForCategory, amenityOptionsFor } from "@/lib/propertyFinder/mapping";
 import { extractErrorMessage } from "@/lib/errors";
@@ -72,7 +73,7 @@ export default function MultiPortalPublishingPage() {
   const [titleAr, setTitleAr] = useState("");
   const [descriptionAr, setDescriptionAr] = useState("");
   const [detailsLang, setDetailsLang] = useState<"en" | "ar">("en");
-  const [aiBusy, setAiBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState<"title" | "description" | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [reference, setReference] = useState("");
   const [amenities, setAmenities] = useState<string[]>([]);
@@ -297,34 +298,29 @@ export default function MultiPortalPublishingPage() {
   // Asks the server (which holds the OpenAI key) to write the title and
   // description for the language tab currently shown. Fills the fields only -
   // the agent reviews/edits and saves with the rest of the form as usual.
-  async function generateWithAi() {
+  async function generateWithAi(field: "title" | "description") {
     const isEn = detailsLang === "en";
-    const hasText = isEn ? title.trim() || description.trim() : titleAr.trim() || descriptionAr.trim();
-    if (hasText && !window.confirm("Replace the current title and description with AI-written text?")) return;
+    const current = field === "title" ? (isEn ? title : titleAr) : isEn ? description : descriptionAr;
+    if (current.trim() && !window.confirm(`Replace the current ${field} with AI-written text?`)) return;
     setAiError(null);
-    setAiBusy(true);
+    setAiBusy(field);
     try {
       const res = await fetch(`/api/listings/${id}/generate-copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang: detailsLang, amenities, locationLabel: pfLocationLabel }),
+        body: JSON.stringify({ lang: detailsLang, field, currentTitle: isEn ? title : titleAr, amenities, locationLabel: pfLocationLabel }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setAiError(extractErrorMessage(data?.error, "Couldn't generate text"));
         return;
       }
-      if (isEn) {
-        setTitle(data.title);
-        setDescription(data.description);
-      } else {
-        setTitleAr(data.title);
-        setDescriptionAr(data.description);
-      }
+      if (field === "title") (isEn ? setTitle : setTitleAr)(data.title);
+      else (isEn ? setDescription : setDescriptionAr)(data.description);
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
-      setAiBusy(false);
+      setAiBusy(null);
     }
   }
 
@@ -615,23 +611,17 @@ export default function MultiPortalPublishingPage() {
                 onChange={setDetailsLang}
               />
 
-              <button
-                type="button"
-                onClick={generateWithAi}
-                disabled={aiBusy}
-                className="w-full rounded-xl py-3 text-[14px] font-bold active:opacity-80 disabled:opacity-60"
-                style={{ background: "var(--accent-light)", color: "var(--primary)" }}
-              >
-                {aiBusy ? "Writing..." : detailsLang === "en" ? "Generate Title & Description with AI" : "Generate Arabic Title & Description with AI"}
-              </button>
               {aiError && <div className="rounded-xl bg-danger-bg text-danger text-[13px] px-3 py-2.5">{aiError}</div>}
 
               {detailsLang === "en" ? (
                 <>
                   <div>
-                    <label className="text-sm font-medium text-foreground block mb-1.5">
-                      Title <span className="text-danger">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-sm font-medium text-foreground">
+                        Title <span className="text-danger">*</span>
+                      </label>
+                      <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} />
+                    </div>
                     <input
                       type="text"
                       value={title}
@@ -643,9 +633,12 @@ export default function MultiPortalPublishingPage() {
                     <div className="text-right text-[12px] text-muted mt-1">{title.length}/50</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-foreground block mb-1.5">
-                      Description <span className="text-danger">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-sm font-medium text-foreground">
+                        Description <span className="text-danger">*</span>
+                      </label>
+                      <AiWriteButton onClick={() => generateWithAi("description")} busy={aiBusy === "description"} disabled={aiBusy !== null} />
+                    </div>
                     <textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
@@ -660,7 +653,10 @@ export default function MultiPortalPublishingPage() {
               ) : (
                 <>
                   <div>
-                    <label className="text-sm font-medium text-foreground block mb-1.5">Title (Arabic)</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-sm font-medium text-foreground">Title (Arabic)</label>
+                      <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} label="Write Arabic with AI" />
+                    </div>
                     <input
                       type="text"
                       dir="rtl"
@@ -673,7 +669,10 @@ export default function MultiPortalPublishingPage() {
                     <div className="text-right text-[12px] text-muted mt-1">{titleAr.length}/50</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-foreground block mb-1.5">Description (Arabic)</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-sm font-medium text-foreground">Description (Arabic)</label>
+                      <AiWriteButton onClick={() => generateWithAi("description")} busy={aiBusy === "description"} disabled={aiBusy !== null} label="Write Arabic with AI" />
+                    </div>
                     <textarea
                       dir="rtl"
                       value={descriptionAr}

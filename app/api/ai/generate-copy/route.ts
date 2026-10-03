@@ -5,6 +5,10 @@ import { OpenAiNotConfiguredError } from "@/lib/ai/openai";
 import { generateListingCopy } from "@/lib/ai/generateCopy";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_LABELS } from "@/lib/propertyCategory";
 
+function fieldFrom(value: unknown): "title" | "description" | "both" {
+  return value === "title" || value === "description" ? value : "both";
+}
+
 // Same generator as /api/listings/[id]/generate-copy, for the Add Property
 // form where the listing doesn't exist yet: takes the form's own values, and
 // uses the signed-in agent's own name and number for the call to action.
@@ -27,6 +31,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       await generateListingCopy({
         lang: "en",
+        field: fieldFrom(body.field),
+        currentTitle: typeof body.currentTitle === "string" ? body.currentTitle : undefined,
         listingType: body.listingType === "SALE" ? "SALE" : "RENT",
         propertyCategory: body.propertyCategory,
         bedrooms: body.bedrooms in BEDROOM_LABELS ? body.bedrooms : null,

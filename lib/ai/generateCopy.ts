@@ -1,5 +1,5 @@
 import { chatJson } from "./openai";
-import { buildMessages, parseAndFinish, type CopyLang } from "./listingCopy";
+import { buildMessages, parseAndFinish, type CopyField, type CopyLang } from "./listingCopy";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_LABELS } from "@/lib/propertyCategory";
 import { AMENITY_LABELS, filterAmenitiesForCategory } from "@/lib/propertyFinder/mapping";
 import type { BedroomCount, Furnished, ListingType, PropertyCategory } from "@prisma/client";
@@ -9,6 +9,8 @@ import type { BedroomCount, Furnished, ListingType, PropertyCategory } from "@pr
 // title + description. One path, so both behave identically.
 export interface CopyFacts {
   lang: CopyLang;
+  field?: CopyField; // which part to write - default both
+  currentTitle?: string; // helps a description-only request match the title
   listingType: ListingType;
   propertyCategory: PropertyCategory;
   bedrooms: BedroomCount | null;
@@ -23,11 +25,12 @@ export interface CopyFacts {
   agentPhone: string;
 }
 
-export async function generateListingCopy(f: CopyFacts): Promise<{ title: string; description: string }> {
+export async function generateListingCopy(f: CopyFacts): Promise<{ title?: string; description?: string }> {
   const amenities = filterAmenitiesForCategory(f.propertyCategory, f.amenities)
     .map((a) => AMENITY_LABELS[a])
     .filter((a): a is string => Boolean(a));
 
+  const field = f.field ?? "both";
   const { system, user } = buildMessages({
     lang: f.lang,
     listingType: f.listingType,
@@ -42,7 +45,7 @@ export async function generateListingCopy(f: CopyFacts): Promise<{ title: string
     amenities,
     agentName: f.agentName,
     agentPhone: f.agentPhone,
-  });
+  }, field, f.currentTitle?.slice(0, 120));
   const content = await chatJson(system, user);
-  return parseAndFinish(content, f.lang, f.agentName, f.agentPhone);
+  return parseAndFinish(content, f.lang, f.agentName, f.agentPhone, field);
 }

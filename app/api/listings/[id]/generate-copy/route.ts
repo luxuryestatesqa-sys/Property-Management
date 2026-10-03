@@ -4,6 +4,10 @@ import { requireSession } from "@/lib/api-helpers";
 import { OpenAiNotConfiguredError } from "@/lib/ai/openai";
 import { generateListingCopy } from "@/lib/ai/generateCopy";
 
+function fieldFrom(value: unknown): "title" | "description" | "both" {
+  return value === "title" || value === "description" ? value : "both";
+}
+
 // Writes a Property Finder title + description for one SAVED listing from its
 // details (plus the amenities/location the agent has on screen but may not
 // have saved yet). Returns text only - nothing is saved here; the agent
@@ -30,6 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json(
       await generateListingCopy({
         lang: body.lang === "ar" ? "ar" : "en",
+        field: fieldFrom(body.field),
+        currentTitle: typeof body.currentTitle === "string" ? body.currentTitle : undefined,
         listingType: listing.listingType,
         propertyCategory: listing.propertyCategory,
         bedrooms: listing.bedrooms,
