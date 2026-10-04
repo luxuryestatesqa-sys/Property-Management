@@ -9,6 +9,9 @@ import {
   resetPropertyFinderListing,
 } from "@/lib/propertyFinder/sync";
 
+// Publishing can retry for several seconds while Property Finder finishes creating a new listing.
+export const maxDuration = 60;
+
 const PORTAL = "PROPERTY_FINDER" as const;
 
 // Toggles whether a listing is published to Property Finder. Enabling

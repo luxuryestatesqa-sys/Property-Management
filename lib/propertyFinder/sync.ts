@@ -170,6 +170,54 @@ function buildListingPayload(
   };
 }
 
+const NO_PUBLISH_OPTION = "Property Finder didn't offer any publishing option for this listing";
+
+// Moves a listing out of DRAFT on Property Finder. A brand-new listing can
+// 404 (or show no publish option) for a few seconds while PF finishes
+// creating it; that used to be read as "already live", so the publish step
+// was skipped and the listing stayed a draft. Now a 404 is only trusted after
+// asking PF for the listing's real stage - still draft means retry, and if it
+// never leaves draft this throws so the agent sees a failure, not a false
+// "published".
+async function publishDraftWithRetry(pfListingId: string): Promise<string> {
+  const MAX_ATTEMPTS = 5;
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (attempt > 1) await new Promise((r) => setTimeout(r, 1500 * (attempt - 1)));
+    try {
+      const prices = await getPublishPrice(pfListingId);
+      const publishOption = prices.find((p) => p.feature === "publish");
+      // Cheapest tier only: featured/premium are paid upgrades an agent
+      // applies manually in PF Expert. Picked by lowest price, not by name,
+      // since PF's product name for that tier isn't confirmed.
+      const cheapestProduct = publishOption?.purchasableProducts.reduce<(typeof publishOption.purchasableProducts)[number] | null>(
+        (min, p) => (min === null || p.price.total < min.price.total ? p : min),
+        null
+      );
+      if (!cheapestProduct) throw new Error(NO_PUBLISH_OPTION);
+      try {
+        await publishListing(pfListingId, "standard");
+      } catch {
+        await publishListing(pfListingId, cheapestProduct.name);
+      }
+      return "pending_publishing";
+    } catch (err) {
+      const retryable = (err instanceof PropertyFinderApiError && err.status === 404) || (err instanceof Error && err.message === NO_PUBLISH_OPTION);
+      if (!retryable) throw err;
+      lastError = err;
+      // Past draft already (live / pending review)? Then there's nothing left to publish.
+      try {
+        const stage = (await getListing(pfListingId)).state?.stage ?? null;
+        if (stage && stage !== "draft") return stage === "live" ? "live" : "pending_publishing";
+      } catch {
+        // couldn't read the stage - treat as still draft and retry
+      }
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : "unknown error";
+  throw new Error(`Property Finder created the listing but it's still a draft (${detail}). Press Publish again.`);
+}
+
 // Creates (first time) or updates (subsequent) the listing on Property
 // Finder, then publishes it. Stores the result on PortalListing (portal =
 // PROPERTY_FINDER); on failure, stores the reason so the agent can see why
@@ -281,32 +329,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     // since PF's actual product name for that tier isn't confirmed (their
     // schema docs are behind a login) and a strict name match broke on a
     // real response that didn't include that literal string.
-    let finalState = "pending_publishing";
-    try {
-      const prices = await getPublishPrice(newRemoteListingId);
-      const publishOption = prices.find((p) => p.feature === "publish");
-      const cheapestProduct = publishOption?.purchasableProducts.reduce<(typeof publishOption.purchasableProducts)[number] | null>(
-        (min, p) => (min === null || p.price.total < min.price.total ? p : min),
-        null
-      );
-      if (!cheapestProduct) {
-        throw new Error("Property Finder didn't offer any publishing option for this listing");
-      }
-      try {
-        await publishListing(newRemoteListingId, "standard");
-      } catch {
-        await publishListing(newRemoteListingId, cheapestProduct.name);
-      }
-    } catch (publishErr) {
-      if (publishErr instanceof PropertyFinderApiError && publishErr.status === 404) {
-        // Already past draft - the update we just sent still applied. The
-        // next status refresh (refreshPropertyFinderListingStatus) will
-        // correct this to PF's exact real stage right after.
-        finalState = "live";
-      } else {
-        throw publishErr;
-      }
-    }
+    const finalState = await publishDraftWithRetry(newRemoteListingId);
 
     await prisma.portalListing.upsert({
       where: portalKey(listingId),
