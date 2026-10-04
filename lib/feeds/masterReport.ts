@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { getChannelEligibility } from "@/lib/portals/eligibility";
+import { auditPublicText } from "./audit";
 
 export interface MasterFeedReport {
   included: number;
   skipped: { id: number; title: string; reasons: string[] }[];
+  // Listings live on any feed whose public title/description needs a look:
+  // someone else's phone/email, owner or building details, or a location that
+  // disagrees with the listing's own area/community.
+  textWarnings: { id: number; title: string; issues: string[] }[];
 }
 
 // What the admin card shows: of every active listing an agent switched on for
@@ -24,5 +29,17 @@ export async function getMasterFeedReport(): Promise<MasterFeedReport> {
     if (eligible) included++;
     else skipped.push({ id: listing.id, title: listing.title?.trim() || `Listing #${listing.id}`, reasons });
   }
-  return { included, skipped };
+
+  const published = await prisma.listing.findMany({
+    where: { status: "ACTIVE", portalListings: { some: { enabled: true } } },
+    include: { createdBy: { select: { whatsapp: true, email: true } } },
+    orderBy: { id: "asc" },
+  });
+  const textWarnings: MasterFeedReport["textWarnings"] = [];
+  for (const listing of published) {
+    const issues = auditPublicText(listing, listing.createdBy);
+    if (issues.length > 0) textWarnings.push({ id: listing.id, title: listing.title?.trim() || `Listing #${listing.id}`, issues });
+  }
+
+  return { included, skipped, textWarnings };
 }

@@ -6,6 +6,7 @@ import PortalFeedCard from "./PortalFeedCard";
 interface Report {
   included: number;
   skipped: { id: number; title: string; reasons: string[] }[];
+  textWarnings: { id: number; title: string; issues: string[] }[];
 }
 
 // Admin view of the master XML feed for every portal except Property Finder:
@@ -74,6 +75,21 @@ export default function MasterFeedCard() {
                   </li>
                 ))}
               </ul>
+            )}
+            {report.textWarnings?.length > 0 && (
+              <>
+                <div className="mt-3 text-[13px] font-semibold">Title / description needs a look</div>
+                <ul className="mt-1.5 flex flex-col gap-1.5 text-[12px]">
+                  {report.textWarnings.map((w) => (
+                    <li key={w.id} className="rounded-lg bg-surface-muted px-3 py-2">
+                      <a href={`/property/${w.id}`} className="font-semibold underline">
+                        {w.title}
+                      </a>
+                      <span className="text-muted"> - {w.issues.join("; ")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </>
         )}

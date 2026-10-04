@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import type { Listing } from "@prisma/client";
+import type { Listing, Prisma } from "@prisma/client";
+import { fetchPfLocationSnapshot } from "./location";
 import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
 import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, getListing, PFListingPayload, PFListingResponse, PropertyFinderApiError } from "./client";
 
@@ -241,6 +242,15 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
   }
 
   const reference = portalListing?.reference || `LE-${listing.id}`;
+
+  // Save Property Finder's own name/tree/coordinates for the chosen location,
+  // so every feed shows exactly the location this listing is published under.
+  if (listing.pfLocationId) {
+    const snapshot = await fetchPfLocationSnapshot(listing.pfLocationId);
+    if (snapshot) {
+      await prisma.listing.update({ where: { id: listingId }, data: { pfLocation: snapshot as unknown as Prisma.InputJsonValue } });
+    }
+  }
 
   // The per-image route (app/api/listings/[id]/images/[imageId]/route.ts)
   // only serves a photo once its listing has an *enabled* PortalListing row -

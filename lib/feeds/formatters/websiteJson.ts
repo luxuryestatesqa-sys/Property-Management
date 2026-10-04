@@ -10,7 +10,7 @@ export function formatWebsiteFeed(listings: FeedListing[]): string {
     reference: l.reference,
     listingType: l.listingType,
     propertyType: l.propertyCategoryLabel,
-    bedrooms: l.bedroomsLabel,
+    bedrooms: l.bedrooms,
     bathrooms: l.bathrooms,
     sizeSqm: l.sizeSqm,
     title: l.title,
@@ -22,9 +22,13 @@ export function formatWebsiteFeed(listings: FeedListing[]): string {
     location: {
       area: l.area,
       community: l.community,
+      subcommunity: l.subcommunity || null,
+      latitude: l.latitude,
+      longitude: l.longitude,
       building: l.buildingName,
       country: "Qatar",
     },
+    amenities: l.amenities,
     images: l.images,
     updatedAt: l.updatedAt.toISOString(),
   }));

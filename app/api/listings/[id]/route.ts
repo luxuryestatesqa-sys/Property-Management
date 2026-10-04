@@ -6,7 +6,8 @@ import { buildDupKey } from "@/lib/dupKey";
 import { isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
 import { canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { unpublishListingFromPropertyFinder } from "@/lib/propertyFinder/sync";
-import { PropertyCategory } from "@prisma/client";
+import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
+import { Prisma, PropertyCategory } from "@prisma/client";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireSession();
@@ -145,6 +146,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   trackChange("titleAr", listing.titleAr, data.titleAr, "TITLE_AR");
   trackChange("descriptionAr", listing.descriptionAr, data.descriptionAr, "DESCRIPTION_AR");
   trackChange("pfLocationId", listing.pfLocationId, data.pfLocationId, "PROPERTY_FINDER_LOCATION");
+  // Keep the readable Property Finder location (name, tree, coordinates) in
+  // step with the chosen id - it's what the feeds and AI copy show. Looked up
+  // when the id changes, and also for a listing that has an id but no saved
+  // location yet. A failed lookup just leaves it empty (feeds fall back to
+  // area/community) and is retried on the next save or publish.
+  if (data.pfLocationId !== undefined) {
+    if (data.pfLocationId === null) {
+      if (listing.pfLocation !== null) updateData.pfLocation = Prisma.DbNull;
+    } else if (data.pfLocationId !== listing.pfLocationId || listing.pfLocation === null) {
+      const snapshot = await fetchPfLocationSnapshot(data.pfLocationId);
+      if (snapshot) updateData.pfLocation = snapshot as unknown as Prisma.InputJsonValue;
+      else if (data.pfLocationId !== listing.pfLocationId) updateData.pfLocation = Prisma.DbNull;
+    }
+  }
   if (data.amenities !== undefined && JSON.stringify(data.amenities) !== JSON.stringify(listing.amenities)) {
     updateData.amenities = data.amenities;
     auditEntries.push({ action: "AMENITIES_CHANGED", oldValue: listing.amenities.join(", ") || "-", newValue: data.amenities.join(", ") || "-" });

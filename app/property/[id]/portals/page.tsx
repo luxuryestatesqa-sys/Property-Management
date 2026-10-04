@@ -116,6 +116,7 @@ export default function MultiPortalPublishingPage() {
       setDescriptionAr(l.descriptionAr ?? "");
       setAmenities(filterAmenitiesForCategory(l.propertyCategory, l.amenities));
       setPfLocationId(l.pfLocationId);
+      setPfLocationLabel(l.pfLocation ? l.pfLocation.tree.map((t) => t.name).join(", ") || l.pfLocation.name : null);
       setReference(l.propertyFinderState?.reference ?? "");
       setSelectedProfileId(l.propertyFinderState?.assignedProfileId ?? l.createdBy.pfPublicProfileId ?? null);
     }

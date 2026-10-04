@@ -1,11 +1,12 @@
 import { FeedListing } from "../types";
-import { xmlTag, cdataTag } from "../xml";
+import { xmlTag, cdataTag, joinTags } from "../xml";
+import { agentXml, amenitiesXml, imagesXml } from "./shared";
 
 // Shared building block for portals without a confirmed spec yet
-// (Qatar Living, Property Oryx - and Property Finder's own feed placeholder,
+// (Property Oryx - and Property Finder's own feed placeholder,
 // separate from and not used by its real push-API integration in
 // lib/propertyFinder/). Each portal still gets its own formatter file
-// (formatters/qatarLiving.ts etc.) calling this - once a real spec shows up
+// (formatters/propertyOryx.ts etc.) calling this - once a real spec shows up
 // for a portal, only that one file changes.
 export function buildGenericListingsXml(rootTag: string, listings: FeedListing[]): string {
   const items = listings.map((l) => buildGenericListingItem(l)).join("\n");
@@ -13,13 +14,12 @@ export function buildGenericListingsXml(rootTag: string, listings: FeedListing[]
 }
 
 function buildGenericListingItem(l: FeedListing): string {
-  const images = l.images.map((url) => `<image>${escapeUrl(url)}</image>`).join("");
-  return [
+  return joinTags([
     "<listing>",
     xmlTag("id", l.reference),
     xmlTag("listing_type", l.listingType === "RENT" ? "rent" : "sale"),
     xmlTag("property_type", l.propertyCategoryLabel),
-    xmlTag("bedrooms", l.bedroomsLabel),
+    xmlTag("bedrooms", l.bedrooms),
     xmlTag("bathrooms", l.bathrooms),
     xmlTag("size_sqm", l.sizeSqm),
     cdataTag("title", l.title),
@@ -31,17 +31,16 @@ function buildGenericListingItem(l: FeedListing): string {
     "<location>",
     xmlTag("area", l.area),
     xmlTag("community", l.community),
+    xmlTag("subcommunity", l.subcommunity),
     xmlTag("building", l.buildingName),
     xmlTag("country", "Qatar"),
+    xmlTag("latitude", l.latitude),
+    xmlTag("longitude", l.longitude),
     "</location>",
-    `<images>${images}</images>`,
+    amenitiesXml(l),
+    agentXml(l),
+    imagesXml(l),
     xmlTag("last_updated", l.updatedAt.toISOString()),
     "</listing>",
-  ].join("\n");
-}
-
-// Image URLs are already absolute http(s) URLs (built in generateFeed.ts) -
-// XML-escaping is enough, no URL-encoding needed.
-function escapeUrl(url: string): string {
-  return url.replace(/&/g, "&amp;");
+  ]);
 }

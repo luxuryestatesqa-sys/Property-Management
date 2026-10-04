@@ -1,5 +1,6 @@
 import { FeedListing } from "../types";
-import { xmlTag, cdataTag } from "../xml";
+import { xmlTag, cdataTag, joinTags } from "../xml";
+import { agentXml, amenitiesXml, imagesXml } from "./shared";
 
 // The master feed any portal other than Property Finder can pull. Unlike the
 // generic per-portal shape (genericFormat.ts) it never emits the building
@@ -11,13 +12,12 @@ export function formatOtherPortalsFeed(listings: FeedListing[]): string {
 }
 
 function buildItem(l: FeedListing): string {
-  const images = l.images.map((url) => `<image>${url.replace(/&/g, "&amp;")}</image>`).join("");
-  return [
+  return joinTags([
     "<listing>",
     xmlTag("reference", l.reference),
     xmlTag("listing_type", l.listingType === "RENT" ? "rent" : "sale"),
     xmlTag("property_type", l.propertyCategoryLabel),
-    xmlTag("bedrooms", l.bedroomsLabel),
+    xmlTag("bedrooms", l.bedrooms),
     xmlTag("bathrooms", l.bathrooms),
     xmlTag("size_sqm", l.sizeSqm),
     cdataTag("title", l.title),
@@ -29,14 +29,15 @@ function buildItem(l: FeedListing): string {
     "<location>",
     xmlTag("area", l.area),
     xmlTag("community", l.community),
+    xmlTag("subcommunity", l.subcommunity),
     xmlTag("country", "Qatar"),
+    xmlTag("latitude", l.latitude),
+    xmlTag("longitude", l.longitude),
     "</location>",
-    "<agent>",
-    xmlTag("name", l.agentName),
-    xmlTag("phone", l.agentPhone),
-    "</agent>",
-    `<images>${images}</images>`,
+    amenitiesXml(l),
+    agentXml(l),
+    imagesXml(l),
     xmlTag("last_updated", l.updatedAt.toISOString()),
     "</listing>",
-  ].join("\n");
+  ]);
 }

@@ -54,9 +54,12 @@ export function buildMessages(input: ListingCopyInput, field: CopyField = "both"
     input.bathrooms ? `Bathrooms: ${input.bathrooms}` : null,
     input.sizeSqm ? `Size: ${input.sizeSqm} sqm` : null,
     `Furnishing: ${input.furnished === "FURNISHED" ? "Furnished" : "Unfurnished"}`,
-    `Area: ${input.area}`,
-    input.community && input.community !== input.area ? `Community: ${input.community}` : null,
-    input.locationLabel ? `Property Finder location: ${input.locationLabel}` : null,
+    // The Property Finder location is the one the listing is published under,
+    // so when there is one it's the only location the model is given - a
+    // second, different area/community would let the text name the wrong place.
+    ...(input.locationLabel
+      ? [`Location: ${input.locationLabel}`]
+      : [`Area: ${input.area}`, input.community && input.community !== input.area ? `Community: ${input.community}` : null]),
     input.amenities.length > 0 ? `Amenities: ${input.amenities.join(", ")}` : null,
   ].filter(Boolean);
 

@@ -153,11 +153,20 @@ export interface PFLocation {
   type: string;
   name: string;
   tree: { id: number; type: string; name: string }[];
+  coordinates?: { lat: number; lng: number };
 }
 
 export async function searchLocations(query: string): Promise<PFLocation[]> {
   const data = await pfFetch<{ data: PFLocation[] }>(`/v1/locations?search=${encodeURIComponent(query)}`);
   return data.data;
+}
+
+// The one location with this id (confirmed against the live API: the
+// `filter[id]` query returns exactly that location, with its tree and
+// coordinates; plain `id`/`ids` are rejected with 400).
+export async function searchLocationById(id: number): Promise<PFLocation | null> {
+  const data = await pfFetch<{ data: PFLocation[] }>(`/v1/locations?filter[id]=${id}`);
+  return data.data.find((l) => l.id === id) ?? null;
 }
 
 // Only the fields this app actually sends/reads - the full PF schema is far

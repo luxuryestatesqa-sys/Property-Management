@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
+import { feedLocationFor } from "@/lib/propertyFinder/location";
 import { OpenAiNotConfiguredError } from "@/lib/ai/openai";
 import { generateListingCopy } from "@/lib/ai/generateCopy";
 
@@ -45,7 +46,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         area: listing.area,
         community: listing.community,
         amenities: Array.isArray(body.amenities) ? body.amenities.filter((a: unknown): a is string => typeof a === "string") : listing.amenities,
-        locationLabel: typeof body.locationLabel === "string" ? body.locationLabel.trim().slice(0, 150) || null : null,
+        // The location picked in the page this session, else the saved Property
+        // Finder location - so the text always matches what the feeds publish.
+        locationLabel:
+          (typeof body.locationLabel === "string" ? body.locationLabel.trim().slice(0, 150) : "") ||
+          (feedLocationFor(listing).fromPropertyFinder ? feedLocationFor(listing).path : null),
         agentName: listing.createdBy.name,
         agentPhone: listing.createdBy.whatsapp,
       })

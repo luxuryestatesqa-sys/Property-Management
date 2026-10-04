@@ -125,6 +125,12 @@ model Listing {
   // agent via autocomplete rather than derived from area/community - PF
   // recommends manual selection to avoid misassigning the listing.
   pfLocationId Int?
+  // Snapshot of that Property Finder location (name, type, tree, coordinates -
+  // see lib/propertyFinder/location.ts), saved when the location is chosen or
+  // published. This is the location every feed and AI description uses, so
+  // they show exactly what Property Finder shows; area/community above are
+  // only the fallback for a listing with no Property Finder location yet.
+  pfLocation Json?
 
   // Location hierarchy: area (top-level location) -> community (area/community) -> buildingName -> floor -> apartmentNumber
   area            String

@@ -1,8 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import { getQatarLivingEligibility } from "@/lib/portals/eligibility";
+import { OFF_MARKET_STATUSES } from "@/lib/feeds/generateFeed";
 import { toQatarLivingListing, QatarLivingListing } from "./listingMapper";
 
-const LISTING_INCLUDE = {
+// Only the public columns the mapper reads - owner details, title deed,
+// private notes, unit/floor and internal ids are never loaded for this API.
+const LISTING_SELECT = {
+  id: true,
+  listingType: true,
+  propertyCategory: true,
+  bedrooms: true,
+  bathrooms: true,
+  sizeSqm: true,
+  title: true,
+  description: true,
+  amenities: true,
+  area: true,
+  community: true,
+  buildingName: true,
+  rentPrice: true,
+  salePrice: true,
+  furnished: true,
+  updatedAt: true,
   images: { orderBy: { sortOrder: "asc" as const }, select: { id: true, createdAt: true } },
   createdBy: { select: { name: true, email: true, whatsapp: true } },
 };
@@ -32,10 +51,11 @@ export async function getQatarLivingPage(page: number, pageSize: number, updated
   const rows = await prisma.listing.findMany({
     where: {
       status: "ACTIVE",
+      availabilityStatus: { notIn: [...OFF_MARKET_STATUSES] },
       portalListings: { some: { portal: "QATAR_LIVING", enabled: true } },
       ...(updatedSince ? { updatedAt: { gte: updatedSince } } : {}),
     },
-    include: LISTING_INCLUDE,
+    select: LISTING_SELECT,
     orderBy: { id: "asc" },
   });
 
@@ -54,9 +74,10 @@ export async function getQatarLivingListingByReference(referenceNumber: string):
     where: {
       id: Number(match[1]),
       status: "ACTIVE",
+      availabilityStatus: { notIn: [...OFF_MARKET_STATUSES] },
       portalListings: { some: { portal: "QATAR_LIVING", enabled: true } },
     },
-    include: LISTING_INCLUDE,
+    select: LISTING_SELECT,
   });
   if (!listing || !isEligible(listing, listing.images)) return null;
 

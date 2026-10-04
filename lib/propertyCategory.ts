@@ -44,6 +44,22 @@ export const BEDROOM_LABELS: Record<BedroomCount, string> = {
   SIX_PLUS: "6+ Bedroom",
 };
 
+// Numeric bedroom count for portal feeds (0 = studio). The "+ Maid" variants
+// count only the bedrooms, and "6+" is reported as 6.
+export const BEDROOM_NUMBERS: Record<BedroomCount, number> = {
+  STUDIO: 0,
+  ONE: 1,
+  TWO: 2,
+  TWO_PLUS_MAID: 2,
+  THREE: 3,
+  THREE_PLUS_MAID: 3,
+  FOUR: 4,
+  FOUR_PLUS_MAID: 4,
+  FIVE: 5,
+  FIVE_PLUS_MAID: 5,
+  SIX_PLUS: 6,
+};
+
 // Short form for tight spaces like property cards.
 export const BEDROOM_SHORT_LABELS: Record<BedroomCount, string> = {
   STUDIO: "Studio",

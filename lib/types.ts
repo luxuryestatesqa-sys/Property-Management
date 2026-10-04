@@ -51,6 +51,8 @@ export interface ListingDTO {
   amenities: string[];
   // Property Finder's own location-tree id, chosen via autocomplete.
   pfLocationId: number | null;
+  // Property Finder's own description of that location (saved server-side).
+  pfLocation?: { name: string; tree: { name: string }[] } | null;
   area: string;
   community: string;
   buildingName: string;
