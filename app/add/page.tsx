@@ -411,43 +411,6 @@ export default function AddPropertyPage() {
         </Card>
 
         <Card>
-          <FormSectionHeader icon={ICONS.marketing} label="Title & Description" badge="(optional, needed to publish to Property Finder)" />
-          <div className="flex flex-col gap-3">
-            {aiError && <div className="rounded-xl bg-danger-bg text-danger text-[13px] px-3 py-2.5">{aiError}</div>}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-medium text-foreground">Title</span>
-                <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} />
-              </div>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => update("title", e.target.value)}
-                placeholder="Listing title, e.g. Spacious 2BR with Marina View"
-                maxLength={50}
-                className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
-              />
-              <div className="text-right text-[12px] text-muted mt-1">{form.title.length}/50</div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-medium text-foreground">Description</span>
-                <AiWriteButton onClick={() => generateWithAi("description")} busy={aiBusy === "description"} disabled={aiBusy !== null} />
-              </div>
-              <textarea
-                value={form.description}
-                onChange={(e) => update("description", e.target.value)}
-                placeholder="Describe the property..."
-                rows={9}
-                maxLength={2000}
-                className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary resize-none"
-              />
-              <div className="text-right text-[12px] text-muted mt-1">{form.description.length}/2000</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
           <FormSectionHeader icon={ICONS.features} label="Features" />
           <div className="flex flex-col gap-4">
             {form.propertyCategory !== "LAND" && (
@@ -533,6 +496,43 @@ export default function AddPropertyPage() {
                   className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
                 />
               </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <FormSectionHeader icon={ICONS.marketing} label="Title & Description" badge="(optional, needed to publish to Property Finder)" />
+          <div className="flex flex-col gap-3">
+            {aiError && <div className="rounded-xl bg-danger-bg text-danger text-[13px] px-3 py-2.5">{aiError}</div>}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-foreground">Title</span>
+                <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} />
+              </div>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => update("title", e.target.value)}
+                placeholder="Listing title, e.g. Spacious 2BR with Marina View"
+                maxLength={50}
+                className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
+              />
+              <div className="text-right text-[12px] text-muted mt-1">{form.title.length}/50</div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-foreground">Description</span>
+                <AiWriteButton onClick={() => generateWithAi("description")} busy={aiBusy === "description"} disabled={aiBusy !== null} />
+              </div>
+              <textarea
+                value={form.description}
+                onChange={(e) => update("description", e.target.value)}
+                placeholder="Describe the property..."
+                rows={9}
+                maxLength={2000}
+                className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary resize-none"
+              />
+              <div className="text-right text-[12px] text-muted mt-1">{form.description.length}/2000</div>
             </div>
           </div>
         </Card>

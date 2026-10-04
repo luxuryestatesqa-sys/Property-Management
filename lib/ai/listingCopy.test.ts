@@ -118,7 +118,7 @@ describe("single-field generation", () => {
 
   it("title-only asks for just a title and has no description rule", () => {
     const { system, user } = buildMessages(facts, "title");
-    expect(system).toContain('{"title": string}');
+    expect(system).toContain('{"titles": string[]}');
     expect(system).not.toMatch(/Description:/);
     expect(user).toContain("Write the title for this listing");
   });
@@ -140,5 +140,16 @@ describe("single-field generation", () => {
 
   it("errors when the requested field is missing from the reply", () => {
     expect(() => parseAndFinish(JSON.stringify({ description: "x" }), "en", "A", "1", "title")).toThrow(/a title/);
+  });
+});
+
+describe("pickTitle", () => {
+  it("picks the longest option that fits in 50 characters", () => {
+    const out = parseAndFinish(
+      JSON.stringify({ titles: ["Modern 2BR in Lusail", "Furnished 2 Bedroom Apartment in Lusail Marina", "Furnished 2 Bedroom Apartment in Lusail Marina District Tower"] }),
+      "en", "A", "1", "title"
+    );
+    expect(out.title).toBe("Furnished 2 Bedroom Apartment in Lusail Marina");
+    expect(out.title!.length).toBeLessThanOrEqual(50);
   });
 });

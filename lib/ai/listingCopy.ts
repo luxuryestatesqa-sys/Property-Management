@@ -4,6 +4,7 @@
 // enforced here in plain code afterwards, never trusted to the model.
 
 export const TITLE_MAX = 50;
+export const TITLE_MIN = 45; // aim for 45-50 characters: fills the portal's limit without being cut off
 export const DESCRIPTION_MAX = 2000;
 
 export type CopyLang = "en" | "ar";
@@ -36,14 +37,14 @@ export function buildMessages(input: ListingCopyInput, field: CopyField = "both"
     `Write in ${arabic ? "Modern Standard Arabic" : "clear, professional English"}.`,
     "Rules, all mandatory:",
     "- Plain text only. No emojis, no symbols used as decoration, no markdown, no hashtags, no ALL CAPS words.",
-    ...(field !== "description" ? [`- Title: at most ${TITLE_MAX} characters, specific and factual (type, bedrooms, area). No quotation marks, no trailing full stop.`] : []),
+    ...(field !== "description" ? [`- Titles: give 6 different options, each between ${TITLE_MIN} and ${TITLE_MAX} characters long (count carefully, spaces included; never over ${TITLE_MAX}), specific and factual (type, bedrooms, area, furnishing or size). Use the full length, not a short title. No quotation marks, no trailing full stop.`] : []),
     ...(field !== "title"
       ? ["- Description: 3 to 4 short paragraphs separated by a blank line, roughly 900 to 1400 characters. Open with the key selling point, then layout and features, then the location and neighbourhood."]
       : []),
     "- Use ONLY the facts provided. Never invent views, floors, finishes, distances, prices, or amenities that are not listed.",
     "- Never mention a building name, floor number, unit number, price, phone number, email or website.",
     "- Do not write a call to action or contact line - it is added separately.",
-    field === "title" ? 'Return JSON only: {"title": string}.' : field === "description" ? 'Return JSON only: {"description": string}.' : 'Return JSON only: {"title": string, "description": string}.',
+    field === "title" ? 'Return JSON only: {"titles": string[]}.' : field === "description" ? 'Return JSON only: {"description": string}.' : 'Return JSON only: {"titles": string[], "description": string}.',
   ].join("\n");
 
   const facts = [
@@ -115,6 +116,17 @@ export function buildDescription(rawBody: string, lang: CopyLang, agentName: str
   return `${body}\n\n${cta}`;
 }
 
+// Models miscount characters, so the prompt asks for several options and the
+// choice is made here: the longest that fits within the limit (closest to 50),
+// falling back to a word-boundary trim of the closest one if all run over.
+export function pickTitle(raw: unknown): string {
+  const options = (Array.isArray(raw) ? raw : [raw]).filter((t): t is string => typeof t === "string").map((t) => cleanTitle(t)).filter(Boolean);
+  if (options.length === 0) return "";
+  const fitting = options.filter((t) => t.length <= TITLE_MAX);
+  if (fitting.length > 0) return fitting.reduce((a, b) => (b.length > a.length ? b : a));
+  return options[0];
+}
+
 export class AiCopyError extends Error {}
 
 // Parses the model's JSON reply into the two cleaned fields.
@@ -125,7 +137,7 @@ export function parseAndFinish(
   agentPhone: string,
   field: CopyField = "both"
 ): { title?: string; description?: string } {
-  let parsed: { title?: unknown; description?: unknown };
+  let parsed: { title?: unknown; titles?: unknown; description?: unknown };
   try {
     parsed = JSON.parse(content);
   } catch {
@@ -133,13 +145,14 @@ export function parseAndFinish(
   }
   const needTitle = field !== "description";
   const needDescription = field !== "title";
-  const titleOk = typeof parsed.title === "string" && parsed.title.trim() !== "";
+  const chosenTitle = pickTitle(parsed.titles ?? parsed.title);
+  const titleOk = chosenTitle !== "";
   const descriptionOk = typeof parsed.description === "string" && parsed.description.trim() !== "";
   if ((needTitle && !titleOk) || (needDescription && !descriptionOk)) {
     throw new AiCopyError(`The AI didn't return ${field === "both" ? "a title and description" : `a ${field}`}. Please try again.`);
   }
   return {
-    ...(needTitle ? { title: cleanTitle(parsed.title as string) } : {}),
+    ...(needTitle ? { title: chosenTitle } : {}),
     ...(needDescription ? { description: buildDescription(parsed.description as string, lang, agentName, agentPhone) } : {}),
   };
 }
