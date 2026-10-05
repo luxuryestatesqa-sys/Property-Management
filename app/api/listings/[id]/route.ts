@@ -4,7 +4,7 @@ import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingUpdateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
 import { isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
-import { canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { canViewListing, visibleListingsWhere, canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { unpublishListingFromPropertyFinder } from "@/lib/propertyFinder/sync";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
 import { Prisma, PropertyCategory } from "@prisma/client";
@@ -23,7 +23,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       portalListings: true,
     },
   });
-  if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Someone else's private listing answers exactly like a missing one.
+  if (!listing || !canViewListing(listing, session!.user.id, session!.user.role === "ADMIN")) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   // PortalListing is generic (one row per listing per portal) - reshape it
   // into the shapes each part of the frontend expects: the singular
@@ -43,7 +46,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   };
 
   const duplicates = await prisma.listing.findMany({
-    where: { dupKey: listing.dupKey, status: "ACTIVE", id: { not: listing.id } },
+    where: {
+      dupKey: listing.dupKey,
+      status: "ACTIVE",
+      id: { not: listing.id },
+      ...visibleListingsWhere(session!.user.id, session!.user.role === "ADMIN"),
+    },
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
       images: { orderBy: { sortOrder: "asc" }, take: 1, select: { id: true, url: true } },
@@ -169,6 +177,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // to null on its next edit even if an older client ever sent a value.
   trackChange("billsStatus", listing.billsStatus, listing.listingType === "RENT" ? data.billsStatus : null, "BILLS");
   trackChange("availabilityStatus", listing.availabilityStatus, data.availabilityStatus, "AVAILABILITY_STATUS");
+  trackChange("visibility", listing.visibility, data.visibility, "VISIBILITY");
 
   if (listing.listingType === "RENT") {
     trackChange("rentPrice", listing.rentPrice, data.rentPrice, "RENT_PRICE");

@@ -1,3 +1,22 @@
+import type { Prisma } from "@prisma/client";
+
+// Whole-listing visibility: a PRIVATE listing is seen only by the agent who
+// created it (and admins); a SHARED one by every agent. Every query that
+// returns listings to a user must include visibleListingsWhere, and every
+// single-listing read must check canViewListing.
+export function canViewListing(
+  listing: { createdById: string; visibility: "PRIVATE" | "SHARED" },
+  viewerId: string,
+  viewerIsAdmin: boolean
+): boolean {
+  return viewerIsAdmin || listing.visibility === "SHARED" || listing.createdById === viewerId;
+}
+
+export function visibleListingsWhere(viewerId: string, viewerIsAdmin: boolean): Prisma.ListingWhereInput {
+  if (viewerIsAdmin) return {};
+  return { OR: [{ visibility: "SHARED" }, { createdById: viewerId }] };
+}
+
 // Owner/title-deed details an agent enters for their own reference. These
 // must never reach any other agent's browser - only the listing's own
 // creator or an admin may see the real values. Every API route that returns

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
+import { visibleListingsWhere } from "@/lib/listingPrivacy";
 import { QATAR_AREAS, QATAR_COMMUNITIES_BY_AREA, QATAR_LOCATION_SUGGESTIONS, LocationSuggestion } from "@/lib/qatarLocations";
 
 // Merges real DB values with a curated list, case-insensitively deduped and
@@ -31,8 +32,9 @@ function jsonCached(body: unknown) {
 // ?level=community&area=X -> communities within area X
 // ?level=building&area=X&community=Y -> buildings within area+community
 export async function GET(req: NextRequest) {
-  const { error } = await requireSession();
+  const { session, error } = await requireSession();
   if (error) return error;
+  const visible = visibleListingsWhere(session!.user.id, session!.user.role === "ADMIN");
 
   const sp = req.nextUrl.searchParams;
   const level = sp.get("level") ?? "area";
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   if (level === "combined") {
     const rows = await prisma.listing.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", ...visible },
       select: { area: true, community: true },
       distinct: ["area", "community"],
     });
@@ -62,7 +64,7 @@ export async function GET(req: NextRequest) {
 
   if (level === "area") {
     const rows = await prisma.listing.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", ...visible },
       select: { area: true },
       distinct: ["area"],
     });
@@ -71,7 +73,7 @@ export async function GET(req: NextRequest) {
 
   if (level === "community") {
     const rows = await prisma.listing.findMany({
-      where: { status: "ACTIVE", ...(area ? { area: { equals: area, mode: "insensitive" } } : {}) },
+      where: { status: "ACTIVE", ...visible, ...(area ? { area: { equals: area, mode: "insensitive" } } : {}) },
       select: { community: true },
       distinct: ["community"],
     });
@@ -83,6 +85,7 @@ export async function GET(req: NextRequest) {
     const rows = await prisma.listing.findMany({
       where: {
         status: "ACTIVE",
+        ...visible,
         ...(area ? { area: { equals: area, mode: "insensitive" } } : {}),
         ...(community ? { community: { equals: community, mode: "insensitive" } } : {}),
       },

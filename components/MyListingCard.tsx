@@ -186,6 +186,9 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
               >
                 {AVAILABILITY_LABELS[listing.availabilityStatus]}
               </span>
+            {listing.visibility === "PRIVATE" && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap bg-surface-muted text-muted">🔒 PRIVATE</span>
+            )}
             </div>
           </div>
 

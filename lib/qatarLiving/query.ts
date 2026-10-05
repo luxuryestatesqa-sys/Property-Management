@@ -51,6 +51,7 @@ export async function getQatarLivingPage(page: number, pageSize: number, updated
   const rows = await prisma.listing.findMany({
     where: {
       status: "ACTIVE",
+      visibility: "SHARED",
       availabilityStatus: { notIn: [...OFF_MARKET_STATUSES] },
       portalListings: { some: { portal: "QATAR_LIVING", enabled: true } },
       ...(updatedSince ? { updatedAt: { gte: updatedSince } } : {}),
@@ -74,6 +75,7 @@ export async function getQatarLivingListingByReference(referenceNumber: string):
     where: {
       id: Number(match[1]),
       status: "ACTIVE",
+      visibility: "SHARED",
       availabilityStatus: { notIn: [...OFF_MARKET_STATUSES] },
       portalListings: { some: { portal: "QATAR_LIVING", enabled: true } },
     },

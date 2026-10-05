@@ -127,6 +127,7 @@ export const listingCreateSchema = z
     billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional().nullable(),
     images: listingImagesSchema,
     confirmDuplicate: z.boolean().optional(),
+    visibility: z.enum(["PRIVATE", "SHARED"]).optional(),
     ...listingMarketingFields,
     ...privateListingFields,
   })
@@ -163,6 +164,7 @@ export const listingUpdateSchema = z.object({
   furnished: z.enum(["FURNISHED", "UNFURNISHED"]).optional(),
   billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional().nullable(),
   availabilityStatus: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]).optional(),
+  visibility: z.enum(["PRIVATE", "SHARED"]).optional(),
   images: listingImagesSchema.optional(),
   pfLocationId: z.number().int().positive().optional().nullable(),
   ...listingMarketingFields,

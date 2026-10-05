@@ -80,6 +80,7 @@ async function loadFeedListings(portal: Portal, filters: FeedFilters = {}, reque
   const rows = await prisma.listing.findMany({
     where: {
       status: "ACTIVE",
+      visibility: "SHARED",
       availabilityStatus: { notIn: [...OFF_MARKET_STATUSES] },
       portalListings: { some: { portal, enabled: true } },
       ...(filters.type ? { listingType: filters.type } : {}),

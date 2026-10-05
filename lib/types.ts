@@ -2,6 +2,7 @@ export type ListingType = "RENT" | "SALE";
 export type Furnished = "FURNISHED" | "UNFURNISHED";
 export type BillsStatus = "INCLUDED" | "EXCLUDED";
 export type ListingStatus = "ACTIVE" | "INACTIVE";
+export type ListingVisibility = "PRIVATE" | "SHARED";
 export type AvailabilityStatus = "AVAILABLE" | "RESERVED" | "RENTED" | "SOLD";
 export type Role = "ADMIN" | "AGENT";
 export type UserStatus = "ACTIVE" | "INACTIVE";
@@ -75,6 +76,7 @@ export interface ListingDTO {
   privateNotes: string | null;
   titleDeedImage: string | null;
   authorizationFormImage: string | null;
+  visibility: ListingVisibility;
   status: ListingStatus;
   deactivatedAt: string | null;
   availabilityStatus: AvailabilityStatus;

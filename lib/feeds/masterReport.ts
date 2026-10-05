@@ -17,7 +17,7 @@ export interface MasterFeedReport {
 // (lib/feeds/generateFeed.ts), so the numbers match what a portal sees.
 export async function getMasterFeedReport(): Promise<MasterFeedReport> {
   const rows = await prisma.listing.findMany({
-    where: { status: "ACTIVE", portalListings: { some: { portal: "OTHER_PORTALS", enabled: true } } },
+    where: { status: "ACTIVE", visibility: "SHARED", portalListings: { some: { portal: "OTHER_PORTALS", enabled: true } } },
     include: { images: { select: { id: true } } },
     orderBy: { id: "asc" },
   });
@@ -31,7 +31,7 @@ export async function getMasterFeedReport(): Promise<MasterFeedReport> {
   }
 
   const published = await prisma.listing.findMany({
-    where: { status: "ACTIVE", portalListings: { some: { enabled: true } } },
+    where: { status: "ACTIVE", visibility: "SHARED", portalListings: { some: { enabled: true } } },
     include: { createdBy: { select: { whatsapp: true, email: true } } },
     orderBy: { id: "asc" },
   });

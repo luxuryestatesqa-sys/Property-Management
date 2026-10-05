@@ -33,6 +33,13 @@ enum BillsStatus {
   EXCLUDED
 }
 
+// Who may see a listing. PRIVATE: only the agent who created it (and admins).
+// SHARED: every agent in the company.
+enum ListingVisibility {
+  PRIVATE
+  SHARED
+}
+
 enum ListingStatus {
   ACTIVE
   INACTIVE
@@ -158,6 +165,7 @@ model Listing {
   titleDeedImage         String? // data URL; SALE listings only
   authorizationFormImage String? // data URL; RENT listings only
 
+  visibility         ListingVisibility  @default(SHARED)
   status             ListingStatus      @default(ACTIVE)
   deactivatedAt      DateTime?
   availabilityStatus AvailabilityStatus @default(AVAILABLE)

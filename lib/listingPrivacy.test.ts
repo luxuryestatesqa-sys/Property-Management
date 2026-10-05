@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "./listingPrivacy";
+import { canViewListing, visibleListingsWhere, canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "./listingPrivacy";
 
 const OWNER_ID = "agent-1";
 const OTHER_AGENT_ID = "agent-2";
@@ -77,5 +77,25 @@ describe("redactPrivateFieldsList", () => {
     const [a, b] = redactPrivateFieldsList([own, others], OWNER_ID, false);
     expect(a.ownerName).toBe("Mine");
     expect(b.ownerName).toBeNull();
+  });
+});
+
+describe("listing visibility", () => {
+  const priv = { createdById: "a", visibility: "PRIVATE" as const };
+  const shared = { createdById: "a", visibility: "SHARED" as const };
+
+  it("lets only the creator and admins see a private listing", () => {
+    expect(canViewListing(priv, "a", false)).toBe(true);
+    expect(canViewListing(priv, "b", false)).toBe(false);
+    expect(canViewListing(priv, "b", true)).toBe(true);
+  });
+
+  it("lets everyone see a shared listing", () => {
+    expect(canViewListing(shared, "b", false)).toBe(true);
+  });
+
+  it("builds a where clause that hides other agents' private listings", () => {
+    expect(visibleListingsWhere("b", false)).toEqual({ OR: [{ visibility: "SHARED" }, { createdById: "b" }] });
+    expect(visibleListingsWhere("b", true)).toEqual({});
   });
 });

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingCreateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
-import { redactPrivateFieldsList } from "@/lib/listingPrivacy";
+import { redactPrivateFieldsList, visibleListingsWhere } from "@/lib/listingPrivacy";
 import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
 
@@ -41,7 +41,9 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(sp.get("page") ?? "1"));
   const mine = sp.get("mine"); // "1" -> only current user's listings
 
-  const conditions: Prisma.ListingWhereInput[] = [];
+  const isAdmin = session!.user.role === "ADMIN";
+  // Other agents' private listings never appear, whatever else is filtered.
+  const conditions: Prisma.ListingWhereInput[] = [visibleListingsWhere(session!.user.id, isAdmin)];
 
   // Non-admins never see other agents' inactive listings via the main search unless it's their own (mine=1)
   if (mine === "1") {
@@ -137,7 +139,6 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const isAdmin = session!.user.role === "ADMIN";
   return NextResponse.json({
     listings: redactPrivateFieldsList(listings, session!.user.id, isAdmin),
     total,
@@ -163,7 +164,11 @@ export async function POST(req: NextRequest) {
 
   if (!data.confirmDuplicate) {
     const existing = await prisma.listing.findMany({
-      where: { dupKey, status: "ACTIVE" },
+      where: {
+        dupKey,
+        status: "ACTIVE",
+        ...visibleListingsWhere(session!.user.id, session!.user.role === "ADMIN"),
+      },
       include: {
         createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
         images: { orderBy: { sortOrder: "asc" }, take: 1, select: { id: true, url: true } },
@@ -192,6 +197,7 @@ export async function POST(req: NextRequest) {
       floor: data.floor,
       apartmentNumber: data.apartmentNumber,
       dupKey,
+      visibility: data.visibility ?? "SHARED",
       rentPrice: data.listingType === "RENT" ? data.rentPrice : null,
       salePrice: data.listingType === "SALE" ? data.salePrice : null,
       rentalValue: data.listingType === "SALE" ? data.rentalValue ?? null : null,

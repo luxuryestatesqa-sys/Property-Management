@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SegmentedControl from "@/components/SegmentedControl";
+import VisibilityField from "@/components/VisibilityField";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
@@ -43,6 +44,7 @@ const initialState = {
   rentalValue: "",
   furnished: "FURNISHED" as "FURNISHED" | "UNFURNISHED",
   billsStatus: "INCLUDED" as "INCLUDED" | "EXCLUDED",
+  visibility: "SHARED" as "PRIVATE" | "SHARED",
   area: "",
   community: "",
   buildingName: "",
@@ -208,6 +210,7 @@ export default function AddPropertyPage() {
           furnished: form.furnished,
           billsStatus: form.listingType === "RENT" ? form.billsStatus : undefined,
           images: form.images,
+          visibility: form.visibility,
           ownerName: form.privateDetails.ownerName || undefined,
           ownerPhone: form.privateDetails.ownerPhone || undefined,
           ownerWhatsapp: form.privateDetails.ownerWhatsapp || undefined,
@@ -535,6 +538,11 @@ export default function AddPropertyPage() {
               <div className="text-right text-[12px] text-muted mt-1">{form.description.length}/2000</div>
             </div>
           </div>
+        </Card>
+
+        <Card>
+          <FormSectionHeader icon={ICONS.basics} label="Who can see this listing" />
+          <VisibilityField value={form.visibility} onChange={(v) => update("visibility", v)} />
         </Card>
 
         <PrivateDetailsSection

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { ListingDTO, AuditLogDTO, AvailabilityStatus, PropertyCategory, BedroomCount } from "@/lib/types";
+import { ListingDTO, AuditLogDTO, AvailabilityStatus, ListingVisibility, PropertyCategory, BedroomCount } from "@/lib/types";
 import { formatQAR, formatSqm, formatDate, formatDateTime, listingCode } from "@/lib/format";
 import { describeAuditEntry } from "@/lib/audit";
 import { extractErrorMessage } from "@/lib/errors";
@@ -20,6 +20,7 @@ import {
   NO_FLOOR_VALUE,
 } from "@/lib/propertyCategory";
 import SegmentedControl from "@/components/SegmentedControl";
+import VisibilityField from "@/components/VisibilityField";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
@@ -91,6 +92,7 @@ export default function PropertyDetailPage() {
         furnished: data.listing.furnished,
         billsStatus: data.listing.billsStatus ?? "INCLUDED",
         availabilityStatus: data.listing.availabilityStatus,
+        visibility: data.listing.visibility,
       });
       const urls = data.listing.images.map((img: { url: string }) => img.url);
       setImages(urls);
@@ -174,6 +176,7 @@ export default function PropertyDetailPage() {
         furnished: form.furnished,
         billsStatus: isRent ? form.billsStatus : null,
         availabilityStatus: form.availabilityStatus,
+        visibility: form.visibility,
         ownerName: privateDetails.ownerName.trim() || null,
         ownerPhone: privateDetails.ownerPhone.trim() || null,
         ownerWhatsapp: privateDetails.ownerWhatsapp.trim() || null,
@@ -339,6 +342,9 @@ export default function PropertyDetailPage() {
               >
                 {AVAILABILITY_LABELS[listing.availabilityStatus]}
               </span>
+              {listing.visibility === "PRIVATE" && (
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-surface-muted text-muted">🔒 PRIVATE</span>
+              )}
             </div>
 
             <div className="text-[26px] font-extrabold text-foreground mt-2.5 leading-tight">
@@ -792,6 +798,11 @@ export default function PropertyDetailPage() {
               value={form.availabilityStatus as AvailabilityStatus}
               onChange={(v) => setForm((f) => ({ ...f, availabilityStatus: v }))}
             />
+          </section>
+
+          <section>
+            <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Visibility</h3>
+            <VisibilityField value={form.visibility as ListingVisibility} onChange={(v) => setForm((f) => ({ ...f, visibility: v }))} />
           </section>
 
           {form.propertyCategory !== "LAND" && (
