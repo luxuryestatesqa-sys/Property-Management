@@ -220,8 +220,16 @@ export async function updateListing(pfListingId: string, payload: PFListingPaylo
   return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
+// Looked up through the search endpoint with an id filter: Property Finder's
+// gateway now answers GET /v1/listings/{id} with a 403 ("Invalid key=value
+// pair ... in Authorization header") even with a valid token, which silently
+// broke every status check and left listings showing "Publishing…" after
+// they had gone live. PUT/POST on that path are unaffected.
 export async function getListing(pfListingId: string): Promise<PFListingResponse> {
-  return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}`);
+  const res = await pfFetch<{ results?: PFListingResponse[] }>(`/v1/listings?filter%5Bids%5D=${encodeURIComponent(pfListingId)}`);
+  const listing = res.results?.find((l) => l.id === pfListingId);
+  if (!listing) throw new PropertyFinderApiError(404, "Property Finder couldn't find this listing");
+  return listing;
 }
 
 // Publishing on Property Finder is a paid action - per their own docs, you
