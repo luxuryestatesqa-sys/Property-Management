@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ListingDTO, PullChannel } from "@/lib/types";
 import { getPfStatus, PF_TONE_COLORS } from "@/lib/propertyFinder/status";
+import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
 import AiWriteButton from "@/components/AiWriteButton";
 import { BEDROOM_LABELS } from "@/lib/propertyCategory";
 import { pfCategoryAndType, PF_FURNISHING_TYPE, filterAmenitiesForCategory, amenityOptionsFor } from "@/lib/propertyFinder/mapping";
@@ -177,23 +178,12 @@ export default function MultiPortalPublishingPage() {
     }
   }, [listing?.propertyFinderState?.remoteListingId, refreshStatus]);
 
-  // While Property Finder is still processing a publish, keep asking it for
-  // the real stage (every 8s, up to ~2 minutes) so the page flips to "Live" on
-  // its own instead of sitting on "Publishing…" until someone taps Refresh.
-  const isPublishingNow = getPfStatus(listing?.propertyFinderState).kind === "publishing";
-  useEffect(() => {
-    if (!isPublishingNow) return;
-    let attempts = 0;
-    const timer = setInterval(() => {
-      attempts++;
-      if (attempts > 15) {
-        clearInterval(timer);
-        return;
-      }
-      refreshStatus();
-    }, 8000);
-    return () => clearInterval(timer);
-  }, [isPublishingNow, refreshStatus]);
+  // Keeps asking Property Finder for the real stage while it's still processing.
+  usePfStatusPolling(
+    listing?.id,
+    listing?.propertyFinderState,
+    useCallback((state) => setListing((prev) => (prev ? { ...prev, propertyFinderState: state } : prev)), [])
+  );
 
   const loadCredits = useCallback(async () => {
     try {

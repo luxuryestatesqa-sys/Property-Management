@@ -35,6 +35,7 @@ import PhotoGallery from "@/components/PhotoGallery";
 import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } from "@/components/PrivateDetailsSection";
 import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 import PublishToPortalsCard from "@/components/PublishToPortalsCard";
+import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
 import { bathroomsToInputValue, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
@@ -123,6 +124,14 @@ export default function PropertyDetailPage() {
     // Only meant to fire once, right after the initial load navigated here with ?edit=1.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openInEditMode, listing, session]);
+
+  // Only the owner/admin can refresh Property Finder's status, so only they poll.
+  const mayPollPf = Boolean(listing && (session?.user?.id === listing.createdById || session?.user?.role === "ADMIN"));
+  usePfStatusPolling(
+    mayPollPf ? listing?.id : undefined,
+    listing?.propertyFinderState,
+    useCallback((state) => setListing((prev) => (prev ? { ...prev, propertyFinderState: state } : prev)), [])
+  );
 
   if (loading) {
     return <PropertyDetailSkeleton />;
