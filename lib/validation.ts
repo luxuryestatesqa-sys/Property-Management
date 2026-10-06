@@ -19,6 +19,7 @@ const PROPERTY_CATEGORIES = [
 const BEDROOM_COUNTS = [
   "STUDIO",
   "ONE",
+  "ONE_PLUS_OFFICE",
   "TWO",
   "TWO_PLUS_MAID",
   "THREE",

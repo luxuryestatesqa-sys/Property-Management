@@ -20,6 +20,7 @@ export type PropertyCategory =
 export type BedroomCount =
   | "STUDIO"
   | "ONE"
+  | "ONE_PLUS_OFFICE"
   | "TWO"
   | "TWO_PLUS_MAID"
   | "THREE"

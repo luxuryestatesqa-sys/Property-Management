@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "BedroomCount" ADD VALUE 'ONE_PLUS_OFFICE' AFTER 'ONE';

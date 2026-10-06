@@ -33,6 +33,7 @@ const DIGIT_TO_BEDROOM_PLUS_MAID: Partial<Record<number, BedroomCount>> = {
   5: "FIVE_PLUS_MAID",
 };
 
+const OFFICE_REGEX = /\boffice\b/i;
 const STUDIO_REGEX = /\bstudio\b/i;
 const MAID_REGEX = /\bmaid'?s?\b/i;
 
@@ -52,13 +53,14 @@ const BARE_BEDROOM_REGEX = new RegExp(`^(\\d{1,2}|${NUMBER_WORD})\\s*[-+]?\\s*((
 // extra maid's room), so searching a bare count ("4") should surface both
 // the plain and "+ Maid" variant of it - only an explicit "maid" keyword
 // narrows the match down to just the "+ Maid" variant.
-function bedroomsForCount(n: number, hasMaid: boolean): BedroomCount[] {
+function bedroomsForCount(n: number, hasMaid: boolean, hasOffice = false): BedroomCount[] {
   if (n >= 6) return ["SIX_PLUS"];
+  if (hasOffice) return n === 1 ? ["ONE_PLUS_OFFICE"] : [];
   if (hasMaid) {
     const plusMaid = DIGIT_TO_BEDROOM_PLUS_MAID[n];
     return plusMaid ? [plusMaid] : [];
   }
-  return [DIGIT_TO_BEDROOM[n], DIGIT_TO_BEDROOM_PLUS_MAID[n]].filter((b): b is BedroomCount => Boolean(b));
+  return [DIGIT_TO_BEDROOM[n], n === 1 ? "ONE_PLUS_OFFICE" : undefined, DIGIT_TO_BEDROOM_PLUS_MAID[n]].filter((b): b is BedroomCount => Boolean(b));
 }
 
 export function parseBedroomKeywords(query: string): BedroomCount[] {
@@ -72,7 +74,7 @@ export function parseBedroomKeywords(query: string): BedroomCount[] {
   if (bedroomMatch) {
     const n = WORD_TO_DIGIT[bedroomMatch[1]] ?? Number(bedroomMatch[1]);
     if (Number.isFinite(n) && n >= 1) {
-      for (const bedroom of bedroomsForCount(n, MAID_REGEX.test(q))) matches.add(bedroom);
+      for (const bedroom of bedroomsForCount(n, MAID_REGEX.test(q), OFFICE_REGEX.test(q))) matches.add(bedroom);
     }
   }
 
@@ -94,6 +96,13 @@ export function parseBareBedroomQuery(query: string): BedroomCount[] | null {
   if (!q) return null;
 
   if (/^studio(?:\s+(?:apartment|flat))?$/.test(q)) return ["STUDIO"];
+
+  const officeMatch = q.match(/^(.*?)\s*(?:\+|plus|with|and)?\s*office$/);
+  if (officeMatch) {
+    const officeCore = officeMatch[1].trim().match(BARE_BEDROOM_REGEX);
+    const officeN = officeCore ? WORD_TO_DIGIT[officeCore[1]] ?? Number(officeCore[1]) : NaN;
+    return officeN === 1 ? ["ONE_PLUS_OFFICE"] : null;
+  }
 
   const maidMatch = q.match(/^(.*?)\s*(?:\+|plus|with|and)?\s*maid'?s?(?:\s*room)?$/);
   const hasMaid = !!maidMatch;

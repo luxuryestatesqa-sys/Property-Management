@@ -36,6 +36,7 @@ export function pfCategoryAndType(category: PropertyCategory): { category: "resi
 export const PF_BEDROOMS: Record<BedroomCount, string> = {
   STUDIO: "studio",
   ONE: "1",
+  ONE_PLUS_OFFICE: "1", // the office is a study, not a bedroom, so it is not counted
   TWO: "2",
   TWO_PLUS_MAID: "3",
   THREE: "3",

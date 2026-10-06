@@ -22,6 +22,7 @@ const UNIT_TYPE: Record<PropertyCategory, string> = {
 const BEDROOM_COUNT: Record<BedroomCount, string | number> = {
   STUDIO: "Studio",
   ONE: 1,
+  ONE_PLUS_OFFICE: 1,
   TWO: 2,
   TWO_PLUS_MAID: 2,
   THREE: 3,

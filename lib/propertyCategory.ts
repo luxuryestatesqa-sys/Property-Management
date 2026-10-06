@@ -33,6 +33,7 @@ export function isResidentialCategory(category: PropertyCategory): boolean {
 export const BEDROOM_LABELS: Record<BedroomCount, string> = {
   STUDIO: "Studio",
   ONE: "1 Bedroom",
+  ONE_PLUS_OFFICE: "1 + Office",
   TWO: "2 Bedroom",
   TWO_PLUS_MAID: "2 + Maid",
   THREE: "3 Bedroom",
@@ -49,6 +50,7 @@ export const BEDROOM_LABELS: Record<BedroomCount, string> = {
 export const BEDROOM_NUMBERS: Record<BedroomCount, number> = {
   STUDIO: 0,
   ONE: 1,
+  ONE_PLUS_OFFICE: 1,
   TWO: 2,
   TWO_PLUS_MAID: 2,
   THREE: 3,
@@ -64,6 +66,7 @@ export const BEDROOM_NUMBERS: Record<BedroomCount, number> = {
 export const BEDROOM_SHORT_LABELS: Record<BedroomCount, string> = {
   STUDIO: "Studio",
   ONE: "1 BR",
+  ONE_PLUS_OFFICE: "1 BR + Office",
   TWO: "2 BR",
   TWO_PLUS_MAID: "2 BR + Maid",
   THREE: "3 BR",
@@ -79,8 +82,9 @@ export const BEDROOM_OPTIONS = Object.keys(BEDROOM_LABELS) as BedroomCount[];
 
 const ALL_BEDROOM_OPTIONS = BEDROOM_OPTIONS;
 const UP_TO_THREE_PLUS_MAID_OPTIONS = BEDROOM_OPTIONS.slice(0, BEDROOM_OPTIONS.indexOf("THREE_PLUS_MAID") + 1);
-const FROM_ONE_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO");
-const FROM_TWO_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO" && b !== "ONE");
+// "1 + Office" is an apartment-only layout.
+const FROM_ONE_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO" && b !== "ONE_PLUS_OFFICE");
+const FROM_TWO_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO" && b !== "ONE" && b !== "ONE_PLUS_OFFICE");
 
 // Which bedroom counts make sense per property type, so a Villa never offers
 // "Studio" or "1 Bedroom" the way an Apartment does, etc.
