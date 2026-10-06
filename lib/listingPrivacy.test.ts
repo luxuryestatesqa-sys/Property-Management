@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canViewListing, visibleListingsWhere, canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "./listingPrivacy";
+import { canViewListing, visibleListingsWhere, canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS, unitDetailsSearchableWhere } from "./listingPrivacy";
 
 const OWNER_ID = "agent-1";
 const OTHER_AGENT_ID = "agent-2";
@@ -97,5 +97,45 @@ describe("listing visibility", () => {
   it("builds a where clause that hides other agents' private listings", () => {
     expect(visibleListingsWhere("b", false)).toEqual({ OR: [{ visibility: "SHARED" }, { createdById: "b" }] });
     expect(visibleListingsWhere("b", true)).toEqual({});
+  });
+});
+
+describe("unit details privacy", () => {
+  const hidden = {
+    createdById: OWNER_ID,
+    unitDetailsPrivate: true,
+    floor: "12",
+    apartmentNumber: "1204",
+    dupKey: "lusail|marina|tower 9|12|1204",
+    buildingName: "Tower 9",
+    auditLogs: [
+      { action: "APARTMENT_CHANGED", oldValue: "1203", newValue: "1204" },
+      { action: "AREA_CHANGED", oldValue: "A", newValue: "B" },
+    ],
+  };
+
+  it("blanks floor, unit number, dupKey and their audit values for other agents", () => {
+    const r = redactPrivateFields(hidden, OTHER_AGENT_ID, false);
+    expect(r.floor).toBe("");
+    expect(r.apartmentNumber).toBe("");
+    expect(r.dupKey).toBe("");
+    expect(r.buildingName).toBe("Tower 9");
+    expect(r.auditLogs[0]).toEqual({ action: "APARTMENT_CHANGED", oldValue: null, newValue: null });
+    expect(r.auditLogs[1].newValue).toBe("B");
+  });
+
+  it("leaves them intact for the creator and admins", () => {
+    expect(redactPrivateFields(hidden, OWNER_ID, false).apartmentNumber).toBe("1204");
+    expect(redactPrivateFields(hidden, OTHER_AGENT_ID, true).apartmentNumber).toBe("1204");
+  });
+
+  it("leaves them intact when the creator did not hide them", () => {
+    const open = { ...hidden, unitDetailsPrivate: false };
+    expect(redactPrivateFields(open, OTHER_AGENT_ID, false).apartmentNumber).toBe("1204");
+  });
+
+  it("restricts unit search to listings that show their unit or belong to the viewer", () => {
+    expect(unitDetailsSearchableWhere("b", false)).toEqual({ OR: [{ unitDetailsPrivate: false }, { createdById: "b" }] });
+    expect(unitDetailsSearchableWhere("b", true)).toEqual({});
   });
 });

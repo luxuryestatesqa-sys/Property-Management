@@ -20,6 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       buildingName: true,
       floor: true,
       apartmentNumber: true,
+      unitDetailsPrivate: true,
       rentPrice: true,
       salePrice: true,
       rentalValue: true,
@@ -30,6 +31,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // An agent who hid the exact unit keeps it hidden from public viewers too.
+  if (listing.unitDetailsPrivate) {
+    listing.floor = "";
+    listing.apartmentNumber = "";
+  }
 
   const agentId = req.nextUrl.searchParams.get("agent");
   let agent: { name: string; whatsapp: string } | null = null;

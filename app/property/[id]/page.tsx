@@ -17,10 +17,12 @@ import {
   isResidentialCategory,
   bedroomOptionsFor,
   unitLabelFor,
+  unitSummary,
   NO_FLOOR_VALUE,
 } from "@/lib/propertyCategory";
 import SegmentedControl from "@/components/SegmentedControl";
 import VisibilityField from "@/components/VisibilityField";
+import UnitDetailsPrivacyField from "@/components/UnitDetailsPrivacyField";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
@@ -64,6 +66,7 @@ export default function PropertyDetailPage() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [images, setImages] = useState<string[]>([]);
   const [initialImages, setInitialImages] = useState<string[]>([]);
+  const [unitDetailsPrivate, setUnitDetailsPrivate] = useState(false);
   const [canViewPrivateDetails, setCanViewPrivateDetails] = useState(false);
   const [privateDetails, setPrivateDetails] = useState<PrivateDetailsValue>(EMPTY_PRIVATE_DETAILS);
 
@@ -99,6 +102,7 @@ export default function PropertyDetailPage() {
       setImages(urls);
       setInitialImages(urls);
       setCanViewPrivateDetails(Boolean(data.canViewPrivateDetails));
+      setUnitDetailsPrivate(Boolean(data.listing.unitDetailsPrivate));
       setPrivateDetails({
         ownerName: data.listing.ownerName ?? "",
         ownerPhone: data.listing.ownerPhone ?? "",
@@ -186,6 +190,7 @@ export default function PropertyDetailPage() {
         billsStatus: isRent ? form.billsStatus : null,
         availabilityStatus: form.availabilityStatus,
         visibility: form.visibility,
+        unitDetailsPrivate,
         ownerName: privateDetails.ownerName.trim() || null,
         ownerPhone: privateDetails.ownerPhone.trim() || null,
         ownerWhatsapp: privateDetails.ownerWhatsapp.trim() || null,
@@ -354,6 +359,9 @@ export default function PropertyDetailPage() {
               {listing.visibility === "PRIVATE" && (
                 <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-surface-muted text-muted">🔒 PRIVATE</span>
               )}
+              {listing.unitDetailsPrivate && (
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-surface-muted text-muted">🔒 UNIT HIDDEN</span>
+              )}
             </div>
 
             <div className="text-[26px] font-extrabold text-foreground mt-2.5 leading-tight">
@@ -373,8 +381,8 @@ export default function PropertyDetailPage() {
               </span>
             </div>
             <div className="text-[15px] font-semibold text-foreground mt-1">
-              {listing.buildingName} · {unitLabelFor(listing.propertyCategory).unitShortLabel} {listing.apartmentNumber}
-              {unitLabelFor(listing.propertyCategory).showFloor && `, Floor ${listing.floor}`}
+              {listing.buildingName}
+              {unitSummary(listing, false) && ` · ${unitSummary(listing, false)}`}
             </div>
 
             <div className="h-px bg-border my-3" />
@@ -883,6 +891,12 @@ export default function PropertyDetailPage() {
                   />
                 </div>
               </div>
+              <UnitDetailsPrivacyField
+                value={unitDetailsPrivate}
+                onChange={setUnitDetailsPrivate}
+                unitLabel={unitLabelFor(form.propertyCategory as PropertyCategory).unitLabel}
+                showFloor={unitLabelFor(form.propertyCategory as PropertyCategory).showFloor}
+              />
             </div>
           </section>
 

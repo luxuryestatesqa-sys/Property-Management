@@ -166,6 +166,9 @@ model Listing {
   authorizationFormImage String? // data URL; RENT listings only
 
   visibility         ListingVisibility  @default(SHARED)
+  // When true, floor / apartmentNumber / dupKey are redacted for everyone but
+  // the creator and admins (lib/listingPrivacy.ts), independent of visibility.
+  unitDetailsPrivate Boolean            @default(false)
   status             ListingStatus      @default(ACTIVE)
   deactivatedAt      DateTime?
   availabilityStatus AvailabilityStatus @default(AVAILABLE)

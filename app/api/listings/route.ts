@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingCreateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
-import { redactPrivateFieldsList, visibleListingsWhere } from "@/lib/listingPrivacy";
+import { redactPrivateFieldsList, unitDetailsSearchableWhere, visibleListingsWhere } from "@/lib/listingPrivacy";
 import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
 
@@ -100,12 +100,14 @@ export async function GET(req: NextRequest) {
       conditions.push({ bedrooms: { in: bareBedroomMatches } });
     } else {
       const digits = q.replace(/\D/g, "");
+      const unitSearchable = unitDetailsSearchableWhere(session!.user.id, isAdmin);
       const orConds: Prisma.ListingWhereInput[] = [
         { area: { contains: q, mode: "insensitive" } },
         { community: { contains: q, mode: "insensitive" } },
         { buildingName: { contains: q, mode: "insensitive" } },
-        { apartmentNumber: { contains: q, mode: "insensitive" } },
-        { floor: { contains: q, mode: "insensitive" } },
+        // Hidden unit details must not be searchable by other agents.
+        { AND: [{ apartmentNumber: { contains: q, mode: "insensitive" } }, unitSearchable] },
+        { AND: [{ floor: { contains: q, mode: "insensitive" } }, unitSearchable] },
         { createdBy: { name: { contains: q, mode: "insensitive" } } },
       ];
       if (digits) {
@@ -198,6 +200,7 @@ export async function POST(req: NextRequest) {
       apartmentNumber: data.apartmentNumber,
       dupKey,
       visibility: data.visibility ?? "SHARED",
+      unitDetailsPrivate: data.unitDetailsPrivate ?? false,
       rentPrice: data.listingType === "RENT" ? data.rentPrice : null,
       salePrice: data.listingType === "SALE" ? data.salePrice : null,
       rentalValue: data.listingType === "SALE" ? data.rentalValue ?? null : null,

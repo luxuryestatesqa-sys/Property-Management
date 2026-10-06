@@ -6,7 +6,7 @@ import { memo, useState } from "react";
 import { ListingDTO, AvailabilityStatus } from "@/lib/types";
 import { formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS, availabilityOptionsFor } from "@/lib/availability";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "@/lib/propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { extractErrorMessage } from "@/lib/errors";
 
@@ -18,7 +18,6 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
   const isRent = listing.listingType === "RENT";
   const confirm = useConfirm();
   const availabilityColor = AVAILABILITY_COLORS[listing.availabilityStatus];
-  const unit = unitLabelFor(listing.propertyCategory);
 
   async function toggleStatus() {
     const nextStatus = listing.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -96,9 +95,8 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
     listing.sizeSqm ? formatSqm(listing.sizeSqm) : null,
   ].filter(Boolean);
 
-  const unitLine = `${listing.buildingName} · ${unit.unitShortLabel} ${listing.apartmentNumber}${
-    unit.showFloor ? `, Fl ${listing.floor}` : ""
-  }`;
+  const unitText = unitSummary(listing);
+  const unitLine = unitText ? `${listing.buildingName} · ${unitText}` : listing.buildingName;
 
   return (
     <div className="relative card-cv-compact rounded-xl bg-surface border border-border shadow-sm p-2.5">

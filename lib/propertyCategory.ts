@@ -126,6 +126,20 @@ export function unitLabelFor(category: PropertyCategory): UnitLabelConfig {
   return UNIT_LABELS_BY_CATEGORY[category] ?? APARTMENT_UNIT;
 }
 
+// "Apt 1204, Fl 12" / "Villa 12" for a listing, or null when the unit number
+// is hidden from this viewer (the API blanks it - see lib/listingPrivacy.ts).
+// `short` uses the compact prefix for cards; otherwise the full label.
+export function unitSummary(
+  listing: { propertyCategory: PropertyCategory; apartmentNumber: string; floor: string },
+  short = true
+): string | null {
+  if (!listing.apartmentNumber) return null;
+  const unit = unitLabelFor(listing.propertyCategory);
+  const base = `${short ? unit.unitShortLabel : unit.unitLabel} ${listing.apartmentNumber}`;
+  if (!unit.showFloor || !listing.floor) return base;
+  return `${base}, ${short ? "Fl" : "Floor"} ${listing.floor}`;
+}
+
 // The value stored for "Floor" when a category doesn't use one, so the
 // (still required) database field always has something meaningful in it.
 export const NO_FLOOR_VALUE = "-";

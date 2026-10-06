@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { PublicListingDTO, PublicAgentDTO } from "@/lib/types";
 import { formatQAR, formatSqm } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS } from "@/lib/availability";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "@/lib/propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import CallButton from "@/components/CallButton";
 import PhotoGallery from "@/components/PhotoGallery";
@@ -108,8 +108,8 @@ function PublicListingView() {
             </span>
           </div>
           <div className="text-[15px] font-semibold text-foreground mt-1">
-            {listing.buildingName} · {unitLabelFor(listing.propertyCategory).unitShortLabel} {listing.apartmentNumber}
-            {unitLabelFor(listing.propertyCategory).showFloor && `, Floor ${listing.floor}`}
+            {listing.buildingName}
+              {unitSummary(listing, false) && ` · ${unitSummary(listing, false)}`}
           </div>
 
           <div className="h-px bg-border my-3" />

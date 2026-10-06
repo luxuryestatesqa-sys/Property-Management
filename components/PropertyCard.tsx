@@ -5,13 +5,12 @@ import Link from "next/link";
 import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS } from "@/lib/availability";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "@/lib/propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
 
 function PropertyCard({ listing }: { listing: ListingDTO }) {
   const isRent = listing.listingType === "RENT";
   const availabilityColor = AVAILABILITY_COLORS[listing.availabilityStatus];
   const cover = listing.images[0];
-  const unit = unitLabelFor(listing.propertyCategory);
 
   const detailParts = [
     PROPERTY_CATEGORY_LABELS[listing.propertyCategory],
@@ -19,9 +18,8 @@ function PropertyCard({ listing }: { listing: ListingDTO }) {
     listing.sizeSqm ? formatSqm(listing.sizeSqm) : null,
   ].filter(Boolean);
 
-  const unitLine = `${listing.buildingName} · ${unit.unitShortLabel} ${listing.apartmentNumber}${
-    unit.showFloor ? `, Fl ${listing.floor}` : ""
-  }`;
+  const unitText = unitSummary(listing);
+  const unitLine = unitText ? `${listing.buildingName} · ${unitText}` : listing.buildingName;
 
   return (
     <Link

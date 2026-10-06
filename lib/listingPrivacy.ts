@@ -34,6 +34,19 @@ export const PRIVATE_LISTING_FIELDS = [
 
 export type PrivateListingField = (typeof PRIVATE_LISTING_FIELDS)[number];
 
+// Exact-unit fields, hidden only when the creator ticks "unitDetailsPrivate".
+// dupKey embeds the floor and unit number, so it goes with them. Blanked to ""
+// (the columns are non-null strings); unitDetailsPrivate itself stays visible
+// so the UI can say the details exist but are hidden.
+export const UNIT_DETAIL_FIELDS = ["floor", "apartmentNumber", "dupKey"] as const;
+
+// Prisma filter fragment: listings whose floor/apartment number the viewer may
+// search on. Without it, searching "1204" would reveal which listings hide it.
+export function unitDetailsSearchableWhere(viewerId: string, viewerIsAdmin: boolean): Prisma.ListingWhereInput {
+  if (viewerIsAdmin) return {};
+  return { OR: [{ unitDetailsPrivate: false }, { createdById: viewerId }] };
+}
+
 export function canViewPrivateDetails(createdById: string, viewerId: string, viewerIsAdmin: boolean): boolean {
   return viewerIsAdmin || createdById === viewerId;
 }
@@ -46,11 +59,23 @@ export function redactPrivateFields<T extends { createdById: string }>(
   viewerIsAdmin: boolean
 ): T {
   if (canViewPrivateDetails(listing.createdById, viewerId, viewerIsAdmin)) return listing;
-  const redacted = { ...listing };
+  const redacted = { ...listing } as Record<string, unknown>;
   for (const field of PRIVATE_LISTING_FIELDS) {
-    (redacted as Record<string, unknown>)[field] = null;
+    redacted[field] = null;
   }
-  return redacted;
+  if ((listing as { unitDetailsPrivate?: boolean }).unitDetailsPrivate) {
+    for (const field of UNIT_DETAIL_FIELDS) {
+      if (field in redacted) redacted[field] = "";
+    }
+    // The audit trail records old/new floor and unit values.
+    const logs = redacted.auditLogs;
+    if (Array.isArray(logs)) {
+      redacted.auditLogs = logs.map((l: { action?: string }) =>
+        l.action === "FLOOR_CHANGED" || l.action === "APARTMENT_CHANGED" ? { ...l, oldValue: null, newValue: null } : l
+      );
+    }
+  }
+  return redacted as T;
 }
 
 export function redactPrivateFieldsList<T extends { createdById: string }>(

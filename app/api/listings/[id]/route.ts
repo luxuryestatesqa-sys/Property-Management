@@ -178,6 +178,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   trackChange("billsStatus", listing.billsStatus, listing.listingType === "RENT" ? data.billsStatus : null, "BILLS");
   trackChange("availabilityStatus", listing.availabilityStatus, data.availabilityStatus, "AVAILABILITY_STATUS");
   trackChange("visibility", listing.visibility, data.visibility, "VISIBILITY");
+  trackChange("unitDetailsPrivate", listing.unitDetailsPrivate, data.unitDetailsPrivate, "UNIT_DETAILS_PRIVACY");
 
   if (listing.listingType === "RENT") {
     trackChange("rentPrice", listing.rentPrice, data.rentPrice, "RENT_PRICE");

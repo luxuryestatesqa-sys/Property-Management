@@ -43,10 +43,14 @@ export default function DuplicateWarningModal({ existing, onCancel, onContinue, 
                     <div className="text-[13px] text-muted mt-0.5">
                       📍 {l.area} → {l.community}
                     </div>
-                    <div className="text-[13px] text-muted mt-0.5">
-                      {unitLabelFor(l.propertyCategory).showFloor && <>Floor: {l.floor} &nbsp;·&nbsp; </>}
-                      {unitLabelFor(l.propertyCategory).unitLabel}: {l.apartmentNumber}
-                    </div>
+                    {l.apartmentNumber ? (
+                      <div className="text-[13px] text-muted mt-0.5">
+                        {unitLabelFor(l.propertyCategory).showFloor && <>Floor: {l.floor} &nbsp;·&nbsp; </>}
+                        {unitLabelFor(l.propertyCategory).unitLabel}: {l.apartmentNumber}
+                      </div>
+                    ) : (
+                      <div className="text-[13px] text-muted mt-0.5">🔒 Unit number hidden by the listing agent</div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-2.5">

@@ -22,6 +22,7 @@ const LABELS: Record<string, string> = {
   RENTAL_VALUE_CHANGED: "Rental value",
   AVAILABILITY_STATUS_CHANGED: "Availability status",
   PHOTOS_CHANGED: "Photos",
+  UNIT_DETAILS_PRIVACY_CHANGED: "Floor & unit number visibility",
 };
 
 // A field with no previous value is recorded as this literal sentinel (see
@@ -45,6 +46,7 @@ const VALUE_FORMATTERS: Record<string, (raw: string) => string> = {
   AVAILABILITY_STATUS_CHANGED: (raw) => AVAILABILITY_LABELS[raw as AvailabilityStatus] ?? raw,
   PROPERTY_CATEGORY_CHANGED: (raw) => PROPERTY_CATEGORY_LABELS[raw as PropertyCategory] ?? raw,
   BEDROOMS_CHANGED: (raw) => BEDROOM_LABELS[raw as BedroomCount] ?? raw,
+  UNIT_DETAILS_PRIVACY_CHANGED: (raw) => (raw === "true" ? "Only me" : "Everyone"),
 };
 
 export function describeAuditEntry(entry: AuditLogDTO): string {

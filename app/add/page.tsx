@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SegmentedControl from "@/components/SegmentedControl";
 import VisibilityField from "@/components/VisibilityField";
+import UnitDetailsPrivacyField from "@/components/UnitDetailsPrivacyField";
 import CollapsibleChipSelect from "@/components/CollapsibleChipSelect";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import LocationCombinedInput from "@/components/LocationCombinedInput";
@@ -45,6 +46,7 @@ const initialState = {
   furnished: "FURNISHED" as "FURNISHED" | "UNFURNISHED",
   billsStatus: "INCLUDED" as "INCLUDED" | "EXCLUDED",
   visibility: "SHARED" as "PRIVATE" | "SHARED",
+  unitDetailsPrivate: false,
   area: "",
   community: "",
   buildingName: "",
@@ -211,6 +213,7 @@ export default function AddPropertyPage() {
           billsStatus: form.listingType === "RENT" ? form.billsStatus : undefined,
           images: form.images,
           visibility: form.visibility,
+          unitDetailsPrivate: form.unitDetailsPrivate,
           ownerName: form.privateDetails.ownerName || undefined,
           ownerPhone: form.privateDetails.ownerPhone || undefined,
           ownerWhatsapp: form.privateDetails.ownerWhatsapp || undefined,
@@ -500,6 +503,12 @@ export default function AddPropertyPage() {
                 />
               </div>
             </div>
+            <UnitDetailsPrivacyField
+              value={form.unitDetailsPrivate}
+              onChange={(v) => update("unitDetailsPrivate", v)}
+              unitLabel={form.propertyCategory ? unitLabelFor(form.propertyCategory).unitLabel : "Apartment No."}
+              showFloor={Boolean(form.propertyCategory && unitLabelFor(form.propertyCategory).showFloor)}
+            />
           </div>
         </Card>
 

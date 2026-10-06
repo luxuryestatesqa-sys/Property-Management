@@ -77,6 +77,9 @@ export interface ListingDTO {
   titleDeedImage: string | null;
   authorizationFormImage: string | null;
   visibility: ListingVisibility;
+  // When true, floor / apartmentNumber / dupKey arrive blank for anyone but
+  // the creator and admins - render with unitText() rather than raw.
+  unitDetailsPrivate: boolean;
   status: ListingStatus;
   deactivatedAt: string | null;
   availabilityStatus: AvailabilityStatus;

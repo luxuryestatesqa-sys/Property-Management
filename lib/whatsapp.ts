@@ -1,6 +1,6 @@
 import { ListingDTO } from "./types";
 import { formatQAR, formatSqm, listingCode } from "./format";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitLabelFor } from "./propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "./propertyCategory";
 
 // A ready-to-send WhatsApp inquiry message pre-filled with the listing's own
 // details, so tapping "WhatsApp Now" (or any WhatsApp icon) on a listing
@@ -17,16 +17,13 @@ export function buildListingInquiryMessage(listing: ListingDTO): string {
     .filter(Boolean)
     .join(" • ");
 
-  const unit = unitLabelFor(listing.propertyCategory);
-  const unitLine = unit.showFloor
-    ? `${unit.unitLabel} ${listing.apartmentNumber}, Floor ${listing.floor}`
-    : `${unit.unitLabel} ${listing.apartmentNumber}`;
+  const unitLine = unitSummary(listing, false);
 
   return [
     `Hi ${listing.createdBy.name}, I'm interested in this listing on Luxury Estates:`,
     "",
     `${listingCode(listing.id)} - ${listing.buildingName}, ${listing.community}, ${listing.area}`,
-    unitLine,
+    ...(unitLine ? [unitLine] : []),
     details,
     "",
     "Is this still available?",
@@ -47,16 +44,13 @@ export function buildListingShareMessage(listing: ListingDTO, url: string): stri
     .filter(Boolean)
     .join(" • ");
 
-  const unit = unitLabelFor(listing.propertyCategory);
-  const unitLine = unit.showFloor
-    ? `${unit.unitLabel} ${listing.apartmentNumber}, Floor ${listing.floor}`
-    : `${unit.unitLabel} ${listing.apartmentNumber}`;
+  const unitLine = unitSummary(listing, false);
 
   return [
     "Check out this listing on Luxury Estates:",
     "",
     `${listingCode(listing.id)} - ${listing.buildingName}, ${listing.community}, ${listing.area}`,
-    unitLine,
+    ...(unitLine ? [unitLine] : []),
     details,
     "",
     url,
