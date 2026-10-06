@@ -5,7 +5,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import { PublicListingDTO, PublicAgentDTO } from "@/lib/types";
 import { formatQAR, formatSqm } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS } from "@/lib/availability";
-import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "@/lib/propertyCategory";
+import { AMENITY_LABELS } from "@/lib/propertyFinder/mapping";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import CallButton from "@/components/CallButton";
 import PhotoGallery from "@/components/PhotoGallery";
@@ -109,7 +110,6 @@ function PublicListingView() {
           </div>
           <div className="text-[15px] font-semibold text-foreground mt-1">
             {listing.buildingName}
-              {unitSummary(listing, false) && ` · ${unitSummary(listing, false)}`}
           </div>
 
           <div className="h-px bg-border my-3" />
@@ -134,6 +134,27 @@ function PublicListingView() {
             </div>
           )}
         </div>
+
+        {(listing.title || listing.description || listing.amenities.length > 0) && (
+          <div className="rounded-2xl border border-border bg-surface shadow-sm p-4 flex flex-col gap-3">
+            {listing.title && <h2 className="text-[17px] font-bold text-foreground leading-snug">{listing.title}</h2>}
+            {listing.description && (
+              <p className="text-[14px] text-foreground whitespace-pre-line leading-relaxed">{listing.description}</p>
+            )}
+            {listing.amenities.length > 0 && (
+              <div>
+                <div className="text-[13px] font-semibold text-foreground mb-1.5">Amenities</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {listing.amenities.map((a) => (
+                    <span key={a} className="text-[12px] px-2.5 py-1 rounded-full bg-surface-muted text-foreground">
+                      {AMENITY_LABELS[a] ?? a}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {agent && (
           <div className="flex gap-2.5">

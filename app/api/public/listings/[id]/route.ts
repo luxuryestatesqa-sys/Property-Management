@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 // return createdBy, ownerName/ownerPhone/ownerWhatsapp, or any other field
 // that could identify or contact the listing's own agent. The only contact
 // exposed is the agent named by `?agent=`, i.e. whoever generated the link.
+// The floor and unit number are deliberately never selected: a client sees the
+// building, never the exact unit, whatever the listing's own privacy setting.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const listing = await prisma.listing.findUnique({
@@ -18,9 +20,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       area: true,
       community: true,
       buildingName: true,
-      floor: true,
-      apartmentNumber: true,
-      unitDetailsPrivate: true,
+      title: true,
+      description: true,
+      amenities: true,
       rentPrice: true,
       salePrice: true,
       rentalValue: true,
@@ -31,11 +33,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  // An agent who hid the exact unit keeps it hidden from public viewers too.
-  if (listing.unitDetailsPrivate) {
-    listing.floor = "";
-    listing.apartmentNumber = "";
-  }
 
   const agentId = req.nextUrl.searchParams.get("agent");
   let agent: { name: string; whatsapp: string } | null = null;

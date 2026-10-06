@@ -124,8 +124,9 @@ export interface PublicListingDTO {
   area: string;
   community: string;
   buildingName: string;
-  floor: string;
-  apartmentNumber: string;
+  title: string | null;
+  description: string | null;
+  amenities: string[];
   rentPrice: number | null;
   salePrice: number | null;
   rentalValue: number | null;
