@@ -134,7 +134,10 @@ function buildListingPayload(
   // options, so this sends it as-is rather than mislabeling it "yearly"
   // (which would have published every rental at 1/12th its real price).
   const priceType = listing.listingType === "RENT" ? "monthly" : "sale";
-  const priceAmount = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
+  const rawAmount = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
+  // Prices are stored as floats; send PF a whole number so a stray decimal
+  // (e.g. 1250000.5) can't fail its price validation.
+  const priceAmount = rawAmount == null ? undefined : Math.round(rawAmount);
 
   return {
     reference,
