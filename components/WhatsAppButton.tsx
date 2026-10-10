@@ -1,5 +1,7 @@
 "use client";
 
+import { useOrg } from "./OrgProvider";
+
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -30,10 +32,11 @@ interface WhatsAppButtonProps {
 }
 
 export default function WhatsAppButton({ number, name, message, label = "WhatsApp", ariaLabel, variant = "icon", size = 32, className = "" }: WhatsAppButtonProps) {
+  const org = useOrg();
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    const text = message ?? (name ? `Hi ${name}, I'm reaching out about a property listing on Luxury Estates.` : undefined);
+    const text = message ?? (name ? `Hi ${name}, I'm reaching out about a property listing on ${org.name}.` : undefined);
     window.open(buildWhatsAppUrl(number, text), "_blank", "noopener,noreferrer");
   }
 

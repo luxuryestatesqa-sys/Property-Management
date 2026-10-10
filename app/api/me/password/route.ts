@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { passwordSchema } from "@/lib/validation";
 
 export async function PATCH(req: NextRequest) {
-  const { session, error } = await requireSession();
+  const { session, db, error } = await requireSession();
   if (error) return error;
 
   const body = await req.json();
@@ -17,7 +16,7 @@ export async function PATCH(req: NextRequest) {
   }
   const newPassword = parsed.data;
 
-  const user = await prisma.user.findUnique({ where: { id: session!.user.id } });
+  const user = await db!.user.findUnique({ where: { id: session!.user.id } });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -26,7 +25,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  await db!.user.update({ where: { id: user.id }, data: { passwordHash } });
 
   return NextResponse.json({ success: true });
 }

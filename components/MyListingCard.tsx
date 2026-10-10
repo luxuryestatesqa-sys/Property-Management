@@ -3,88 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo, useState } from "react";
-import { ListingDTO, AvailabilityStatus } from "@/lib/types";
+import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS, availabilityOptionsFor } from "@/lib/availability";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
-import { useConfirm } from "@/components/ConfirmDialog";
-import { extractErrorMessage } from "@/lib/errors";
+import { useListingActions } from "@/components/useListingActions";
 
 function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onStatusChange: () => void }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
   const isRent = listing.listingType === "RENT";
-  const confirm = useConfirm();
   const availabilityColor = AVAILABILITY_COLORS[listing.availabilityStatus];
+  const { busy, deleteError, toggleStatus, deleteListing: runDelete, changeAvailability } = useListingActions(listing, onStatusChange);
 
-  async function toggleStatus() {
-    const nextStatus = listing.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    const confirmed =
-      nextStatus === "INACTIVE"
-        ? await confirm({
-            title: "Deactivate Listing?",
-            message: "It will be hidden from active search. You can reactivate it anytime.",
-            confirmLabel: "Deactivate",
-            danger: true,
-          })
-        : await confirm({
-            title: "Reactivate Listing?",
-            message: "It will become visible in active search results again.",
-            confirmLabel: "Reactivate",
-          });
-    if (!confirmed) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/listings/${listing.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (res.ok) onStatusChange();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function deleteListing() {
+  function deleteListing() {
     setMenuOpen(false);
-    const confirmed = await confirm({
-      title: "Delete Listing?",
-      message: "This permanently removes it, including its photos and history - it can't be undone. If it's currently on Property Finder, it will be unpublished first. Deactivate instead if you might want it back.",
-      confirmLabel: "Delete",
-      danger: true,
-    });
-    if (!confirmed) return;
-    setBusy(true);
-    setDeleteError("");
-    try {
-      const res = await fetch(`/api/listings/${listing.id}`, { method: "DELETE" });
-      if (res.ok) {
-        onStatusChange();
-      } else {
-        const data = await res.json().catch(() => null);
-        setDeleteError(extractErrorMessage(data?.error, "Failed to delete listing"));
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function changeAvailability(next: AvailabilityStatus) {
-    if (next === listing.availabilityStatus) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/listings/${listing.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ availabilityStatus: next }),
-      });
-      if (res.ok) onStatusChange();
-    } finally {
-      setBusy(false);
-    }
+    return runDelete();
   }
 
   const cover = listing.images[0];

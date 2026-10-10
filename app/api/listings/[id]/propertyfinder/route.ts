@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import {
   getPropertyFinderEligibility,
@@ -8,6 +7,7 @@ import {
   unpublishListingFromPropertyFinder,
   resetPropertyFinderListing,
 } from "@/lib/propertyFinder/sync";
+import { isAdminRole } from "@/lib/roles";
 
 // Publishing can retry for several seconds while Property Finder finishes creating a new listing.
 export const maxDuration = 60;
@@ -20,12 +20,12 @@ const PORTAL = "PROPERTY_FINDER" as const;
 // live" - see PortalListing.state, kept current by the webhook receiver
 // (app/api/portals/propertyfinder/webhook).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
   const listingId = Number(id);
-  const listing = await prisma.listing.findUnique({
+  const listing = await db!.listing.findUnique({
     where: { id: listingId },
     include: {
       images: { select: { id: true } },
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only publish your own listings" }, { status: 403 });
   }
@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // independently of toggling publish state (e.g. the publish page changing
   // them before publishing).
   if (body.assignedProfileId !== undefined || reference !== undefined) {
-    await prisma.portalListing.upsert({
+    await db!.portalListing.upsert({
       where: { listingId_portal: { listingId, portal: PORTAL } },
       update: {
         ...(body.assignedProfileId !== undefined ? { assignedProfileId: body.assignedProfileId } : {}),
@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // listing on someone else's behalf shouldn't silently change that
     // agent's remembered default.
     if (isOwner && body.assignedProfileId) {
-      await prisma.user.update({
+      await db!.user.update({
         where: { id: listing.createdById },
         data: { pfPublicProfileId: body.assignedProfileId },
       });
@@ -86,25 +86,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (body.enabled === true) {
-    const refreshedState = await prisma.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
+    const refreshedState = await db!.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
     const assignedProfileId = effectiveAssignedProfileId(refreshedState, listing.createdBy);
     const eligibility = getPropertyFinderEligibility(listing, listing.images, assignedProfileId);
     if (!eligibility.eligible) {
       return NextResponse.json({ error: "Not ready to publish", reasons: eligibility.reasons }, { status: 400 });
     }
     try {
-      await publishListingToPropertyFinder(listingId);
+      await publishListingToPropertyFinder(orgId!, listingId);
     } catch (err) {
       // publishListingToPropertyFinder already persisted the failure detail
       // on PortalListing (state: publishing_failed, lastError) - surface it
       // here too so the caller gets a non-200 instead of a false "Saved."
-      const state = await prisma.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
+      const state = await db!.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
       return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to publish to Property Finder", propertyFinderState: state }, { status: 502 });
     }
   } else if (body.enabled === false) {
-    await unpublishListingFromPropertyFinder(listingId);
+    await unpublishListingFromPropertyFinder(orgId!, listingId);
   }
 
-  const state = await prisma.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
+  const state = await db!.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
   return NextResponse.json({ propertyFinderState: state });
 }

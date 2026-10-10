@@ -179,7 +179,28 @@ export const userCreateSchema = z.object({
   email: z.string().trim().email("Valid email required"),
   whatsapp: whatsappSchema,
   password: passwordSchema,
-  role: z.enum(["ADMIN", "AGENT"]).default("AGENT"),
+  // OWNER is only ever created by signing an agency up, never assigned here.
+  role: z.enum(["ADMIN", "MANAGER", "AGENT"]).default("AGENT"),
+});
+
+export const orgUpdateSchema = z.object({
+  name: z.string().trim().min(2, "Agency name is too short").max(60, "Agency name is too long").optional(),
+  brandColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Use a colour like #8a6d1f")
+    .nullable()
+    .optional(),
+  // A small data URL (resized client-side) or null to remove the logo.
+  logoUrl: z.string().startsWith("data:image/", "Invalid image").max(400_000, "Logo is too large").nullable().optional(),
+});
+
+// Creates a brand-new agency together with its first (OWNER) account.
+export const signupSchema = z.object({
+  agencyName: z.string().trim().min(2, "Agency name is too short").max(60, "Agency name is too long"),
+  name: z.string().trim().min(1, "Your name is required"),
+  email: z.string().trim().email("Valid email required"),
+  whatsapp: whatsappSchema,
+  password: passwordSchema,
 });
 
 export const whatsappUpdateSchema = z.object({

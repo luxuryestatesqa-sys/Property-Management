@@ -12,8 +12,8 @@ export class OpenAiNotConfiguredError extends Error {
   }
 }
 
-export async function getOpenAiKey(): Promise<string> {
-  const credential = await prisma.portalCredential.findUnique({ where: { portal: "OPENAI" } });
+export async function getOpenAiKey(orgId: string): Promise<string> {
+  const credential = await prisma.portalCredential.findUnique({ where: { organizationId_portal: { organizationId: orgId, portal: "OPENAI" } } });
   const key = credential?.apiKey || process.env.OPENAI_API_KEY;
   if (!key) throw new OpenAiNotConfiguredError();
   return key;
@@ -33,8 +33,8 @@ function friendlyOpenAiError(status: number, body: string): string {
 }
 
 // Returns the model's JSON-mode reply text.
-export async function chatJson(system: string, user: string): Promise<string> {
-  const key = await getOpenAiKey();
+export async function chatJson(orgId: string, system: string, user: string): Promise<string> {
+  const key = await getOpenAiKey(orgId);
   let res: Response;
   try {
     res = await fetch(`${OPENAI_BASE}/chat/completions`, {
@@ -66,8 +66,8 @@ export async function chatJson(system: string, user: string): Promise<string> {
 }
 
 // Cheap key check for the Settings page (lists models; costs nothing).
-export async function testOpenAiKey(): Promise<void> {
-  const key = await getOpenAiKey();
+export async function testOpenAiKey(orgId: string): Promise<void> {
+  const key = await getOpenAiKey(orgId);
   const res = await fetch(`${OPENAI_BASE}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(friendlyOpenAiError(res.status, await res.text().catch(() => "")));
 }

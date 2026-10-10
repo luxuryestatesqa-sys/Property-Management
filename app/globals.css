@@ -74,13 +74,55 @@ textarea {
   display: none;
 }
 
+/* Desktop shows a slim, unobtrusive scrollbar (phones keep it hidden). */
+@media (min-width: 1024px) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #c9cdd4 transparent;
+  }
+  ::-webkit-scrollbar {
+    display: block;
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c9cdd4;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #aab0ba;
+    background-clip: content-box;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 15px;
+  }
+  /* Visible keyboard focus + soft hover feedback, which touch devices don't need. */
+  :focus-visible {
+    outline: 2px solid var(--primary-light);
+    outline-offset: 2px;
+  }
+  a,
+  button {
+    cursor: pointer;
+  }
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-.safe-top {
-  padding-top: max(env(safe-area-inset-top), 8px);
+@media (max-width: 1023px) {
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 8px);
+  }
 }
 
 .safe-bottom {
@@ -99,6 +141,13 @@ textarea {
 .card-cv-compact {
   content-visibility: auto;
   contain-intrinsic-size: 0 124px;
+}
+
+/* Desktop cards are tall (image on top) and sit in a grid. */
+@media (min-width: 1024px) {
+  .card-cv-compact {
+    contain-intrinsic-size: 0 360px;
+  }
 }
 
 /* Bridges the OS's own app-launch splash (which can only show the home-screen

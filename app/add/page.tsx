@@ -1,5 +1,6 @@
 "use client";
 
+import AddPropertyAside, { AddAsideData } from "@/components/desktop/AddPropertyAside";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SegmentedControl from "@/components/SegmentedControl";
@@ -103,8 +104,8 @@ const ICONS = {
   ),
 };
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">{children}</section>;
+function Card({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
+  return <section className={`rounded-2xl border border-border bg-surface shadow-sm p-4 lg:p-6 ${wide ? "lg:col-span-2" : ""}`}>{children}</section>;
 }
 
 export default function AddPropertyPage() {
@@ -264,14 +265,39 @@ export default function AddPropertyPage() {
 
   const amenityOptions = form.propertyCategory ? amenityOptionsFor(form.propertyCategory) : [];
 
+  const unitInfo = form.propertyCategory ? unitLabelFor(form.propertyCategory) : null;
+  const asideData: AddAsideData = {
+    listingType: form.listingType,
+    propertyCategory: form.propertyCategory,
+    bedrooms: form.bedrooms,
+    sizeSqm: form.sizeSqm,
+    price: form.listingType === "RENT" ? form.rentPrice : form.salePrice,
+    cover: form.images[0] ?? null,
+    photoCount: form.images.length,
+    area: form.area,
+    community: form.community,
+    buildingName: form.buildingName,
+    checklist: [
+      { label: "Property type", done: Boolean(form.propertyCategory) },
+      ...(form.propertyCategory && isResidentialCategory(form.propertyCategory) ? [{ label: "Bedrooms", done: Boolean(form.bedrooms) }] : []),
+      { label: "Size", done: Boolean(form.sizeSqm) },
+      { label: form.listingType === "RENT" ? "Rent price" : "Sale price", done: Boolean(form.listingType === "RENT" ? form.rentPrice : form.salePrice) },
+      { label: "At least one photo", done: form.images.length > 0 },
+      { label: "Location & area", done: Boolean(form.area.trim() && form.community.trim()) },
+      { label: "Building name", done: Boolean(form.buildingName.trim()) },
+      { label: unitInfo ? `${unitInfo.showFloor ? "Floor & " : ""}${unitInfo.unitLabel}` : "Unit details", done: Boolean(unitInfo && form.apartmentNumber.trim() && (!unitInfo.showFloor || form.floor.trim())) },
+    ],
+  };
+
   return (
-    <div className="px-4 pb-8">
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3">
-        <h1 className="text-xl font-bold">Add Property</h1>
-        <p className="text-sm text-muted mt-0.5">Fill in the details below to create a new listing</p>
+    <div className="px-4 pb-8 lg:px-0">
+      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 lg:static lg:pt-10 lg:pb-7">
+        <h1 className="text-xl font-bold lg:text-[32px] lg:leading-none lg:tracking-tight">Add Property</h1>
+        <p className="text-sm text-muted mt-0.5 lg:text-[15px] lg:mt-2.5">Fill in the details below to create a new listing</p>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-8">
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
         <Card>
           <FormSectionHeader icon={ICONS.basics} label="Basics" />
           <div className="flex flex-col gap-4">
@@ -411,7 +437,7 @@ export default function AddPropertyPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card wide>
           <FormSectionHeader icon={ICONS.photos} label="Photos" />
           <PhotoPicker images={form.images} onChange={(images) => update("images", images)} />
         </Card>
@@ -512,7 +538,7 @@ export default function AddPropertyPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card wide>
           <FormSectionHeader icon={ICONS.marketing} label="Title & Description" badge="(optional, needed to publish to Property Finder)" />
           <div className="flex flex-col gap-3">
             {aiError && <div className="rounded-xl bg-danger-bg text-danger text-[13px] px-3 py-2.5">{aiError}</div>}
@@ -560,17 +586,27 @@ export default function AddPropertyPage() {
           listingType={form.listingType}
         />
 
-        {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
+        {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3 lg:hidden">{error}</div>}
 
         <button
           type="button"
           disabled={submitting}
           onClick={() => submit(false)}
-          className="w-full rounded-xl py-4 text-base font-bold text-white active:opacity-80 disabled:opacity-60 mt-1"
+          className="w-full rounded-xl py-4 text-base font-bold text-white active:opacity-80 disabled:opacity-60 mt-1 lg:hidden"
           style={{ background: "var(--primary)" }}
         >
           {submitting ? "Adding..." : "Add Property"}
         </button>
+      </div>
+
+      <div className="hidden lg:block">
+        <AddPropertyAside
+          data={asideData}
+          submitting={submitting}
+          error={error}
+          onSubmit={() => submit(false)}
+        />
+      </div>
       </div>
 
       {duplicates && (

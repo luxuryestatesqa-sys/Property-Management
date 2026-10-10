@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantDb } from "@/lib/tenant";
 import { getChannelEligibility } from "@/lib/portals/eligibility";
 import { auditPublicText } from "./audit";
 
@@ -15,8 +15,9 @@ export interface MasterFeedReport {
 // the master feed, how many actually make it into /feeds/all.xml and, for the
 // rest, exactly why not. Uses the same eligibility rule as feed generation
 // (lib/feeds/generateFeed.ts), so the numbers match what a portal sees.
-export async function getMasterFeedReport(): Promise<MasterFeedReport> {
-  const rows = await prisma.listing.findMany({
+export async function getMasterFeedReport(orgId: string): Promise<MasterFeedReport> {
+  const db = tenantDb(orgId);
+  const rows = await db.listing.findMany({
     where: { status: "ACTIVE", visibility: "SHARED", portalListings: { some: { portal: "OTHER_PORTALS", enabled: true } } },
     include: { images: { select: { id: true } } },
     orderBy: { id: "asc" },
@@ -30,7 +31,7 @@ export async function getMasterFeedReport(): Promise<MasterFeedReport> {
     else skipped.push({ id: listing.id, title: listing.title?.trim() || `Listing #${listing.id}`, reasons });
   }
 
-  const published = await prisma.listing.findMany({
+  const published = await db.listing.findMany({
     where: { status: "ACTIVE", visibility: "SHARED", portalListings: { some: { enabled: true } } },
     include: { createdBy: { select: { whatsapp: true, email: true } } },
     orderBy: { id: "asc" },

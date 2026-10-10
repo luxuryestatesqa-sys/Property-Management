@@ -25,7 +25,7 @@ export interface CopyFacts {
   agentPhone: string;
 }
 
-export async function generateListingCopy(f: CopyFacts): Promise<{ title?: string; description?: string }> {
+export async function generateListingCopy(orgId: string, f: CopyFacts): Promise<{ title?: string; description?: string }> {
   const amenities = filterAmenitiesForCategory(f.propertyCategory, f.amenities)
     .map((a) => AMENITY_LABELS[a])
     .filter((a): a is string => Boolean(a));
@@ -46,6 +46,6 @@ export async function generateListingCopy(f: CopyFacts): Promise<{ title?: strin
     agentName: f.agentName,
     agentPhone: f.agentPhone,
   }, field, f.currentTitle?.slice(0, 120));
-  const content = await chatJson(system, user);
+  const content = await chatJson(orgId, system, user);
   return parseAndFinish(content, f.lang, f.agentName, f.agentPhone, field);
 }

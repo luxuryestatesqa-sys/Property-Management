@@ -34,11 +34,18 @@ import CallButton from "@/components/CallButton";
 import Avatar from "@/components/Avatar";
 import PhotoPicker from "@/components/PhotoPicker";
 import PhotoGallery from "@/components/PhotoGallery";
+import PhotoGalleryDesktop from "@/components/desktop/PhotoGalleryDesktop";
+import { TypePill, AvailabilityPill, PrivatePill } from "@/components/desktop/Badges";
+import { IconPin, IconBed, IconBath, IconRuler, IconBuilding, IconEdit } from "@/components/desktop/icons";
+import { useIsDesktop } from "@/lib/useIsDesktop";
+import { useOrg } from "@/components/OrgProvider";
+import { AMENITY_LABELS } from "@/lib/propertyFinder/mapping";
 import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } from "@/components/PrivateDetailsSection";
 import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 import PublishToPortalsCard from "@/components/PublishToPortalsCard";
 import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
 import { bathroomsToInputValue, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
+import { isAdminRole } from "@/lib/roles";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
 
@@ -48,6 +55,8 @@ export default function PropertyDetailPage() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const confirm = useConfirm();
+  const isDesktop = useIsDesktop();
+  const org = useOrg();
   const id = params.id as string;
   const openInEditMode = searchParams.get("edit") === "1";
 
@@ -122,7 +131,7 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (!openInEditMode || !listing || !session?.user) return;
-    const canManage = session.user.id === listing.createdById || session.user.role === "ADMIN";
+    const canManage = session.user.id === listing.createdById || isAdminRole(session.user.role);
     if (canManage) setEditing(true);
     router.replace(`/property/${id}`, { scroll: false });
     // Only meant to fire once, right after the initial load navigated here with ?edit=1.
@@ -130,7 +139,7 @@ export default function PropertyDetailPage() {
   }, [openInEditMode, listing, session]);
 
   // Only the owner/admin can refresh Property Finder's status, so only they poll.
-  const mayPollPf = Boolean(listing && (session?.user?.id === listing.createdById || session?.user?.role === "ADMIN"));
+  const mayPollPf = Boolean(listing && (session?.user?.id === listing.createdById || isAdminRole(session?.user?.role)));
   usePfStatusPolling(
     mayPollPf ? listing?.id : undefined,
     listing?.propertyFinderState,
@@ -153,7 +162,7 @@ export default function PropertyDetailPage() {
   }
 
   const isOwner = session?.user?.id === listing.createdById;
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = isAdminRole(session?.user?.role);
   const canManage = isOwner || isAdmin;
   const isRent = listing.listingType === "RENT";
 
@@ -293,52 +302,15 @@ export default function PropertyDetailPage() {
     }
   }
 
-  return (
-    <div className="px-4 pb-10">
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3">
-        <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 rounded-full bg-surface-muted flex items-center justify-center shrink-0 active:opacity-70">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--foreground)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-        </button>
-        <h1 className="text-lg font-bold truncate flex-1">{listing.buildingName}</h1>
-        {listing.status === "INACTIVE" && (
-          <span className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-danger-bg text-danger shrink-0">Inactive</span>
-        )}
-        {session?.user?.id && (
-          <>
-            <button
-              type="button"
-              onClick={copyListingLink}
-              aria-label="Copy listing link"
-              className="rounded-full flex items-center justify-center shrink-0 active:opacity-70"
-              style={{ background: "var(--surface-muted)", color: "var(--foreground)", width: 34, height: 34 }}
-            >
-              {linkCopied ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10 13a5 5 0 0 0 7.07 0l1.93-1.93a5 5 0 0 0-7.07-7.07L10.5 5.5" />
-                  <path d="M14 11a5 5 0 0 0-7.07 0l-1.93 1.93a5 5 0 0 0 7.07 7.07L13.5 18.5" />
-                </svg>
-              )}
-            </button>
-            <WhatsAppButton
-              message={buildListingShareMessage(listing, buildListingShareUrl(listing.id, session.user.id))}
-              ariaLabel="Share this listing on WhatsApp"
-              size={34}
-              className="shrink-0"
-            />
-          </>
-        )}
-      </div>
-
-      {!editing ? (
-        <div className="flex flex-col gap-4">
+  const view_gallery = (
+    <>
           <PhotoGallery images={listing.images} />
 
+    </>
+  );
+
+  const view_summary = (
+    <>
           <div className="rounded-2xl border border-border bg-surface shadow-sm p-4">
             <div className="flex items-center gap-1.5">
               <span
@@ -408,11 +380,16 @@ export default function PropertyDetailPage() {
             )}
           </div>
 
+    </>
+  );
+
+  const view_contact = (
+    <>
           {!isOwner && (
             <div className="flex gap-2.5">
               <WhatsAppButton
                 number={listing.createdBy.whatsapp}
-                message={buildListingInquiryMessage(listing)}
+                message={buildListingInquiryMessage(listing, org.name)}
                 label="WhatsApp Now"
                 variant="full"
                 className="flex-1 justify-center py-3 text-[14px]"
@@ -425,7 +402,11 @@ export default function PropertyDetailPage() {
               />
             </div>
           )}
+    </>
+  );
 
+  const view_avail = (
+    <>
           {canManage && (
             <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
               <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Availability</h3>
@@ -449,9 +430,18 @@ export default function PropertyDetailPage() {
               </div>
             </section>
           )}
+    </>
+  );
 
+  const view_portals = (
+    <>
           <PublishToPortalsCard listing={listing} readOnly={!canManage} />
 
+    </>
+  );
+
+  const view_info = (
+    <>
           <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Listing Information</h3>
             <dl className="flex flex-col gap-2.5 text-[14px]">
@@ -493,6 +483,11 @@ export default function PropertyDetailPage() {
             </dl>
           </section>
 
+    </>
+  );
+
+  const view_priv = (
+    <>
           {canViewPrivateDetails &&
             (listing.ownerName ||
               listing.ownerPhone ||
@@ -581,6 +576,11 @@ export default function PropertyDetailPage() {
               </section>
             )}
 
+    </>
+  );
+
+  const view_dups = (
+    <>
           {duplicates.length > 0 && (
             <section className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
               <div className="px-4 py-3 flex items-center justify-between">
@@ -603,7 +603,7 @@ export default function PropertyDetailPage() {
                           {d.listingType === "RENT" ? `${formatQAR(d.rentPrice)}/mo` : formatQAR(d.salePrice)}
                         </div>
                       </div>
-                      <WhatsAppButton number={d.createdBy.whatsapp} message={buildListingInquiryMessage(d)} size={30} />
+                      <WhatsAppButton number={d.createdBy.whatsapp} message={buildListingInquiryMessage(d, org.name)} size={30} />
                     </div>
                     <div className="text-[11px] text-muted shrink-0">{formatDate(d.createdAt)}</div>
                   </Link>
@@ -612,6 +612,11 @@ export default function PropertyDetailPage() {
             </section>
           )}
 
+    </>
+  );
+
+  const view_hist = (
+    <>
           {(isOwner || isAdmin) && auditLogs.length > 0 && (
             <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
               <button onClick={() => setShowHistory((s) => !s)} className="w-full flex items-center justify-between">
@@ -633,6 +638,11 @@ export default function PropertyDetailPage() {
             </section>
           )}
 
+    </>
+  );
+
+  const view_actions = (
+    <>
           {canManage && (
             <div className="flex gap-3 mt-1">
               <button
@@ -654,10 +664,190 @@ export default function PropertyDetailPage() {
               </button>
             </div>
           )}
+    </>
+  );
+
+  const desktopSummary = (
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+      <div className="p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <TypePill type={listing.listingType} />
+          <AvailabilityPill status={listing.availabilityStatus} />
+          {listing.visibility === "PRIVATE" && <PrivatePill />}
+          {listing.unitDetailsPrivate && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold leading-none text-muted">Unit hidden</span>
+          )}
         </div>
+        <div className="mt-4 text-[36px] font-bold leading-none tracking-tight">
+          {isRent ? formatQAR(listing.rentPrice) : formatQAR(listing.salePrice)}
+          {isRent && <span className="ml-1.5 text-[16px] font-medium text-muted">/ month</span>}
+        </div>
+        {!isRent && listing.rentalValue && <div className="mt-2 text-[13.5px] text-muted">Rental value {formatQAR(listing.rentalValue)} / month</div>}
+        <div className="mt-5 flex items-start gap-2 text-[14px] text-muted">
+          <IconPin size={16} className="mt-0.5 shrink-0" />
+          <span>
+            {listing.area} → {listing.community}
+          </span>
+        </div>
+        <div className="mt-1 text-[18px] font-semibold">
+          {listing.buildingName}
+          {unitSummary(listing, false) && <span className="font-normal text-muted"> · {unitSummary(listing, false)}</span>}
+        </div>
+      </div>
+      <dl className="grid grid-cols-3 divide-x divide-border border-t border-border">
+        {[
+          { icon: <IconBuilding size={16} />, label: "Type", value: PROPERTY_CATEGORY_LABELS[listing.propertyCategory] },
+          { icon: <IconBed size={16} />, label: "Bedrooms", value: listing.bedrooms ? BEDROOM_SHORT_LABELS[listing.bedrooms] : "—" },
+          { icon: <IconRuler size={16} />, label: "Size", value: listing.sizeSqm ? formatSqm(listing.sizeSqm) : "—" },
+        ].map((x) => (
+          <div key={x.label} className="px-4 py-4">
+            <dt className="flex items-center gap-1.5 text-[12px] text-muted">
+              {x.icon}
+              {x.label}
+            </dt>
+            <dd className="mt-1 text-[14px] font-semibold">{x.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {listing.propertyCategory !== "LAND" && (
+        <dl className="grid grid-cols-3 divide-x divide-border border-t border-border">
+          {[
+            { icon: <IconBath size={16} />, label: "Bathrooms", value: listing.bathrooms && listing.bathrooms !== "none" ? listing.bathrooms : "—" },
+            { icon: null, label: "Furnishing", value: listing.furnished === "FURNISHED" ? "Furnished" : "Unfurnished" },
+            { icon: null, label: "Bills", value: isRent && listing.billsStatus ? (listing.billsStatus === "INCLUDED" ? "Included" : "Excluded") : "—" },
+          ].map((x) => (
+            <div key={x.label} className="px-4 py-4">
+              <dt className="flex items-center gap-1.5 text-[12px] text-muted">
+                {x.icon}
+                {x.label}
+              </dt>
+              <dd className="mt-1 text-[14px] font-semibold">{x.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+
+  const desktopDescription =
+    listing.title || listing.description || listing.amenities.length > 0 ? (
+      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        {listing.title && <h2 className="text-[20px] font-bold leading-snug tracking-tight">{listing.title}</h2>}
+        {listing.description && <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-foreground/85">{listing.description}</p>}
+        {listing.amenities.length > 0 && (
+          <div className="mt-5">
+            <div className="mb-2.5 text-[13px] font-semibold text-muted">Amenities</div>
+            <div className="flex flex-wrap gap-2">
+              {listing.amenities.map((a) => (
+                <span key={a} className="rounded-full bg-surface-muted px-3 py-1.5 text-[12.5px] font-medium">
+                  {AMENITY_LABELS[a] ?? a}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+    ) : null;
+
+  return (
+    <div className="px-4 pb-10 lg:px-0">
+      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 lg:pt-8 lg:pb-5">
+        <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 rounded-full bg-surface-muted flex items-center justify-center shrink-0 active:opacity-70">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--foreground)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <h1 className="text-lg font-bold truncate flex-1 lg:text-2xl lg:tracking-tight">{listing.buildingName}</h1>
+        {listing.status === "INACTIVE" && (
+          <span className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-danger-bg text-danger shrink-0">Inactive</span>
+        )}
+        {session?.user?.id && (
+          <>
+            <button
+              type="button"
+              onClick={copyListingLink}
+              aria-label="Copy listing link"
+              className="rounded-full flex items-center justify-center shrink-0 active:opacity-70"
+              style={{ background: "var(--surface-muted)", color: "var(--foreground)", width: 34, height: 34 }}
+            >
+              {linkCopied ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.07 0l1.93-1.93a5 5 0 0 0-7.07-7.07L10.5 5.5" />
+                  <path d="M14 11a5 5 0 0 0-7.07 0l-1.93 1.93a5 5 0 0 0 7.07 7.07L13.5 18.5" />
+                </svg>
+              )}
+            </button>
+            <WhatsAppButton
+              message={buildListingShareMessage(listing, buildListingShareUrl(listing.id, session.user.id), org.name)}
+              ariaLabel="Share this listing on WhatsApp"
+              size={34}
+              className="shrink-0"
+            />
+          </>
+        )}
+        {canManage && !editing && (
+          <div className="hidden items-center gap-2 lg:flex">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: "var(--primary)" }}
+            >
+              <IconEdit size={15} />
+              Edit listing
+            </button>
+            <button
+              type="button"
+              onClick={toggleStatus}
+              disabled={saving}
+              className={`rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-60 ${listing.status === "ACTIVE" ? "bg-danger-bg text-danger" : "bg-success-bg"}`}
+              style={listing.status === "INACTIVE" ? { color: "var(--success)" } : undefined}
+            >
+              {listing.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!editing ? (
+        isDesktop ? (
+          <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-8 xl:grid-cols-[minmax(0,1fr)_430px]">
+            <div className="flex flex-col gap-6">
+              <PhotoGalleryDesktop images={listing.images} />
+              {desktopDescription}
+              {view_info}
+              {view_priv}
+              {view_dups}
+              {view_hist}
+            </div>
+            <div className="flex flex-col gap-5">
+              {desktopSummary}
+              {view_contact}
+              {view_avail}
+              {view_portals}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {view_gallery}
+            {view_summary}
+            {view_contact}
+            {view_avail}
+            {view_portals}
+            {view_info}
+            {view_priv}
+            {view_dups}
+            {view_hist}
+            {view_actions}
+          </div>
+        )
       ) : (
-        <div className="flex flex-col gap-4">
-          <section>
+        <div className="flex flex-col gap-4 lg:grid lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:gap-y-5">
+          <section className="lg:col-span-2">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">
               Photos
             </h3>
@@ -707,7 +897,7 @@ export default function PropertyDetailPage() {
             </div>
           )}
 
-          <section>
+          <section className="lg:col-span-2">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">
               Marketing <span className="text-muted font-normal normal-case">(optional, needed to publish to Property Finder)</span>
             </h3>
@@ -850,7 +1040,7 @@ export default function PropertyDetailPage() {
             </section>
           )}
 
-          <section>
+          <section className="lg:col-span-2">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">Location</h3>
             <div className="flex flex-col gap-3">
               <LocationCombinedInput
@@ -900,11 +1090,13 @@ export default function PropertyDetailPage() {
             </div>
           </section>
 
-          <PrivateDetailsSection value={privateDetails} onChange={setPrivateDetails} listingType={listing.listingType} />
+          <div className="lg:col-span-2">
+            <PrivateDetailsSection value={privateDetails} onChange={setPrivateDetails} listingType={listing.listingType} />
+          </div>
 
-          {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
+          {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3 lg:col-span-2">{error}</div>}
 
-          <div className="flex gap-3 mt-1">
+          <div className="flex gap-3 mt-1 lg:col-span-2 lg:justify-end">
             <button
               onClick={() => {
                 setEditing(false);

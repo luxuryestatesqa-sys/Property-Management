@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import type { Role } from "@/lib/types";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -20,9 +21,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({ where: { email }, include: { organization: { select: { status: true } } } });
         if (!user) return null;
         if (user.status !== "ACTIVE") return null;
+        // A suspended agency cannot sign in at all.
+        if (user.organization.status !== "ACTIVE") return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
@@ -33,6 +36,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           status: user.status,
+          organizationId: user.organizationId,
         };
       },
     }),
@@ -43,13 +47,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id as string;
         token.role = (user as { role: string }).role;
         token.status = (user as { status: string }).status;
+        token.organizationId = (user as { organizationId: string }).organizationId;
+      }
+      // Sessions issued before multi-agency support have no organization in
+      // the token yet - fill it in once instead of forcing everyone to log in again.
+      if (!token.organizationId && token.id) {
+        const row = await prisma.user.findUnique({ where: { id: token.id as string }, select: { organizationId: true } });
+        if (row) token.organizationId = row.organizationId;
       }
       return token;
     },
     session: async ({ session, token }) => {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as "ADMIN" | "AGENT";
+        session.user.role = token.role as Role;
+        session.user.organizationId = token.organizationId as string;
         session.user.status = token.status as "ACTIVE" | "INACTIVE";
       }
       return session;

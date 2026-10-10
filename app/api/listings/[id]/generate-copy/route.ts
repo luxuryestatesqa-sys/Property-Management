@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { feedLocationFor } from "@/lib/propertyFinder/location";
 import { OpenAiNotConfiguredError } from "@/lib/ai/openai";
 import { generateListingCopy } from "@/lib/ai/generateCopy";
+import { isAdminRole } from "@/lib/roles";
 
 function fieldFrom(value: unknown): "title" | "description" | "both" {
   return value === "title" || value === "description" ? value : "both";
@@ -14,18 +14,18 @@ function fieldFrom(value: unknown): "title" | "description" | "both" {
 // have saved yet). Returns text only - nothing is saved here; the agent
 // reviews/edits it and saves with the rest of the form.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
-  const listing = await prisma.listing.findUnique({
+  const listing = await db!.listing.findUnique({
     where: { id: Number(id) },
     include: { createdBy: { select: { name: true, whatsapp: true } } },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only generate text for your own listings" }, { status: 403 });
   }
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}));
   try {
     return NextResponse.json(
-      await generateListingCopy({
+      await generateListingCopy(orgId!, {
         lang: body.lang === "ar" ? "ar" : "en",
         field: fieldFrom(body.field),
         currentTitle: typeof body.currentTitle === "string" ? body.currentTitle : undefined,

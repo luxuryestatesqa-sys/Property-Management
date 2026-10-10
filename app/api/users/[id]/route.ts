@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-helpers";
 import { whatsappSchema, adminResetPasswordSchema } from "@/lib/validation";
 
+// Only the OWNER can touch the OWNER account (deactivate, remove, reset password, change role).
+async function ownerProtected(db: NonNullable<Awaited<ReturnType<typeof requireAdmin>>["db"]>, id: string, callerRole: string) {
+  const target = await db.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) return { notFound: true as const, forbidden: false };
+  return { notFound: false as const, forbidden: target.role === "OWNER" && callerRole !== "OWNER" };
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireAdmin();
+  const { session, db, error } = await requireAdmin();
   if (error) return error;
 
   const { id } = await params;
@@ -18,6 +24,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (id === session!.user.id && status === "INACTIVE") {
     return NextResponse.json({ error: "You cannot deactivate your own account" }, { status: 400 });
+  }
+
+  const guard = await ownerProtected(db!, id, session!.user.role);
+  if (guard.notFound) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (guard.forbidden) return NextResponse.json({ error: "Only the agency owner can change the owner account" }, { status: 403 });
+
+  let role: "ADMIN" | "MANAGER" | "AGENT" | undefined;
+  if (body.role !== undefined) {
+    if (!["ADMIN", "MANAGER", "AGENT"].includes(body.role)) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    if (id === session!.user.id) return NextResponse.json({ error: "You cannot change your own role" }, { status: 400 });
+    role = body.role;
   }
 
   let whatsapp: string | undefined;
@@ -49,10 +66,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     pfPublicProfileId = body.pfPublicProfileId;
   }
 
-  const user = await prisma.user.update({
+  const user = await db!.user.update({
     where: { id },
     data: {
       ...(status ? { status } : {}),
+      ...(role ? { role } : {}),
       ...(whatsapp ? { whatsapp } : {}),
       ...(passwordHash ? { passwordHash } : {}),
       ...(pfPublicProfileId !== undefined ? { pfPublicProfileId } : {}),
@@ -74,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireAdmin();
+  const { session, db, error } = await requireAdmin();
   if (error) return error;
 
   const { id } = await params;
@@ -82,10 +100,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "You cannot remove your own account" }, { status: 400 });
   }
 
-  const listingCount = await prisma.listing.count({ where: { createdById: id } });
+  const guard = await ownerProtected(db!, id, session!.user.role);
+  if (guard.notFound) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (guard.forbidden) return NextResponse.json({ error: "Only the agency owner can remove the owner account" }, { status: 403 });
+
+  const listingCount = await db!.listing.count({ where: { createdById: id } });
   if (listingCount > 0) {
     // Never delete historical listing ownership - deactivate instead of removing.
-    const user = await prisma.user.update({
+    const user = await db!.user.update({
       where: { id },
       data: { status: "INACTIVE" },
       select: { id: true, name: true, email: true, whatsapp: true, avatarUrl: true, role: true, status: true, createdAt: true },
@@ -96,6 +118,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     });
   }
 
-  await prisma.user.delete({ where: { id } });
+  await db!.user.delete({ where: { id } });
   return NextResponse.json({ removed: true });
 }

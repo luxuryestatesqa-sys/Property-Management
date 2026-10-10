@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantDb } from "@/lib/tenant";
 import type { Listing, Prisma } from "@prisma/client";
 import { fetchPfLocationSnapshot } from "./location";
 import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
@@ -183,13 +183,13 @@ const NO_PUBLISH_OPTION = "Property Finder didn't offer any publishing option fo
 // asking PF for the listing's real stage - still draft means retry, and if it
 // never leaves draft this throws so the agent sees a failure, not a false
 // "published".
-async function publishDraftWithRetry(pfListingId: string): Promise<string> {
+async function publishDraftWithRetry(orgId: string, pfListingId: string): Promise<string> {
   const MAX_ATTEMPTS = 5;
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     if (attempt > 1) await new Promise((r) => setTimeout(r, 1500 * (attempt - 1)));
     try {
-      const prices = await getPublishPrice(pfListingId);
+      const prices = await getPublishPrice(orgId, pfListingId);
       const publishOption = prices.find((p) => p.feature === "publish");
       // Cheapest tier only: featured/premium are paid upgrades an agent
       // applies manually in PF Expert. Picked by lowest price, not by name,
@@ -200,9 +200,9 @@ async function publishDraftWithRetry(pfListingId: string): Promise<string> {
       );
       if (!cheapestProduct) throw new Error(NO_PUBLISH_OPTION);
       try {
-        await publishListing(pfListingId, "standard");
+        await publishListing(orgId, pfListingId, "standard");
       } catch {
-        await publishListing(pfListingId, cheapestProduct.name);
+        await publishListing(orgId, pfListingId, cheapestProduct.name);
       }
       return "pending_publishing";
     } catch (err) {
@@ -211,7 +211,7 @@ async function publishDraftWithRetry(pfListingId: string): Promise<string> {
       lastError = err;
       // Past draft already (live / pending review)? Then there's nothing left to publish.
       try {
-        const stage = (await getListing(pfListingId)).state?.stage ?? null;
+        const stage = (await getListing(orgId, pfListingId)).state?.stage ?? null;
         if (stage && stage !== "draft") return stage === "live" ? "live" : "pending_publishing";
       } catch {
         // couldn't read the stage - treat as still draft and retry
@@ -226,8 +226,9 @@ async function publishDraftWithRetry(pfListingId: string): Promise<string> {
 // Finder, then publishes it. Stores the result on PortalListing (portal =
 // PROPERTY_FINDER); on failure, stores the reason so the agent can see why
 // it didn't publish.
-export async function publishListingToPropertyFinder(listingId: number): Promise<void> {
-  const listing = await prisma.listing.findUniqueOrThrow({
+export async function publishListingToPropertyFinder(orgId: string, listingId: number): Promise<void> {
+  const db = tenantDb(orgId);
+  const listing = await db.listing.findUniqueOrThrow({
     where: { id: listingId },
     include: { images: { orderBy: { sortOrder: "asc" } }, createdBy: true, portalListings: { where: { portal: PORTAL } } },
   });
@@ -236,7 +237,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
   const assignedProfileId = effectiveAssignedProfileId(portalListing, listing.createdBy);
   const eligibility = getPropertyFinderEligibility(listing, listing.images, assignedProfileId);
   if (!eligibility.eligible) {
-    await prisma.portalListing.upsert({
+    await db.portalListing.upsert({
       where: portalKey(listingId),
       update: { state: "publishing_failed", lastError: eligibility.reasons.join("; "), lastSyncedAt: new Date() },
       create: { listingId, portal: PORTAL, enabled: true, state: "publishing_failed", lastError: eligibility.reasons.join("; "), lastSyncedAt: new Date() },
@@ -249,9 +250,9 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
   // Save Property Finder's own name/tree/coordinates for the chosen location,
   // so every feed shows exactly the location this listing is published under.
   if (listing.pfLocationId) {
-    const snapshot = await fetchPfLocationSnapshot(listing.pfLocationId);
+    const snapshot = await fetchPfLocationSnapshot(orgId, listing.pfLocationId);
     if (snapshot) {
-      await prisma.listing.update({ where: { id: listingId }, data: { pfLocation: snapshot as unknown as Prisma.InputJsonValue } });
+      await db.listing.update({ where: { id: listingId }, data: { pfLocation: snapshot as unknown as Prisma.InputJsonValue } });
     }
   }
 
@@ -262,7 +263,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
   // updateListing below), not after. Flipping it to true only on success
   // left every photo 404ing at the exact moment PF tried to ingest them,
   // silently falling back to blank/blurred placeholders on their side.
-  await prisma.portalListing.upsert({
+  await db.portalListing.upsert({
     where: portalKey(listingId),
     update: { enabled: true },
     create: { listingId, portal: PORTAL, enabled: true },
@@ -273,7 +274,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     // to - required for createdBy, and distinct from assignedProfileId (see
     // buildListingPayload). Looked up fresh each publish rather than stored,
     // since it's just derived from the account picker's own directory call.
-    const pfUsers = await listUsers();
+    const pfUsers = await listUsers(orgId);
     const pfUser = pfUsers.find((u) => u.publicProfile?.id === assignedProfileId);
     if (!pfUser) {
       throw new Error(`No Property Finder user found for public profile ${assignedProfileId} - re-link the agent's Property Finder account`);
@@ -290,7 +291,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     let isNewRemoteListing = !remoteListingId;
     if (remoteListingId) {
       try {
-        response = await updateListing(remoteListingId, payload);
+        response = await updateListing(orgId, remoteListingId, payload);
       } catch (err) {
         // A 404 here means PF no longer recognizes this id at all (seen in
         // practice as "The listing was not found or you do not have access
@@ -300,14 +301,14 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
         // instead of leaving the agent stuck with no path forward short of
         // the manual admin-only reset action.
         if (err instanceof PropertyFinderApiError && err.status === 404) {
-          response = await createListing(payload);
+          response = await createListing(orgId, payload);
           isNewRemoteListing = true;
         } else {
           throw err;
         }
       }
     } else {
-      response = await createListing(payload);
+      response = await createListing(orgId, payload);
     }
     const newRemoteListingId = isNewRemoteListing ? response.id : remoteListingId!;
 
@@ -322,7 +323,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     // null - the next attempt would call createListing again with the same
     // reference and PF would correctly reject it as a duplicate, forever.
     if (isNewRemoteListing) {
-      await prisma.portalListing.update({ where: portalKey(listingId), data: { remoteListingId: newRemoteListingId, lastSyncedAt: new Date() } });
+      await db.portalListing.update({ where: portalKey(listingId), data: { remoteListingId: newRemoteListingId, lastSyncedAt: new Date() } });
     }
 
     // Publishing needs a publishing type selected (standard/featured/premium)
@@ -342,9 +343,9 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     // since PF's actual product name for that tier isn't confirmed (their
     // schema docs are behind a login) and a strict name match broke on a
     // real response that didn't include that literal string.
-    const finalState = await publishDraftWithRetry(newRemoteListingId);
+    const finalState = await publishDraftWithRetry(orgId, newRemoteListingId);
 
-    await prisma.portalListing.upsert({
+    await db.portalListing.upsert({
       where: portalKey(listingId),
       update: { remoteListingId: newRemoteListingId, state: finalState, enabled: true, lastError: null, lastSyncedAt: new Date() },
       create: { listingId, portal: PORTAL, remoteListingId: newRemoteListingId, state: finalState, enabled: true, lastSyncedAt: new Date() },
@@ -358,7 +359,7 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
     // The flag was switched on before the attempt (so PF can fetch photos).
     // If this listing never made it to PF, switch it back off so the app
     // doesn't claim "published" next to a failure.
-    await prisma.portalListing.upsert({
+    await db.portalListing.upsert({
       where: portalKey(listingId),
       update: { state: "publishing_failed", enabled: Boolean(portalListing?.remoteListingId), lastError: message, lastSyncedAt: new Date() },
       create: { listingId, portal: PORTAL, enabled: true, state: "publishing_failed", lastError: message, lastSyncedAt: new Date() },
@@ -367,10 +368,11 @@ export async function publishListingToPropertyFinder(listingId: number): Promise
   }
 }
 
-export async function unpublishListingFromPropertyFinder(listingId: number): Promise<void> {
-  const portalListing = await prisma.portalListing.findUnique({ where: portalKey(listingId) });
+export async function unpublishListingFromPropertyFinder(orgId: string, listingId: number): Promise<void> {
+  const db = tenantDb(orgId);
+  const portalListing = await db.portalListing.findUnique({ where: portalKey(listingId) });
   if (!portalListing?.remoteListingId) {
-    await prisma.portalListing.upsert({
+    await db.portalListing.upsert({
       where: portalKey(listingId),
       update: { enabled: false },
       create: { listingId, portal: PORTAL, enabled: false },
@@ -379,12 +381,12 @@ export async function unpublishListingFromPropertyFinder(listingId: number): Pro
   }
 
   try {
-    await unpublishListing(portalListing.remoteListingId);
+    await unpublishListing(orgId, portalListing.remoteListingId);
   } catch {
     // Best-effort - even if PF's unpublish call fails (e.g. already
     // unpublished), we still record the agent's intent locally.
   }
-  await prisma.portalListing.update({
+  await db.portalListing.update({
     where: portalKey(listingId),
     data: { enabled: false, lastSyncedAt: new Date() },
   });
@@ -398,13 +400,14 @@ export async function unpublishListingFromPropertyFinder(listingId: number): Pro
 // Exists for the one real case that needs it: a listing PF appears to have
 // permanently cached a bad photo fetch for, where updateListing calls never
 // re-trigger a fresh image fetch on their side no matter what URL is sent.
-export async function resetPropertyFinderListing(listingId: number): Promise<void> {
-  const portalListing = await prisma.portalListing.findUnique({ where: portalKey(listingId) });
+export async function resetPropertyFinderListing(orgId: string, listingId: number): Promise<void> {
+  const db = tenantDb(orgId);
+  const portalListing = await db.portalListing.findUnique({ where: portalKey(listingId) });
   if (!portalListing) return;
 
   if (portalListing.remoteListingId) {
     try {
-      await unpublishListing(portalListing.remoteListingId);
+      await unpublishListing(orgId, portalListing.remoteListingId);
     } catch {
       // Best-effort, same as unpublishListingFromPropertyFinder above.
     }
@@ -418,7 +421,7 @@ export async function resetPropertyFinderListing(listingId: number): Promise<voi
   const baseReference = portalListing.reference || `LE-${listingId}`;
   const newReference = `${baseReference}-r${Date.now().toString(36).slice(-4)}`;
 
-  await prisma.portalListing.update({
+  await db.portalListing.update({
     where: portalKey(listingId),
     data: { remoteListingId: null, state: null, lastError: null, enabled: false, reference: newReference, lastSyncedAt: new Date() },
   });
@@ -442,11 +445,12 @@ export interface PropertyFinderStatus {
 // observed from here if it silently isn't happening). This is the
 // authoritative alternative: ask PF directly, right now, what it thinks this
 // listing's state is, and persist exactly that.
-export async function refreshPropertyFinderListingStatus(listingId: number): Promise<PropertyFinderStatus | null> {
-  const portalListing = await prisma.portalListing.findUnique({ where: portalKey(listingId) });
+export async function refreshPropertyFinderListingStatus(orgId: string, listingId: number): Promise<PropertyFinderStatus | null> {
+  const db = tenantDb(orgId);
+  const portalListing = await db.portalListing.findUnique({ where: portalKey(listingId) });
   if (!portalListing?.remoteListingId) return null;
 
-  const response = await getListing(portalListing.remoteListingId);
+  const response = await getListing(orgId, portalListing.remoteListingId);
   const stage = response.state?.stage ?? null;
   const reasons = response.state?.reasons?.map((r) => r.en).filter(Boolean) ?? [];
 
@@ -456,7 +460,7 @@ export async function refreshPropertyFinderListingStatus(listingId: number): Pro
   const enabledPatch =
     stage === "live" ? { enabled: true } : stage === "unpublished" || stage === "archived" || stage === "takendown" ? { enabled: false } : {};
 
-  await prisma.portalListing.update({
+  await db.portalListing.update({
     where: portalKey(listingId),
     data: { state: stage, ...enabledPatch, lastError: reasons.length > 0 ? reasons.join("; ") : null, lastSyncedAt: new Date() },
   });

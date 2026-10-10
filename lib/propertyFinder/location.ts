@@ -39,9 +39,9 @@ export function parsePfLocation(value: unknown): PfLocationSnapshot | null {
 // throws) if Property Finder is unreachable or doesn't know the id, so a
 // listing save is never blocked by it - the feed then just falls back to the
 // listing's own area/community until the next successful lookup.
-export async function fetchPfLocationSnapshot(id: number): Promise<PfLocationSnapshot | null> {
+export async function fetchPfLocationSnapshot(orgId: string, id: number): Promise<PfLocationSnapshot | null> {
   try {
-    const found = await searchLocationById(id);
+    const found = await searchLocationById(orgId, id);
     if (!found) return null;
     return {
       id: found.id,

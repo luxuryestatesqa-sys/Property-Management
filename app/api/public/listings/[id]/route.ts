@@ -13,6 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id: Number(id) },
     select: {
       id: true,
+      organizationId: true,
       listingType: true,
       propertyCategory: true,
       bedrooms: true,
@@ -34,17 +35,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const org = await prisma.organization.findUnique({ where: { id: listing.organizationId }, select: { name: true, logoUrl: true, status: true } });
+  if (!org || org.status !== "ACTIVE") return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const agentId = req.nextUrl.searchParams.get("agent");
   let agent: { name: string; whatsapp: string } | null = null;
   if (agentId) {
     const user = await prisma.user.findUnique({
       where: { id: agentId },
-      select: { name: true, whatsapp: true, status: true },
+      select: { name: true, whatsapp: true, status: true, organizationId: true },
     });
-    if (user && user.status === "ACTIVE") {
+    // The contact must belong to the same agency as the listing - a share link
+    // can never be pointed at another agency's agent.
+    if (user && user.status === "ACTIVE" && user.organizationId === listing.organizationId) {
       agent = { name: user.name, whatsapp: user.whatsapp };
     }
   }
 
-  return NextResponse.json({ listing, agent });
+  // organizationId is internal; only the agency's public name/logo are returned.
+  const { organizationId: _organizationId, ...publicListing } = listing;
+  void _organizationId;
+  return NextResponse.json({ listing: publicListing, agent, org: { name: org.name, logoUrl: org.logoUrl } });
 }

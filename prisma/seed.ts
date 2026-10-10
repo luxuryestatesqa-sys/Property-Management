@@ -10,11 +10,19 @@ function dupKey(area: string, community: string, buildingName: string, floor: st
 }
 
 async function main() {
+  // The sample data below belongs to one demo agency.
+  const org = await prisma.organization.upsert({
+    where: { slug: "luxury-estates" },
+    update: {},
+    create: { id: "org_luxury_estates", name: "Luxury Estates", slug: "luxury-estates", brandColor: "#8a6d1f" },
+  });
+
   const adminPassword = await bcrypt.hash("Admin123!", 10);
   const admin = await prisma.user.upsert({
     where: { email: "admin@luxuryestates.qa" },
     update: {},
     create: {
+      organizationId: org.id,
       name: "Admin",
       email: "admin@luxuryestates.qa",
       whatsapp: "+974 3000 0000",
@@ -34,6 +42,7 @@ async function main() {
       where: { email },
       update: {},
       create: {
+        organizationId: org.id,
         name,
         email,
         whatsapp: `+974 5${String(i + 1).padStart(3, "0")} 0000`,
@@ -160,6 +169,7 @@ async function main() {
     for (const s of sample) {
       await prisma.listing.create({
         data: {
+          organizationId: org.id,
           ...s,
           dupKey: dupKey(s.area, s.community, s.buildingName, s.floor, s.apartmentNumber),
         },
@@ -239,6 +249,7 @@ async function main() {
 
     const listing = await prisma.listing.create({
       data: {
+        organizationId: org.id,
         ...s,
         dupKey: key,
         images: { create: [{ url: PLACEHOLDER_IMAGE, sortOrder: 0 }] },

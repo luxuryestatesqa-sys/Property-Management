@@ -32,9 +32,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ port
   const entry = FEED_SLUGS[slug];
   if (!entry) return NextResponse.json({ error: "Unknown feed" }, { status: 404, headers: CORS_HEADERS });
 
-  const credential = await prisma.portalCredential.findUnique({ where: { portal: entry.portal } });
   const token = req.nextUrl.searchParams.get("token") ?? "";
   const agency = req.nextUrl.searchParams.get("agency") ?? "";
+  // The token is globally unique and belongs to exactly one agency's credential row,
+  // which is how a session-less request is tied to its agency.
+  const credential = token ? await prisma.portalCredential.findFirst({ where: { portal: entry.portal, feedToken: token } }) : null;
 
   if (!credential?.feedToken || !credential.feedAgencyId || !safeEqual(token, credential.feedToken) || !safeEqual(agency, credential.feedAgencyId)) {
     return NextResponse.json({ error: "Invalid agency or token" }, { status: 401, headers: CORS_HEADERS });
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ port
     filters.updatedSince = since;
   }
 
-  const result = await generateFeed(slug, filters, req.nextUrl.origin);
+  const result = await generateFeed(credential.organizationId, slug, filters, req.nextUrl.origin);
   if (!result) return NextResponse.json({ error: "Unknown feed" }, { status: 404, headers: CORS_HEADERS });
 
   const ifNoneMatch = req.headers.get("if-none-match");

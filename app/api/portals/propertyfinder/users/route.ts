@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
-import { prisma } from "@/lib/prisma";
 import { listUsers, describePropertyFinderError } from "@/lib/propertyFinder/client";
+import { isAdminRole } from "@/lib/roles";
 
 // Proxy for GET /v1/users - keeps the Property Finder API key/secret
 // server-side. Read-only. An admin gets the full agency directory (needed to
@@ -11,11 +11,11 @@ import { listUsers, describePropertyFinderError } from "@/lib/propertyFinder/cli
 // picking which account a listing publishes under is an admin capability;
 // an agent just sees their own.
 export async function GET() {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   try {
-    const users = await listUsers();
+    const users = await listUsers(orgId!);
     const active = users
       // Only accounts Property Finder itself considers active - an
       // inactive PF user can't actually receive leads or own a live
@@ -28,11 +28,11 @@ export async function GET() {
         email: u.email,
       }));
 
-    if (session!.user.role === "ADMIN") {
+    if (isAdminRole(session!.user.role)) {
       return NextResponse.json({ users: active });
     }
 
-    const me = await prisma.user.findUnique({ where: { id: session!.user.id }, select: { pfPublicProfileId: true } });
+    const me = await db!.user.findUnique({ where: { id: session!.user.id }, select: { pfPublicProfileId: true } });
     return NextResponse.json({ users: active.filter((u) => u.publicProfileId === me?.pfPublicProfileId) });
   } catch (err) {
     return NextResponse.json({ error: describePropertyFinderError(err) }, { status: 502 });

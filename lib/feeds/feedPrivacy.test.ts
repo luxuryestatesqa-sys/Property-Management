@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const findMany = vi.fn();
 vi.mock("@/lib/prisma", () => ({
-  prisma: { listing: { findMany: (...args: unknown[]) => findMany(...args) } },
+  prisma: { organization: { findUnique: async () => ({ name: "Test Agency" }) } },
+}));
+vi.mock("@/lib/tenant", () => ({
+  tenantDb: () => ({ listing: { findMany: (...args: unknown[]) => findMany(...args) } }),
 }));
 
 const { FEED_SLUGS, generateFeed } = await import("./generateFeed");
@@ -77,14 +80,14 @@ describe("feed privacy", () => {
   });
 
   it.each(Object.keys(FEED_SLUGS))("%s never asks the database for a private column", async (slug) => {
-    await generateFeed(slug, {}, "https://crm.example.com");
+    await generateFeed("org_1", slug, {}, "https://crm.example.com");
     const { select, include } = findMany.mock.calls[0][0];
     expect(include).toBeUndefined();
     for (const column of PRIVATE_COLUMNS) expect(select).not.toHaveProperty(column);
   });
 
   it.each(Object.keys(FEED_SLUGS))("%s output contains no private value or field name", async (slug) => {
-    const result = await generateFeed(slug, {}, "https://crm.example.com");
+    const result = await generateFeed("org_1", slug, {}, "https://crm.example.com");
     expect(result).not.toBeNull();
     const body = result!.body;
     for (const value of Object.values(PRIVATE_VALUES)) expect(body).not.toContain(String(value));
@@ -94,7 +97,7 @@ describe("feed privacy", () => {
   });
 
   it("only publishes listings that are on the market", async () => {
-    await generateFeed("all.xml", {}, "https://crm.example.com");
+    await generateFeed("org_1", "all.xml", {}, "https://crm.example.com");
     const { where } = findMany.mock.calls[0][0];
     expect(where.status).toBe("ACTIVE");
     expect(where.availabilityStatus).toEqual({ notIn: ["RENTED", "SOLD"] });
@@ -107,7 +110,7 @@ describe("feed privacy", () => {
   });
 
   it("the master feed gives bedrooms and bathrooms as numbers, amenities as a list, and the agent contact", async () => {
-    const xml = (await generateFeed("all.xml", {}, "https://crm.example.com"))!.body;
+    const xml = (await generateFeed("org_1", "all.xml", {}, "https://crm.example.com"))!.body;
     expect(xml).toContain("<bedrooms>2</bedrooms>");
     expect(xml).toContain("<bathrooms>3</bathrooms>");
     expect(xml).toContain("<amenity>Balcony</amenity>");
@@ -118,7 +121,7 @@ describe("feed privacy", () => {
 
   it("oryx.xml and pf.xml carry the agent block", async () => {
     for (const slug of ["oryx.xml", "pf.xml"]) {
-      const xml = (await generateFeed(slug, {}, "https://crm.example.com"))!.body;
+      const xml = (await generateFeed("org_1", slug, {}, "https://crm.example.com"))!.body;
       expect(xml).toContain("<agent>");
       expect(xml).toContain("<phone>+97466000000</phone>");
     }
@@ -126,14 +129,14 @@ describe("feed privacy", () => {
 
   it("a studio is bedrooms 0, and a listing with no title falls back without naming the building", async () => {
     findMany.mockResolvedValue([{ ...ROW, bedrooms: "STUDIO", title: null, description: null, updatedAt: new Date("2026-02-02T00:00:00.000Z") }]);
-    const xml = (await generateFeed("all.xml", {}, "https://crm.example.com"))!.body;
+    const xml = (await generateFeed("org_1", "all.xml", {}, "https://crm.example.com"))!.body;
     expect(xml).toContain("<bedrooms>0</bedrooms>");
     expect(xml).not.toContain("Marina Tower");
   });
 
   it("every feed shows the Property Finder location with coordinates, not the listing's own area/community", async () => {
     for (const slug of ["all.xml", "oryx.xml", "pf.xml"]) {
-      const xml = (await generateFeed(slug, {}, "https://crm.example.com"))!.body;
+      const xml = (await generateFeed("org_1", slug, {}, "https://crm.example.com"))!.body;
       expect(xml).toContain("<area>Lusail</area>");
       expect(xml).toContain("<community>Al Erkyah City</community>");
       expect(xml).toContain("<latitude>25.427049</latitude>");
@@ -141,13 +144,13 @@ describe("feed privacy", () => {
       expect(xml).not.toContain("Old Area");
       expect(xml).not.toContain("Old Community");
     }
-    const json = JSON.parse((await generateFeed("website.json", {}, "https://crm.example.com"))!.body);
+    const json = JSON.parse((await generateFeed("org_1", "website.json", {}, "https://crm.example.com"))!.body);
     expect(json.listings[0].location).toMatchObject({ area: "Lusail", community: "Al Erkyah City", latitude: 25.427049 });
   });
 
   it("falls back to the listing's own area/community when no Property Finder location is saved", async () => {
     findMany.mockResolvedValue([{ ...ROW, pfLocation: null, updatedAt: new Date("2026-03-03T00:00:00.000Z") }]);
-    const xml = (await generateFeed("all.xml", {}, "https://crm.example.com"))!.body;
+    const xml = (await generateFeed("org_1", "all.xml", {}, "https://crm.example.com"))!.body;
     expect(xml).toContain("<area>Old Area</area>");
     expect(xml).toContain("<community>Old Community</community>");
     expect(xml).not.toContain("<latitude>");

@@ -24,6 +24,41 @@ recorded here. Use **Admin → Users** to create real agent accounts (a
 WhatsApp number is required for each), and **Profile → Change Password** to
 update the admin's own password.
 
+## Multi-agency (multi-tenant)
+
+The app serves many agencies from one database. Every user, listing and portal
+credential belongs to an `Organization`, and **every query is scoped to the
+signed-in user's organization**:
+
+- Authenticated routes call `requireSession()` / `requireAdmin()` from
+  `lib/api-helpers.ts`, which return `db` - a Prisma client locked to the
+  caller's agency (`lib/tenant.ts`). Use `db`, never the global `prisma`, for
+  anything an agency owns. Reads/updates/deletes are filtered by
+  `organizationId`, creates are stamped with it, and writing into another
+  agency is blocked.
+- Public/token endpoints (portal feeds, Qatar Living API, the Property Finder
+  webhook, share links) find the agency from the secret they are given.
+- Roles: `OWNER` (created the agency), `ADMIN`, `MANAGER`, `AGENT`
+  (`lib/roles.ts`). Existing `ADMIN` accounts are unchanged.
+- New agencies sign up at `/signup` (set `ALLOW_SIGNUP=false` to close it).
+  Admins edit their agency's name, logo and colour under Settings.
+- Isolation is tested against a real database:
+  `RUN_TENANT_DB_TESTS=1 DATABASE_URL=<disposable test db> npm test`
+  (never point this at production).
+
+### Rolling the multi-agency migration out to a live database
+
+`prisma/migrations/20261010120000_add_organizations` moves all existing data
+into one organization ("Luxury Estates") and keeps the *currently deployed*
+code working until the new version is live (new rows default into that
+organization). Order matters:
+
+1. Take a database backup.
+2. `npx prisma migrate deploy` against the live database.
+3. Deploy the new app version straight away (Property Finder / feed
+   credential saves from the old version fail in the gap, reads are fine).
+4. Once it is live, run `prisma/manual/drop_organization_defaults.sql` once.
+
 ## Deploying to Vercel
 
 The app is a standard Next.js app — Vercel is a verified deployment target,

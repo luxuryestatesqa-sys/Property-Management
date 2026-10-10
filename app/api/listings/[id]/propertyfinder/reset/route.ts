@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { resetPropertyFinderListing } from "@/lib/propertyFinder/sync";
+import { isAdminRole } from "@/lib/roles";
 
 const PORTAL = "PROPERTY_FINDER" as const;
 
@@ -12,19 +12,19 @@ const PORTAL = "PROPERTY_FINDER" as const;
 // resetPropertyFinderListing's own comment for why this needs to be a
 // separate, deliberate action rather than unpublish's default behavior.
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
-  if (session!.user.role !== "ADMIN") {
+  if (!isAdminRole(session!.user.role)) {
     return NextResponse.json({ error: "Only an admin can reset a Property Finder listing" }, { status: 403 });
   }
 
   const { id } = await params;
   const listingId = Number(id);
-  const listing = await prisma.listing.findUnique({ where: { id: listingId }, select: { id: true } });
+  const listing = await db!.listing.findUnique({ where: { id: listingId }, select: { id: true } });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await resetPropertyFinderListing(listingId);
+  await resetPropertyFinderListing(orgId!, listingId);
 
-  const state = await prisma.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
+  const state = await db!.portalListing.findUnique({ where: { listingId_portal: { listingId, portal: PORTAL } } });
   return NextResponse.json({ propertyFinderState: state });
 }

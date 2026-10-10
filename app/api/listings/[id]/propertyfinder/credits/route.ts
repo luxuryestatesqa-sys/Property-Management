@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { effectiveAssignedProfileId } from "@/lib/propertyFinder/sync";
 import { getCreditBalance, getCreditsSpent, getPublishPrice, describePropertyFinderError } from "@/lib/propertyFinder/client";
+import { isAdminRole } from "@/lib/roles";
 
 const PORTAL = "PROPERTY_FINDER" as const;
 
@@ -11,19 +11,19 @@ const PORTAL = "PROPERTY_FINDER" as const;
 // browsable for a listing you don't own/manage (same access rule as the
 // publish toggle route).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
   const listingId = Number(id);
-  const listing = await prisma.listing.findUnique({
+  const listing = await db!.listing.findUnique({
     where: { id: listingId },
     include: { createdBy: { select: { pfPublicProfileId: true } }, portalListings: { where: { portal: PORTAL } } },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only view this for your own listings" }, { status: 403 });
   }
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     // Each Property Finder account has its own credit pool - pass the
     // account this listing actually publishes under, not the company total.
-    const accountBalance = assignedProfileId ? await getCreditBalance(assignedProfileId) : null;
+    const accountBalance = assignedProfileId ? await getCreditBalance(orgId!, assignedProfileId) : null;
 
     let usedByThisListing: number | null = null;
     // All tiers PF is willing to sell for this listing - shown so the agent
@@ -47,14 +47,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // publishes as "standard" (see publishListingToPropertyFinder).
     let publishOptions: { name: string; total: number }[] | null = null;
     if (portalListing?.remoteListingId) {
-      const spent = await getCreditsSpent([portalListing.remoteListingId]);
+      const spent = await getCreditsSpent(orgId!, [portalListing.remoteListingId]);
       usedByThisListing = spent.listings.find((l) => l.listingId === portalListing.remoteListingId)?.totalSpent ?? 0;
 
       try {
         // Only answers for a listing still in draft state on Property
         // Finder's side - a 404/error here just means "not applicable right
         // now" (e.g. already live), not a real failure.
-        const prices = await getPublishPrice(portalListing.remoteListingId);
+        const prices = await getPublishPrice(orgId!, portalListing.remoteListingId);
         const publishOption = prices.find((p) => p.feature === "publish");
         publishOptions = publishOption?.purchasableProducts.map((p) => ({ name: p.name, total: p.price.total })) ?? null;
       } catch {

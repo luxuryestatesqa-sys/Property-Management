@@ -59,13 +59,13 @@ async function checkImageReachability(): Promise<ImageReachabilityResult> {
 // confirms this app's own listing-photo URLs are publicly reachable, since
 // Property Finder needs both to actually show a listing with working photos.
 export async function POST() {
-  const { error } = await requireAdmin();
+  const { orgId, error } = await requireAdmin();
   if (error) return error;
 
   const imageReachability = await checkImageReachability();
 
   try {
-    const balance = await getCreditBalance();
+    const balance = await getCreditBalance(orgId!);
     return NextResponse.json({ ok: true, balance, imageReachability });
   } catch (err) {
     return NextResponse.json({ ok: false, error: describePropertyFinderError(err), imageReachability }, { status: 502 });

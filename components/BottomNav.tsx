@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isAdminRole } from "@/lib/roles";
 
 const icons = {
   properties: (active: boolean) => (
@@ -47,7 +48,7 @@ function NavItem({ href, label, icon, active }: { href: string; label: string; i
 export default function BottomNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = isAdminRole(session?.user?.role);
 
   const addActive = pathname.startsWith("/add");
 
@@ -63,7 +64,7 @@ export default function BottomNav() {
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border safe-bottom overflow-visible">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border safe-bottom overflow-visible">
       <div className="relative mx-auto max-w-md grid items-stretch" style={{ gridTemplateColumns: "1fr 64px 1fr" }}>
         <div className="flex">
           {leftItems.map((item) => (

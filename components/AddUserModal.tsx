@@ -8,7 +8,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"AGENT" | "ADMIN">("AGENT");
+  const [role, setRole] = useState<"AGENT" | "MANAGER" | "ADMIN">("AGENT");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -93,7 +93,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
           <div>
             <label className="text-sm font-medium block mb-1.5">Role</label>
             <div className="flex bg-surface-muted rounded-xl p-1 gap-1">
-              {(["AGENT", "ADMIN"] as const).map((r) => (
+              {(["AGENT", "MANAGER", "ADMIN"] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -101,7 +101,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
                   className={`flex-1 text-[13px] font-medium py-2.5 rounded-lg ${role === r ? "bg-surface shadow-sm" : "text-muted"}`}
                   style={role === r ? { color: "var(--primary)" } : undefined}
                 >
-                  {r === "AGENT" ? "Agent" : "Admin"}
+                  {r === "AGENT" ? "Agent" : r === "MANAGER" ? "Manager" : "Admin"}
                 </button>
               ))}
             </div>

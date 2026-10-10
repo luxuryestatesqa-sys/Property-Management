@@ -12,6 +12,8 @@ import PortalFeedCard from "@/components/PortalFeedCard";
 import MasterFeedCard from "@/components/MasterFeedCard";
 import OpenAiSettingsCard from "@/components/OpenAiSettingsCard";
 import QatarLivingApiCard from "@/components/QatarLivingApiCard";
+import AgencyBrandingCard from "@/components/AgencyBrandingCard";
+import { isAdminRole, ROLE_LABELS } from "@/lib/roles";
 
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024; // 10MB raw upload cap, before client-side resize
 
@@ -53,7 +55,7 @@ export default function ProfilePage() {
 
   if (!session || loadingProfile) return <ProfileSkeleton />;
   const user = session.user;
-  const isAdmin = user.role === "ADMIN";
+  const isAdmin = isAdminRole(user.role);
 
   async function handleAvatarSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -150,12 +152,18 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="px-4 pb-10">
-      <div className="safe-top pt-4 pb-3">
-        <h1 className="text-xl font-bold">Settings</h1>
+    <div className="px-4 pb-10 lg:px-0">
+      <div className="safe-top pt-4 pb-3 lg:pt-8 lg:pb-5">
+        <h1 className="text-xl font-bold lg:text-3xl lg:tracking-tight">Settings</h1>
+        <p className="hidden lg:block text-[14px] text-muted mt-1">Your account{isAdmin ? ", portal integrations and feeds" : ""}.</p>
       </div>
 
-      <div className="flex flex-col items-center py-6">
+      <div
+        className={`lg:grid lg:gap-x-8 lg:items-start ${
+          isAdmin ? "lg:grid-cols-[400px_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr]" : "lg:max-w-xl"
+        }`}
+      >
+      <div className="flex flex-col items-center py-6 lg:col-start-1">
         <div className="relative mb-3">
           <Avatar name={user.name ?? "?"} avatarUrl={profile?.avatarUrl} size={80} className="text-2xl" />
           <button
@@ -189,11 +197,11 @@ export default function ProfilePage() {
           className="text-[11px] font-semibold px-2.5 py-1 rounded-lg mt-1.5"
           style={{ background: "var(--accent-light)", color: "var(--primary)" }}
         >
-          {user.role === "ADMIN" ? "Administrator" : "Agent"}
+          {ROLE_LABELS[user.role]}
         </span>
       </div>
 
-      <div className="rounded-2xl border border-border bg-surface p-4 flex flex-col gap-3">
+      <div className="rounded-2xl border border-border bg-surface p-4 flex flex-col gap-3 lg:col-start-1 lg:p-5">
         <div className="flex justify-between text-[14px]">
           <span className="text-muted">Agent Name</span>
           <span className="font-medium">{user.name}</span>
@@ -262,7 +270,11 @@ export default function ProfilePage() {
       </div>
 
       {isAdmin && (
-        <div className="mt-5">
+        <div className="mt-5 lg:mt-0 lg:col-start-2 lg:row-start-1 lg:row-span-3">
+          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Agency</h2>
+          <div className="flex flex-col gap-3 mb-5">
+            <AgencyBrandingCard />
+          </div>
           <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Portal Integrations</h2>
           <div className="flex flex-col gap-3">
             <PropertyFinderSettingsCard />
@@ -277,7 +289,7 @@ export default function ProfilePage() {
       )}
 
       {!changingPassword ? (
-        <div className="flex flex-col gap-3 mt-5">
+        <div className="flex flex-col gap-3 mt-5 lg:col-start-1">
           <button
             onClick={() => setChangingPassword(true)}
             className="w-full rounded-xl py-3.5 text-[14px] font-semibold text-foreground bg-surface-muted active:opacity-70"
@@ -292,7 +304,7 @@ export default function ProfilePage() {
           </button>
         </div>
       ) : (
-        <form onSubmit={submitPasswordChange} className="flex flex-col gap-3 mt-5 rounded-2xl border border-border bg-surface p-4">
+        <form onSubmit={submitPasswordChange} className="flex flex-col gap-3 mt-5 rounded-2xl border border-border bg-surface p-4 lg:col-start-1 lg:p-5">
           <h3 className="font-semibold text-[15px]">Change Password</h3>
           <div>
             <label className="text-sm font-medium block mb-1.5">Current Password</label>
@@ -345,6 +357,7 @@ export default function ProfilePage() {
           </div>
         </form>
       )}
+      </div>
     </div>
   );
 }

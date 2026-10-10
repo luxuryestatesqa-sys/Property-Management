@@ -7,14 +7,15 @@ import { prisma } from "@/lib/prisma";
 // checked against PortalCredential.QATAR_LIVING.feedToken (the same secret
 // field the other portals' pull feeds use for their URL token, just read
 // from a header here instead of a query string per QL's own auth model).
-export async function requireQatarLivingAuth(req: NextRequest): Promise<NextResponse | null> {
-  const credential = await prisma.portalCredential.findUnique({ where: { portal: "QATAR_LIVING" } });
+// Returns the agency the key belongs to, or a 401 response.
+export async function requireQatarLivingAuth(req: NextRequest): Promise<{ orgId: string } | NextResponse> {
   const provided = req.headers.get("x-api-key") ?? "";
+  const credential = provided ? await prisma.portalCredential.findFirst({ where: { portal: "QATAR_LIVING", feedToken: provided } }) : null;
 
   if (!credential?.feedToken || !safeEqual(provided, credential.feedToken)) {
     return NextResponse.json({ error: "Invalid or missing X-API-Key" }, { status: 401 });
   }
-  return null;
+  return { orgId: credential.organizationId };
 }
 
 function safeEqual(a: string, b: string): boolean {

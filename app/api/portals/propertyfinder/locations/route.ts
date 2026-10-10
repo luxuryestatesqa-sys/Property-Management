@@ -7,7 +7,7 @@ import { searchLocations, describePropertyFinderError } from "@/lib/propertyFind
 // rather than us auto-matching from area/community text, to avoid
 // misassigning the listing to the wrong location.
 export async function GET(req: NextRequest) {
-  const { error } = await requireSession();
+  const { orgId, error } = await requireSession();
   if (error) return error;
 
   const query = req.nextUrl.searchParams.get("search")?.trim();
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const locations = await searchLocations(query);
+    const locations = await searchLocations(orgId!, query);
     return NextResponse.json({
       locations: locations.map((l) => ({
         id: l.id,

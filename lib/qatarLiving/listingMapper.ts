@@ -137,7 +137,7 @@ export function qatarLivingReference(listingId: number): string {
   return `LE-${listingId}`;
 }
 
-export function toQatarLivingListing(listing: MapperListing): QatarLivingListing {
+export function toQatarLivingListing(listing: MapperListing, agencyName = "us"): QatarLivingListing {
   const baseUrl = getAppBaseUrl();
   const location = resolveQatarLivingLocation(listing.area, listing.community);
   const price = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
@@ -153,7 +153,7 @@ export function toQatarLivingListing(listing: MapperListing): QatarLivingListing
     ...(listing.listingType === "RENT" ? { frequency: "Monthly" as const } : {}),
     unitType: UNIT_TYPE[listing.propertyCategory],
     title: listing.title?.trim() || `${listing.propertyCategory} for ${listing.listingType === "RENT" ? "Rent" : "Sale"} in ${listing.area}`,
-    description: listing.description?.trim() || "Contact Luxury Estates for details and viewings.",
+    description: listing.description?.trim() || `Contact ${agencyName} for details and viewings.`,
     unitBuiltupArea: listing.sizeSqm!,
     unitMeasure: "sqm",
     ...(listing.bedrooms ? { bedrooms: BEDROOM_COUNT[listing.bedrooms] } : {}),

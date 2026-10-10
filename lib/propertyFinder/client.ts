@@ -54,8 +54,8 @@ function logPfCall(method: string, path: string, status: number | "network-error
   console.log(`[PF API] ${method} ${path} -> ${status}\n  request: ${summary}\n  response: ${responseSnippet.slice(0, 500)}`);
 }
 
-async function pfFetch<T>(path: string, init: RequestInit = {}, retryOn401 = true): Promise<T> {
-  const token = await getAccessToken();
+async function pfFetch<T>(orgId: string, path: string, init: RequestInit = {}, retryOn401 = true): Promise<T> {
+  const token = await getAccessToken(orgId);
   const method = init.method ?? "GET";
   let res: Response;
   try {
@@ -82,8 +82,8 @@ async function pfFetch<T>(path: string, init: RequestInit = {}, retryOn401 = tru
 
   if (res.status === 401 && retryOn401) {
     const { clearCachedToken } = await import("./auth");
-    clearCachedToken();
-    return pfFetch<T>(path, init, false);
+    clearCachedToken(orgId);
+    return pfFetch<T>(orgId, path, init, false);
   }
 
   if (!res.ok) {
@@ -130,7 +130,7 @@ export interface PFUser {
   publicProfile: PFPublicProfile | null;
 }
 
-export async function listUsers(): Promise<PFUser[]> {
+export async function listUsers(orgId: string): Promise<PFUser[]> {
   // Walks every page - a single perPage=100 call silently dropped any agent
   // past the 100th, making them look "not found" at publish time. Capped, and
   // stops if a page repeats (in case the API ignores `page`), so it can't loop.
@@ -139,7 +139,7 @@ export async function listUsers(): Promise<PFUser[]> {
   const all: PFUser[] = [];
   const seen = new Set<number>();
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const data = await pfFetch<{ data: PFUser[] }>(`/v1/users?perPage=${PER_PAGE}&page=${page}`);
+    const data = await pfFetch<{ data: PFUser[] }>(orgId, `/v1/users?perPage=${PER_PAGE}&page=${page}`);
     const fresh = data.data.filter((u) => !seen.has(u.id));
     fresh.forEach((u) => seen.add(u.id));
     all.push(...fresh);
@@ -156,16 +156,16 @@ export interface PFLocation {
   coordinates?: { lat: number; lng: number };
 }
 
-export async function searchLocations(query: string): Promise<PFLocation[]> {
-  const data = await pfFetch<{ data: PFLocation[] }>(`/v1/locations?search=${encodeURIComponent(query)}`);
+export async function searchLocations(orgId: string, query: string): Promise<PFLocation[]> {
+  const data = await pfFetch<{ data: PFLocation[] }>(orgId, `/v1/locations?search=${encodeURIComponent(query)}`);
   return data.data;
 }
 
 // The one location with this id (confirmed against the live API: the
 // `filter[id]` query returns exactly that location, with its tree and
 // coordinates; plain `id`/`ids` are rejected with 400).
-export async function searchLocationById(id: number): Promise<PFLocation | null> {
-  const data = await pfFetch<{ data: PFLocation[] }>(`/v1/locations?filter[id]=${id}`);
+export async function searchLocationById(orgId: string, id: number): Promise<PFLocation | null> {
+  const data = await pfFetch<{ data: PFLocation[] }>(orgId, `/v1/locations?filter[id]=${id}`);
   return data.data.find((l) => l.id === id) ?? null;
 }
 
@@ -212,12 +212,12 @@ export interface PFListingResponse {
   state?: { type: string; stage: string; reasons?: { en: string; ar: string }[] };
 }
 
-export async function createListing(payload: PFListingPayload): Promise<PFListingResponse> {
-  return pfFetch<PFListingResponse>("/v1/listings", { method: "POST", body: JSON.stringify(payload) });
+export async function createListing(orgId: string, payload: PFListingPayload): Promise<PFListingResponse> {
+  return pfFetch<PFListingResponse>(orgId, "/v1/listings", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export async function updateListing(pfListingId: string, payload: PFListingPayload): Promise<PFListingResponse> {
-  return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}`, { method: "PUT", body: JSON.stringify(payload) });
+export async function updateListing(orgId: string, pfListingId: string, payload: PFListingPayload): Promise<PFListingResponse> {
+  return pfFetch<PFListingResponse>(orgId, `/v1/listings/${pfListingId}`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 // Looked up through the search endpoint with an id filter: Property Finder's
@@ -225,8 +225,8 @@ export async function updateListing(pfListingId: string, payload: PFListingPaylo
 // pair ... in Authorization header") even with a valid token, which silently
 // broke every status check and left listings showing "Publishing…" after
 // they had gone live. PUT/POST on that path are unaffected.
-export async function getListing(pfListingId: string): Promise<PFListingResponse> {
-  const res = await pfFetch<{ results?: PFListingResponse[] }>(`/v1/listings?filter%5Bids%5D=${encodeURIComponent(pfListingId)}`);
+export async function getListing(orgId: string, pfListingId: string): Promise<PFListingResponse> {
+  const res = await pfFetch<{ results?: PFListingResponse[] }>(orgId, `/v1/listings?filter%5Bids%5D=${encodeURIComponent(pfListingId)}`);
   const listing = res.results?.find((l) => l.id === pfListingId);
   if (!listing) throw new PropertyFinderApiError(404, "Property Finder couldn't find this listing");
   return listing;
@@ -238,12 +238,12 @@ export async function getListing(pfListingId: string): Promise<PFListingResponse
 // request but deducts nothing and leaves the listing sitting in draft -
 // `type` should be one of the names from getPublishPrice's purchasableProducts
 // for the "publish" feature (typically "standard" unless upgrading).
-export async function publishListing(pfListingId: string, type: string): Promise<PFListingResponse> {
-  return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}/publish`, { method: "POST", body: JSON.stringify({ type }) });
+export async function publishListing(orgId: string, pfListingId: string, type: string): Promise<PFListingResponse> {
+  return pfFetch<PFListingResponse>(orgId, `/v1/listings/${pfListingId}/publish`, { method: "POST", body: JSON.stringify({ type }) });
 }
 
-export async function unpublishListing(pfListingId: string): Promise<PFListingResponse> {
-  return pfFetch<PFListingResponse>(`/v1/listings/${pfListingId}/unpublish`, { method: "POST" });
+export async function unpublishListing(orgId: string, pfListingId: string): Promise<PFListingResponse> {
+  return pfFetch<PFListingResponse>(orgId, `/v1/listings/${pfListingId}/unpublish`, { method: "POST" });
 }
 
 export interface PFCreditBalance {
@@ -257,9 +257,9 @@ export interface PFCreditBalance {
 // a concrete, meaningful number rather than just a green checkmark. Pass a
 // publicProfileId to get that specific agent's own balance instead of the
 // whole company's - each Property Finder account has its own credit pool.
-export async function getCreditBalance(publicProfileId?: number): Promise<PFCreditBalance> {
+export async function getCreditBalance(orgId: string, publicProfileId?: number): Promise<PFCreditBalance> {
   const query = publicProfileId ? `?publicProfileId=${publicProfileId}` : "";
-  return pfFetch<PFCreditBalance>(`/v1/credits/balance${query}`);
+  return pfFetch<PFCreditBalance>(orgId, `/v1/credits/balance${query}`);
 }
 
 export interface PFCreditsSpentListing {
@@ -270,8 +270,8 @@ export interface PFCreditsSpentListing {
 // How many credits a specific listing has consumed over its lifetime
 // (publishes, upgrades, etc.) - a listing that exists but never had credits
 // spent on it (e.g. a draft) comes back with totalSpent: 0.
-export async function getCreditsSpent(listingIds: string[]): Promise<{ listings: PFCreditsSpentListing[]; grandTotal: number }> {
-  return pfFetch(`/v1/credits/spent?listingId=${listingIds.map(encodeURIComponent).join(",")}`);
+export async function getCreditsSpent(orgId: string, listingIds: string[]): Promise<{ listings: PFCreditsSpentListing[]; grandTotal: number }> {
+  return pfFetch(orgId, `/v1/credits/spent?listingId=${listingIds.map(encodeURIComponent).join(",")}`);
 }
 
 export interface PFPublishPriceOption {
@@ -283,8 +283,8 @@ export interface PFPublishPriceOption {
 // this for a listing that already exists there in draft state (404
 // otherwise), so this can't be quoted before a listing has been created on
 // their side at least once.
-export async function getPublishPrice(pfListingId: string): Promise<PFPublishPriceOption[]> {
-  return pfFetch(`/v1/listings/${pfListingId}/publish/prices`);
+export async function getPublishPrice(orgId: string, pfListingId: string): Promise<PFPublishPriceOption[]> {
+  return pfFetch(orgId, `/v1/listings/${pfListingId}/publish/prices`);
 }
 
 export interface PFWebhook {
@@ -293,13 +293,13 @@ export interface PFWebhook {
   createdAt: string;
 }
 
-export async function listWebhooks(): Promise<PFWebhook[]> {
-  const data = await pfFetch<{ data: PFWebhook[] }>("/v1/webhooks");
+export async function listWebhooks(orgId: string): Promise<PFWebhook[]> {
+  const data = await pfFetch<{ data: PFWebhook[] }>(orgId, "/v1/webhooks");
   return data.data;
 }
 
-export async function subscribeWebhook(eventId: string, callbackUrl: string, secret: string): Promise<PFWebhook> {
-  return pfFetch<PFWebhook>("/v1/webhooks", {
+export async function subscribeWebhook(orgId: string, eventId: string, callbackUrl: string, secret: string): Promise<PFWebhook> {
+  return pfFetch<PFWebhook>(orgId, "/v1/webhooks", {
     method: "POST",
     body: JSON.stringify({ eventId, callbackUrl, secret }),
   });

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { getEligibilityForPortal } from "@/lib/portals/eligibility";
 import { Portal } from "@prisma/client";
+import { isAdminRole } from "@/lib/roles";
 
 // The pull-based channels this route handles - each is just a
 // PortalListing.enabled flag read by the public listing page or the
@@ -13,7 +13,7 @@ import { Portal } from "@prisma/client";
 const CHANNEL_PORTALS = new Set<Portal>(["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX", "OTHER_PORTALS"]);
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; portal: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, error } = await requireSession();
   if (error) return error;
 
   const { id, portal: portalParam } = await params;
@@ -23,14 +23,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const listingId = Number(id);
-  const listing = await prisma.listing.findUnique({
+  const listing = await db!.listing.findUnique({
     where: { id: listingId },
     include: { images: { select: { id: true } } },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only publish your own listings" }, { status: 403 });
   }
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  const state = await prisma.portalListing.upsert({
+  const state = await db!.portalListing.upsert({
     where: { listingId_portal: { listingId, portal } },
     update: { enabled: body.enabled },
     create: { listingId, portal, enabled: body.enabled },

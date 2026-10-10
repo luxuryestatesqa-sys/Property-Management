@@ -115,9 +115,9 @@ export default function FilterSheet({ open, onClose, filters, onApply, isAdmin }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-background rounded-t-3xl max-h-[88vh] flex flex-col mx-auto w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end lg:flex-row lg:justify-end">
+      <div className="absolute inset-0 bg-black/40 lg:bg-[#14181f]/50 lg:backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-background rounded-t-3xl max-h-[88vh] flex flex-col mx-auto w-full max-w-md lg:rounded-none lg:max-h-none lg:h-full lg:mx-0 lg:max-w-[460px] lg:shadow-2xl">
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border shrink-0">
           <h2 className="text-lg font-semibold">Filters</h2>
           <button type="button" onClick={onClose} aria-label="Close filters" className="w-9 h-9 flex items-center justify-center rounded-full bg-surface-muted text-muted">

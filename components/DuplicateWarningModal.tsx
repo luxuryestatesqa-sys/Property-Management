@@ -6,6 +6,7 @@ import { unitLabelFor } from "@/lib/propertyCategory";
 import WhatsAppButton from "./WhatsAppButton";
 import Avatar from "./Avatar";
 import { buildListingInquiryMessage } from "@/lib/whatsapp";
+import { useOrg } from "./OrgProvider";
 
 interface DuplicateWarningModalProps {
   existing: ListingDTO[];
@@ -15,6 +16,7 @@ interface DuplicateWarningModalProps {
 }
 
 export default function DuplicateWarningModal({ existing, onCancel, onContinue, submitting }: DuplicateWarningModalProps) {
+  const org = useOrg();
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
@@ -74,7 +76,7 @@ export default function DuplicateWarningModal({ existing, onCancel, onContinue, 
                       Added by <span className="font-medium text-foreground">{l.createdBy.name}</span> · {formatDate(l.createdAt)}
                     </div>
                   </div>
-                  <WhatsAppButton number={l.createdBy.whatsapp} message={buildListingInquiryMessage(l)} variant="full" />
+                  <WhatsAppButton number={l.createdBy.whatsapp} message={buildListingInquiryMessage(l, org.name)} variant="full" />
                 </div>
               </div>
             ))}

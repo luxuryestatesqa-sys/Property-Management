@@ -83,7 +83,7 @@ export default function InstallPrompt({ bottomClassName = "bottom-20" }: { botto
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/icon.png" alt="" className="w-10 h-10 rounded-xl shrink-0 p-1.5" style={{ background: "var(--primary)" }} />
       <div className="min-w-0 flex-1">
-        <div className="font-semibold text-[14px]">Install Luxury Estates</div>
+        <div className="font-semibold text-[14px]">Install the app</div>
         <div className="text-[12px] text-muted truncate">
           {deferredPrompt ? "Add to your home screen for quick, full-screen access." : 'Tap Share, then "Add to Home Screen"'}
         </div>

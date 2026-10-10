@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const session = { user: { id: "agent-mine", role: "AGENT", status: "ACTIVE" } };
+const session = { user: { id: "agent-mine", role: "AGENT", status: "ACTIVE", organizationId: "org-1" } };
 vi.mock("@/lib/api-helpers", () => ({
-  requireSession: vi.fn(async () => ({ session, error: null })),
+  requireSession: vi.fn(async () => ({ session, db, orgId: "org-1", error: null })),
   parseJsonBody: vi.fn(async (req: NextRequest) => ({ value: await req.json(), error: null })),
 }));
 
@@ -14,8 +14,7 @@ const listingImageCreateMany = vi.fn();
 const auditLogCreate = vi.fn();
 const listingCount = vi.fn();
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+const db = {
     listing: {
       findMany: (...args: unknown[]) => listingFindMany(...args),
       create: (...args: unknown[]) => listingCreate(...args),
@@ -28,8 +27,7 @@ vi.mock("@/lib/prisma", () => ({
     auditLog: {
       create: (...args: unknown[]) => auditLogCreate(...args),
     },
-  },
-}));
+};
 
 const { POST } = await import("./route");
 

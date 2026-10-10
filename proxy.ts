@@ -1,12 +1,13 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
+import { isAdminRole } from "@/lib/roles";
 
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
 
-  const isAuthPage = nextUrl.pathname === "/login";
+  const isAuthPage = nextUrl.pathname === "/login" || nextUrl.pathname === "/signup";
   const isAdminPage = nextUrl.pathname.startsWith("/admin");
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
   // The public share link (/listing/[id]) and its API are opened by clients
@@ -27,7 +28,9 @@ export default auth((req) => {
   // itself (lib/qatarLiving/auth.ts); same redirect risk as above.
   const isQatarLivingFeed = nextUrl.pathname.startsWith("/api/qatar-living/");
 
-  if (isApiAuth || isPublicShare || isPortalImageFetch || isPortalWebhook || isQatarLivingFeed) return NextResponse.next();
+  const isSignupApi = nextUrl.pathname === "/api/signup";
+
+  if (isApiAuth || isSignupApi || isPublicShare || isPortalImageFetch || isPortalWebhook || isQatarLivingFeed) return NextResponse.next();
 
   if (!isLoggedIn) {
     if (isApiRoute) {
@@ -44,7 +47,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/", nextUrl));
   }
 
-  if (isAdminPage && role !== "ADMIN") {
+  if (isAdminPage && !isAdminRole(role)) {
     return NextResponse.redirect(new URL("/", nextUrl));
   }
 

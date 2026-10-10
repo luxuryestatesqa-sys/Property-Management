@@ -13,8 +13,8 @@ const MAX_PAGE_SIZE = 200;
 // from the session-auth middleware in proxy.ts since QL's crawler has no
 // CRM session - authenticated instead by the X-API-Key header.
 export async function GET(req: NextRequest) {
-  const authError = await requireQatarLivingAuth(req);
-  if (authError) return authError;
+  const authResult = await requireQatarLivingAuth(req);
+  if (!("orgId" in authResult)) return authResult;
 
   const params = req.nextUrl.searchParams;
 
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     updatedSince = parsed;
   }
 
-  const { listings, total } = await getQatarLivingPage(page, pageSize, updatedSince);
+  const { listings, total } = await getQatarLivingPage(authResult.orgId, page, pageSize, updatedSince);
 
   return NextResponse.json({
     page,

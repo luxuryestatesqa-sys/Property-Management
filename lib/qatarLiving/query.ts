@@ -1,4 +1,9 @@
+import { tenantDb } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+
+async function orgName(orgId: string): Promise<string> {
+  return (await prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } }))?.name ?? "us";
+}
 import { getQatarLivingEligibility } from "@/lib/portals/eligibility";
 import { OFF_MARKET_STATUSES } from "@/lib/feeds/generateFeed";
 import { toQatarLivingListing, QatarLivingListing } from "./listingMapper";
@@ -47,8 +52,8 @@ export interface QatarLivingPage {
 // in-memory, rather than paginating the DB query first and filtering after
 // (which could under-fill a page or shift listings between pages as
 // eligibility is re-evaluated per request).
-export async function getQatarLivingPage(page: number, pageSize: number, updatedSince: Date | null): Promise<QatarLivingPage> {
-  const rows = await prisma.listing.findMany({
+export async function getQatarLivingPage(orgId: string, page: number, pageSize: number, updatedSince: Date | null): Promise<QatarLivingPage> {
+  const rows = await tenantDb(orgId).listing.findMany({
     where: {
       status: "ACTIVE",
       visibility: "SHARED",
@@ -64,14 +69,15 @@ export async function getQatarLivingPage(page: number, pageSize: number, updated
   const start = (page - 1) * pageSize;
   const pageRows = eligible.slice(start, start + pageSize);
 
-  return { listings: pageRows.map(toQatarLivingListing), total: eligible.length };
+  const agencyName = await orgName(orgId);
+  return { listings: pageRows.map((l) => toQatarLivingListing(l, agencyName)), total: eligible.length };
 }
 
-export async function getQatarLivingListingByReference(referenceNumber: string): Promise<QatarLivingListing | null> {
+export async function getQatarLivingListingByReference(orgId: string, referenceNumber: string): Promise<QatarLivingListing | null> {
   const match = /^LE-(\d+)$/.exec(referenceNumber);
   if (!match) return null;
 
-  const listing = await prisma.listing.findFirst({
+  const listing = await tenantDb(orgId).listing.findFirst({
     where: {
       id: Number(match[1]),
       status: "ACTIVE",
@@ -83,5 +89,5 @@ export async function getQatarLivingListingByReference(referenceNumber: string):
   });
   if (!listing || !isEligible(listing, listing.images)) return null;
 
-  return toQatarLivingListing(listing);
+  return toQatarLivingListing(listing, await orgName(orgId));
 }

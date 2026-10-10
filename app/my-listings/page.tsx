@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { ListingDTO } from "@/lib/types";
 import MyListingCard from "@/components/MyListingCard";
 import MyListingCardSkeleton from "@/components/MyListingCardSkeleton";
+import MyListingsTable from "@/components/desktop/MyListingsTable";
+import { IconPlus } from "@/components/desktop/icons";
+import { useIsDesktop } from "@/lib/useIsDesktop";
+import Link from "next/link";
 
 type Tab = "ACTIVE" | "INACTIVE";
 
@@ -37,6 +41,77 @@ export default function MyListingsPage() {
   }, [load]);
 
   const listings = listingsByTab[tab];
+  const isDesktop = useIsDesktop();
+
+  if (isDesktop) {
+    const complete = listingsByTab.ACTIVE.length === counts.ACTIVE;
+    const availableNow = listingsByTab.ACTIVE.filter((l) => l.availabilityStatus === "AVAILABLE").length;
+    const livePf = listingsByTab.ACTIVE.filter((l) => l.propertyFinderState?.state === "live").length;
+    const stats: { label: string; value: string; hint: string }[] = [
+      { label: "Active listings", value: String(counts.ACTIVE), hint: "Visible to every agent" },
+      { label: "Inactive", value: String(counts.INACTIVE), hint: "Hidden from search" },
+      { label: "Available now", value: complete ? String(availableNow) : "—", hint: "Ready to rent or sell" },
+      { label: "Live on Property Finder", value: complete ? String(livePf) : "—", hint: "Published to the portal" },
+    ];
+    return (
+      <div>
+        <div className="flex items-end justify-between gap-6 pb-7 pt-10">
+          <div>
+            <h1 className="text-[32px] font-bold leading-none tracking-tight">My Listings</h1>
+            <p className="mt-2.5 text-[15px] text-muted">Manage the properties you have added: availability, publishing and visibility.</p>
+          </div>
+          <Link
+            href="/add"
+            className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+            style={{ background: "var(--primary)" }}
+          >
+            <IconPlus size={16} strokeWidth={2.4} />
+            Add Property
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-4 gap-4">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-2xl border border-border bg-surface p-5 shadow-[0_1px_2px_rgba(20,24,31,.04)]">
+              <div className="text-[12.5px] font-medium text-muted">{s.label}</div>
+              <div className="mt-2 text-[30px] font-bold leading-none tracking-tight">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-surface-muted" /> : s.value}</div>
+              <div className="mt-2 text-[12px] text-muted">{s.hint}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex gap-7 border-b border-border">
+          {(["ACTIVE", "INACTIVE"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 pb-3 text-[14px] font-semibold transition-colors ${tab === t ? "border-primary text-primary" : "border-transparent text-muted hover:text-foreground"}`}
+            >
+              {t === "ACTIVE" ? "Active" : "Inactive"}
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-[11.5px] ${tab === t ? "bg-accent-light" : "bg-surface-muted"}`}>{counts[t]}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="py-6">
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-[76px] animate-pulse rounded-2xl border border-border bg-surface" />
+              ))}
+            </div>
+          ) : listings.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-surface py-20 text-center">
+              <p className="text-[17px] font-semibold">No {tab === "ACTIVE" ? "active" : "inactive"} listings</p>
+              <p className="mt-1 text-[14px] text-muted">{tab === "ACTIVE" ? "Properties you add will appear here." : "Deactivated listings will appear here."}</p>
+            </div>
+          ) : (
+            <MyListingsTable listings={listings} onChange={load} />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

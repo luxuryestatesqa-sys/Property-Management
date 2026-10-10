@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { requireAdmin } from "@/lib/api-helpers";
-import { prisma } from "@/lib/prisma";
 import { listWebhooks, subscribeWebhook, describePropertyFinderError } from "@/lib/propertyFinder/client";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 
@@ -14,10 +13,10 @@ const REQUIRED_EVENTS = ["listing.published", "listing.unpublished", "listing.pu
 // delivers separately), so this checks existing subscriptions first to
 // avoid creating duplicates on repeat calls.
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { orgId, error } = await requireAdmin();
   if (error) return error;
   try {
-    const webhooks = await listWebhooks();
+    const webhooks = await listWebhooks(orgId!);
     const callbackUrl = `${getAppBaseUrl()}/api/portals/propertyfinder/webhook`;
     const subscribed = new Set(webhooks.filter((w) => w.url === callbackUrl).map((w) => w.eventId));
     return NextResponse.json({
@@ -31,30 +30,30 @@ export async function GET() {
 }
 
 export async function POST() {
-  const { error } = await requireAdmin();
+  const { db, orgId, error } = await requireAdmin();
   if (error) return error;
 
   try {
     // A webhook secret is required to verify deliveries actually came from
     // Property Finder (see the receiver route) - generate one automatically
     // if the admin hasn't set one yet, rather than blocking setup on it.
-    let credential = await prisma.portalCredential.findUnique({ where: { portal: "PROPERTY_FINDER" } });
+    let credential = await db!.portalCredential.findFirst({ where: { portal: "PROPERTY_FINDER" } });
     if (!credential?.webhookSecret) {
       const webhookSecret = crypto.randomBytes(24).toString("hex");
-      credential = await prisma.portalCredential.upsert({
-        where: { portal: "PROPERTY_FINDER" },
+      credential = await db!.portalCredential.upsert({
+        where: { organizationId_portal: { organizationId: orgId!, portal: "PROPERTY_FINDER" } },
         update: { webhookSecret },
-        create: { portal: "PROPERTY_FINDER", webhookSecret },
+        create: { organizationId: orgId!, portal: "PROPERTY_FINDER", webhookSecret },
       });
     }
 
-    const webhooks = await listWebhooks();
+    const webhooks = await listWebhooks(orgId!);
     const callbackUrl = `${getAppBaseUrl()}/api/portals/propertyfinder/webhook`;
     const subscribed = new Set(webhooks.filter((w) => w.url === callbackUrl).map((w) => w.eventId));
     const toCreate = REQUIRED_EVENTS.filter((e) => !subscribed.has(e));
 
     for (const eventId of toCreate) {
-      await subscribeWebhook(eventId, callbackUrl, credential.webhookSecret!);
+      await subscribeWebhook(orgId!, eventId, callbackUrl, credential.webhookSecret!);
     }
 
     return NextResponse.json({ created: toCreate });

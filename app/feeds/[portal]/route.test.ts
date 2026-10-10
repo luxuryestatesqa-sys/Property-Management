@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const findUnique = vi.fn();
+const findFirst = vi.fn();
 vi.mock("@/lib/prisma", () => ({
-  prisma: { portalCredential: { findUnique: (...args: unknown[]) => findUnique(...args) } },
+  prisma: { portalCredential: { findFirst: (...args: unknown[]) => findFirst(...args) } },
 }));
 
 const generateFeed = vi.fn();
@@ -21,7 +21,7 @@ function req(url: string, headers: Record<string, string> = {}) {
 
 describe("GET /feeds/[portal]", () => {
   beforeEach(() => {
-    findUnique.mockReset();
+    findFirst.mockReset();
     generateFeed.mockReset();
   });
 
@@ -31,7 +31,7 @@ describe("GET /feeds/[portal]", () => {
   });
 
   it("401s when no credential row exists for the portal yet", async () => {
-    findUnique.mockResolvedValue(null);
+    findFirst.mockResolvedValue(null);
     const res = await GET(req("https://app.example.com/feeds/oryx.xml?agency=A&token=T"), {
       params: Promise.resolve({ portal: "oryx.xml" }),
     });
@@ -39,7 +39,7 @@ describe("GET /feeds/[portal]", () => {
   });
 
   it("401s on a wrong token, even with the right agency id", async () => {
-    findUnique.mockResolvedValue({ feedAgencyId: "AGENCY1", feedToken: "correct-token" });
+    findFirst.mockResolvedValue({ organizationId: "org_1", feedAgencyId: "AGENCY1", feedToken: "correct-token" });
     const res = await GET(req("https://app.example.com/feeds/oryx.xml?agency=AGENCY1&token=wrong-token"), {
       params: Promise.resolve({ portal: "oryx.xml" }),
     });
@@ -48,7 +48,7 @@ describe("GET /feeds/[portal]", () => {
   });
 
   it("401s on a wrong agency id, even with the right token", async () => {
-    findUnique.mockResolvedValue({ feedAgencyId: "AGENCY1", feedToken: "correct-token" });
+    findFirst.mockResolvedValue({ organizationId: "org_1", feedAgencyId: "AGENCY1", feedToken: "correct-token" });
     const res = await GET(req("https://app.example.com/feeds/oryx.xml?agency=WRONG&token=correct-token"), {
       params: Promise.resolve({ portal: "oryx.xml" }),
     });
@@ -56,7 +56,7 @@ describe("GET /feeds/[portal]", () => {
   });
 
   it("returns the feed body with matching agency+token, content type from the slug's entry", async () => {
-    findUnique.mockResolvedValue({ feedAgencyId: "AGENCY1", feedToken: "correct-token" });
+    findFirst.mockResolvedValue({ organizationId: "org_1", feedAgencyId: "AGENCY1", feedToken: "correct-token" });
     generateFeed.mockResolvedValue({ body: "<listings/>", etag: '"abc123"' });
     const res = await GET(req("https://app.example.com/feeds/oryx.xml?agency=AGENCY1&token=correct-token"), {
       params: Promise.resolve({ portal: "oryx.xml" }),
@@ -69,7 +69,7 @@ describe("GET /feeds/[portal]", () => {
   });
 
   it("returns 304 with no body when If-None-Match matches the current ETag", async () => {
-    findUnique.mockResolvedValue({ feedAgencyId: "AGENCY1", feedToken: "correct-token" });
+    findFirst.mockResolvedValue({ organizationId: "org_1", feedAgencyId: "AGENCY1", feedToken: "correct-token" });
     generateFeed.mockResolvedValue({ body: "<listings/>", etag: '"abc123"' });
     const res = await GET(
       req("https://app.example.com/feeds/oryx.xml?agency=AGENCY1&token=correct-token", { "if-none-match": '"abc123"' }),

@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 function LoginForm() {
   const router = useRouter();
@@ -31,12 +32,27 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-10">
-      <div className="mx-auto w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Luxury Estates Real Estate" className="w-28 h-auto mb-2" />
-          <p className="text-sm text-muted">Agent Listings Portal</p>
+    <div className="min-h-screen flex flex-col justify-center px-6 py-10 lg:grid lg:grid-cols-[1.1fr_1fr] lg:p-0">
+      <aside className="hidden lg:flex flex-col justify-between p-14 text-white" style={{ background: "linear-gradient(160deg, #14181f 0%, #231d0e 100%)" }}>
+        <div className="text-[18px] font-semibold tracking-tight">Listings Portal</div>
+        <div>
+          <h2 className="text-4xl font-bold leading-tight tracking-tight max-w-md">
+            Every listing, every agent, one workspace.
+          </h2>
+          <p className="mt-4 text-[16px] max-w-md leading-relaxed" style={{ color: "#b9b4a4" }}>
+            Search the whole company inventory, manage your own properties and publish to portals in a few clicks.
+          </p>
+        </div>
+        <p className="text-[13px]" style={{ color: "#8d8878" }}>Agent Listings Portal</p>
+      </aside>
+      <div className="mx-auto w-full max-w-sm lg:max-w-md lg:flex lg:flex-col lg:justify-center lg:px-10">
+        <div className="flex flex-col items-center mb-8 lg:hidden">
+          <p className="text-xl font-bold">Listings Portal</p>
+          <p className="text-sm text-muted">Agent sign in</p>
+        </div>
+        <div className="hidden lg:block mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
+          <p className="text-[15px] text-muted mt-1.5">Sign in to your agent account to continue.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -82,6 +98,14 @@ function LoginForm() {
         <p className="text-center text-[13px] text-muted mt-5">
           Forgot your password? Ask your admin to reset it for you.
         </p>
+        {process.env.NEXT_PUBLIC_ALLOW_SIGNUP !== "false" && (
+          <p className="text-center text-[13px] text-muted mt-3">
+            New agency?{" "}
+            <Link href="/signup" className="font-semibold" style={{ color: "var(--primary)" }}>
+              Create an account
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

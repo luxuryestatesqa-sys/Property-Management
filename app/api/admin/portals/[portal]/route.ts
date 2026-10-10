@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-helpers";
-import { prisma } from "@/lib/prisma";
 import { Portal } from "@prisma/client";
 import { clearCachedToken } from "@/lib/propertyFinder/auth";
 
@@ -21,7 +20,7 @@ function mask(value: string | null): string | null {
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ portal: string }> }) {
-  const { error } = await requireAdmin();
+  const { db, error } = await requireAdmin();
   if (error) return error;
 
   const { portal } = await params;
@@ -29,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ por
     return NextResponse.json({ error: "Unknown portal" }, { status: 404 });
   }
 
-  const credential = await prisma.portalCredential.findUnique({ where: { portal: portal as Portal } });
+  const credential = await db!.portalCredential.findFirst({ where: { portal: portal as Portal } });
   return NextResponse.json({
     configured: Boolean(credential?.apiKey && credential?.apiSecret),
     apiKeyPreview: mask(credential?.apiKey ?? null),
@@ -50,7 +49,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ por
 // never has the real values to send back anyway, since GET only returns
 // masked previews.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ portal: string }> }) {
-  const { error } = await requireAdmin();
+  const { db, orgId, error } = await requireAdmin();
   if (error) return error;
 
   const { portal } = await params;
@@ -69,17 +68,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ po
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  await prisma.portalCredential.upsert({
-    where: { portal: portal as Portal },
+  await db!.portalCredential.upsert({
+    where: { organizationId_portal: { organizationId: orgId!, portal: portal as Portal } },
     update: data,
-    create: { portal: portal as Portal, ...data },
+    create: { organizationId: orgId!, portal: portal as Portal, ...data },
   });
 
   // Force the next request to fetch a fresh token under the new credentials,
   // rather than waiting for the old one to expire. Only Property Finder has
   // a cached-token auth module today; a future portal with its own would get
   // its own cache cleared here too.
-  if (portal === "PROPERTY_FINDER") clearCachedToken();
+  if (portal === "PROPERTY_FINDER") clearCachedToken(orgId!);
 
   return NextResponse.json({ ok: true });
 }

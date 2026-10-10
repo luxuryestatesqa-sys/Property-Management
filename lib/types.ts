@@ -4,7 +4,7 @@ export type BillsStatus = "INCLUDED" | "EXCLUDED";
 export type ListingStatus = "ACTIVE" | "INACTIVE";
 export type ListingVisibility = "PRIVATE" | "SHARED";
 export type AvailabilityStatus = "AVAILABLE" | "RESERVED" | "RENTED" | "SOLD";
-export type Role = "ADMIN" | "AGENT";
+export type Role = "OWNER" | "ADMIN" | "MANAGER" | "AGENT";
 export type UserStatus = "ACTIVE" | "INACTIVE";
 export type PropertyCategory =
   | "APARTMENT"

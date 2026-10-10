@@ -17,6 +17,7 @@ import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 import SearchableSelect from "@/components/SearchableSelect";
 import SegmentedControl from "@/components/SegmentedControl";
 import PropertyFinderPreviewSheet from "@/components/PropertyFinderPreviewSheet";
+import { isAdminRole } from "@/lib/roles";
 
 interface PFUserOption {
   publicProfileId: number;
@@ -229,7 +230,7 @@ export default function MultiPortalPublishingPage() {
   }
 
   const isOwner = session?.user?.id === listing.createdById;
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = isAdminRole(session?.user?.role);
   const canManage = isOwner || isAdmin;
 
   if (!canManage) {
@@ -439,9 +440,9 @@ export default function MultiPortalPublishingPage() {
           : "Save & Publish to Property Finder";
 
   return (
-    <div className="px-4 pb-12">
+    <div className="px-4 pb-12 lg:px-0 lg:max-w-3xl">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 border-b border-border/50">
+      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 border-b border-border/50 lg:pt-8">
         <button
           type="button"
           onClick={() => router.back()}

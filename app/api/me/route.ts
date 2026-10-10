@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { profileUpdateSchema } from "@/lib/validation";
 
@@ -15,10 +14,10 @@ const SELECT = {
 } as const;
 
 export async function GET() {
-  const { session, error } = await requireSession();
+  const { session, db, error } = await requireSession();
   if (error) return error;
 
-  const user = await prisma.user.findUnique({
+  const user = await db!.user.findUnique({
     where: { id: session!.user.id },
     select: SELECT,
   });
@@ -27,7 +26,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const { session, error } = await requireSession();
+  const { session, db, error } = await requireSession();
   if (error) return error;
 
   const body = await req.json();
@@ -40,7 +39,7 @@ export async function PATCH(req: NextRequest) {
   if (parsed.data.whatsapp !== undefined) data.whatsapp = parsed.data.whatsapp;
   if (parsed.data.avatarUrl !== undefined) data.avatarUrl = parsed.data.avatarUrl;
 
-  const user = await prisma.user.update({
+  const user = await db!.user.update({
     where: { id: session!.user.id },
     data,
     select: SELECT,

@@ -1,24 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { tenantDb } from "@/lib/tenant";
+import { isAdminRole } from "@/lib/roles";
 
+// Every authenticated route starts here. Besides the session it returns `db`,
+// a database client locked to the caller's agency (see lib/tenant.ts) - use it
+// instead of the global `prisma` for anything an agency owns, so one agency can
+// never read or change another's data.
 export async function requireSession() {
   const session = await auth();
-  if (!session?.user) {
-    return { session: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  if (!session?.user || !session.user.organizationId) {
+    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   if (session.user.status !== "ACTIVE") {
-    return { session: null, error: NextResponse.json({ error: "Account inactive" }, { status: 403 }) };
+    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Account inactive" }, { status: 403 }) };
   }
-  return { session, error: null };
+  const orgId = session.user.organizationId;
+  return { session, db: tenantDb(orgId), orgId, error: null };
 }
 
 export async function requireAdmin() {
-  const { session, error } = await requireSession();
-  if (error) return { session: null, error };
-  if (session!.user.role !== "ADMIN") {
-    return { session: null, error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  const { session, db, orgId, error } = await requireSession();
+  if (error) return { session: null, db: null, orgId: null, error };
+  if (!isAdminRole(session!.user.role)) {
+    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
-  return { session, error: null };
+  return { session, db, orgId, error: null };
 }
 
 // req.json() throws on a body that isn't valid JSON - which happens for any

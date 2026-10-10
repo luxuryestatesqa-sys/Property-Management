@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
 import { OpenAiNotConfiguredError } from "@/lib/ai/openai";
 import { generateListingCopy } from "@/lib/ai/generateCopy";
@@ -13,7 +12,7 @@ function fieldFrom(value: unknown): "title" | "description" | "both" {
 // form where the listing doesn't exist yet: takes the form's own values, and
 // uses the signed-in agent's own name and number for the call to action.
 export async function POST(req: NextRequest) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   const body = await req.json().catch(() => null);
@@ -23,13 +22,13 @@ export async function POST(req: NextRequest) {
   const area = typeof body.area === "string" ? body.area.trim() : "";
   if (!area) return NextResponse.json({ error: "Enter the location first" }, { status: 400 });
 
-  const me = await prisma.user.findUnique({ where: { id: session!.user.id }, select: { name: true, whatsapp: true } });
+  const me = await db!.user.findUnique({ where: { id: session!.user.id }, select: { name: true, whatsapp: true } });
   if (!me) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const size = Number(body.sizeSqm);
   try {
     return NextResponse.json(
-      await generateListingCopy({
+      await generateListingCopy(orgId!, {
         lang: "en",
         field: fieldFrom(body.field),
         currentTitle: typeof body.currentTitle === "string" ? body.currentTitle : undefined,

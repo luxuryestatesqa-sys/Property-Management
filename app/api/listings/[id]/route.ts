@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingUpdateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
@@ -8,13 +7,14 @@ import { canViewListing, visibleListingsWhere, canViewPrivateDetails, redactPriv
 import { unpublishListingFromPropertyFinder } from "@/lib/propertyFinder/sync";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
 import { Prisma, PropertyCategory } from "@prisma/client";
+import { isAdminRole } from "@/lib/roles";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
-  const listing = await prisma.listing.findUnique({
+  const listing = await db!.listing.findUnique({
     where: { id: Number(id) },
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true, pfPublicProfileId: true } },
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   });
   // Someone else's private listing answers exactly like a missing one.
-  if (!listing || !canViewListing(listing, session!.user.id, session!.user.role === "ADMIN")) {
+  if (!listing || !canViewListing(listing, session!.user.id, isAdminRole(session!.user.role))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -45,12 +45,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   };
 
-  const duplicates = await prisma.listing.findMany({
+  const duplicates = await db!.listing.findMany({
     where: {
       dupKey: listing.dupKey,
       status: "ACTIVE",
       id: { not: listing.id },
-      ...visibleListingsWhere(session!.user.id, session!.user.role === "ADMIN"),
+      ...visibleListingsWhere(session!.user.id, isAdminRole(session!.user.role)),
     },
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     orderBy: { createdAt: "desc" },
   });
 
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   const viewerCanSeePrivate = canViewPrivateDetails(listing.createdById, session!.user.id, isAdmin);
   return NextResponse.json({
     listing: redactPrivateFields(shapedListing, session!.user.id, isAdmin),
@@ -72,15 +72,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
-  const listing = await prisma.listing.findUnique({ where: { id: Number(id) } });
+  const listing = await db!.listing.findUnique({ where: { id: Number(id) } });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only edit your own listings" }, { status: 403 });
   }
@@ -163,7 +163,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (data.pfLocationId === null) {
       if (listing.pfLocation !== null) updateData.pfLocation = Prisma.DbNull;
     } else if (data.pfLocationId !== listing.pfLocationId || listing.pfLocation === null) {
-      const snapshot = await fetchPfLocationSnapshot(data.pfLocationId);
+      const snapshot = await fetchPfLocationSnapshot(orgId!, data.pfLocationId);
       if (snapshot) updateData.pfLocation = snapshot as unknown as Prisma.InputJsonValue;
       else if (data.pfLocationId !== listing.pfLocationId) updateData.pfLocation = Prisma.DbNull;
     }
@@ -212,7 +212,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   updateData.dupKey = buildDupKey(newArea, newCommunity, newBuilding, newFloor, newApt);
 
   if (data.images !== undefined) {
-    const previousCount = await prisma.listingImage.count({ where: { listingId: listing.id } });
+    const previousCount = await db!.listingImage.count({ where: { listingId: listing.id } });
     if (previousCount !== data.images.length) {
       auditEntries.push({
         action: "PHOTOS_CHANGED",
@@ -226,16 +226,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ listing });
   }
 
-  const [updated] = await prisma.$transaction([
-    prisma.listing.update({
+  const [updated] = await db!.$transaction([
+    db!.listing.update({
       where: { id: listing.id },
       data: updateData,
       include: { createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } } },
     }),
     ...(data.images !== undefined
       ? [
-          prisma.listingImage.deleteMany({ where: { listingId: listing.id } }),
-          prisma.listingImage.createMany({
+          db!.listingImage.deleteMany({ where: { listingId: listing.id } }),
+          db!.listingImage.createMany({
             data: data.images.map((url, index) => ({ listingId: listing.id, url, sortOrder: index })),
           }),
         ]
@@ -243,7 +243,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   ]);
 
   if (auditEntries.length > 0) {
-    await prisma.auditLog.createMany({
+    await db!.auditLog.createMany({
       data: auditEntries.map((e) => ({
         listingId: listing.id,
         userId: session!.user.id,
@@ -254,7 +254,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
   }
 
-  const images = await prisma.listingImage.findMany({
+  const images = await db!.listingImage.findMany({
     where: { listingId: listing.id },
     orderBy: { sortOrder: "asc" },
     select: { id: true, url: true },
@@ -267,19 +267,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 // status toggle at .../status). Only the listing's own agent or an admin may
 // do this.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
   const listingId = Number(id);
-  const listing = await prisma.listing.findUnique({
+  const listing = await db!.listing.findUnique({
     where: { id: listingId },
     include: { portalListings: { where: { remoteListingId: { not: null } } } },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only delete your own listings" }, { status: 403 });
   }
@@ -290,10 +290,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   // unpublished, API hiccup, etc.) shouldn't block the actual deletion.
   for (const portalListing of listing.portalListings) {
     if (portalListing.portal === "PROPERTY_FINDER") {
-      await unpublishListingFromPropertyFinder(listingId).catch(() => {});
+      await unpublishListingFromPropertyFinder(orgId!, listingId).catch(() => {});
     }
   }
 
-  await prisma.listing.delete({ where: { id: listingId } });
+  await db!.listing.delete({ where: { id: listingId } });
   return NextResponse.json({ deleted: true });
 }

@@ -6,7 +6,7 @@ import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "./p
 // details, so tapping "WhatsApp Now" (or any WhatsApp icon) on a listing
 // doesn't send a generic "reaching out about a property" text - the agent
 // on the other end immediately knows which unit is being asked about.
-export function buildListingInquiryMessage(listing: ListingDTO): string {
+export function buildListingInquiryMessage(listing: ListingDTO, agencyName = "our agency"): string {
   const priceLine = listing.listingType === "RENT" ? `${formatQAR(listing.rentPrice)}/month` : formatQAR(listing.salePrice);
   const details = [
     PROPERTY_CATEGORY_LABELS[listing.propertyCategory],
@@ -20,7 +20,7 @@ export function buildListingInquiryMessage(listing: ListingDTO): string {
   const unitLine = unitSummary(listing, false);
 
   return [
-    `Hi ${listing.createdBy.name}, I'm interested in this listing on Luxury Estates:`,
+    `Hi ${listing.createdBy.name}, I'm interested in this listing on ${agencyName}:`,
     "",
     `${listingCode(listing.id)} - ${listing.buildingName}, ${listing.community}, ${listing.area}`,
     ...(unitLine ? [unitLine] : []),
@@ -33,7 +33,7 @@ export function buildListingInquiryMessage(listing: ListingDTO): string {
 // A ready-to-send WhatsApp message for an agent sharing a listing with a
 // client or contact, pre-filled with the listing's details and a link back
 // to the listing page so the recipient can open it directly.
-export function buildListingShareMessage(listing: ListingDTO, url: string): string {
+export function buildListingShareMessage(listing: ListingDTO, url: string, agencyName = "our agency"): string {
   const priceLine = listing.listingType === "RENT" ? `${formatQAR(listing.rentPrice)}/month` : formatQAR(listing.salePrice);
   const details = [
     PROPERTY_CATEGORY_LABELS[listing.propertyCategory],
@@ -47,7 +47,7 @@ export function buildListingShareMessage(listing: ListingDTO, url: string): stri
   const unitLine = unitSummary(listing, false);
 
   return [
-    "Check out this listing on Luxury Estates:",
+    `Check out this listing on ${agencyName}:`,
     "",
     `${listingCode(listing.id)} - ${listing.buildingName}, ${listing.community}, ${listing.area}`,
     ...(unitLine ? [unitLine] : []),

@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingCreateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
 import { redactPrivateFieldsList, unitDetailsSearchableWhere, visibleListingsWhere } from "@/lib/listingPrivacy";
 import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
+import { isAdminRole } from "@/lib/roles";
 
 const DEFAULT_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 100;
 
 export async function GET(req: NextRequest) {
-  const { session, error } = await requireSession();
+  const { session, db, error } = await requireSession();
   if (error) return error;
 
   const sp = req.nextUrl.searchParams;
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(sp.get("page") ?? "1"));
   const mine = sp.get("mine"); // "1" -> only current user's listings
 
-  const isAdmin = session!.user.role === "ADMIN";
+  const isAdmin = isAdminRole(session!.user.role);
   // Other agents' private listings never appear, whatever else is filtered.
   const conditions: Prisma.ListingWhereInput[] = [visibleListingsWhere(session!.user.id, isAdmin)];
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     if (status === "ACTIVE" || status === "INACTIVE") {
       conditions.push({ status });
     }
-  } else if (session!.user.role === "ADMIN") {
+  } else if (isAdminRole(session!.user.role)) {
     if (status === "ACTIVE" || status === "INACTIVE") {
       conditions.push({ status });
     }
@@ -128,8 +128,8 @@ export async function GET(req: NextRequest) {
   const finalWhere: Prisma.ListingWhereInput = { AND: conditions };
 
   const [total, listings] = await Promise.all([
-    prisma.listing.count({ where: finalWhere }),
-    prisma.listing.findMany({
+    db!.listing.count({ where: finalWhere }),
+    db!.listing.findMany({
       where: finalWhere,
       include: {
         createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
@@ -151,7 +151,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { session, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
 
   const { value: body, error: bodyError } = await parseJsonBody(req);
@@ -165,11 +165,11 @@ export async function POST(req: NextRequest) {
   const dupKey = buildDupKey(data.area, data.community, data.buildingName, data.floor, data.apartmentNumber);
 
   if (!data.confirmDuplicate) {
-    const existing = await prisma.listing.findMany({
+    const existing = await db!.listing.findMany({
       where: {
         dupKey,
         status: "ACTIVE",
-        ...visibleListingsWhere(session!.user.id, session!.user.role === "ADMIN"),
+        ...visibleListingsWhere(session!.user.id, isAdminRole(session!.user.role)),
       },
       include: {
         createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
       take: 5,
     });
     if (existing.length > 0) {
-      const isAdmin = session!.user.role === "ADMIN";
+      const isAdmin = isAdminRole(session!.user.role);
       return NextResponse.json(
         { duplicate: true, existing: redactPrivateFieldsList(existing, session!.user.id, isAdmin) },
         { status: 200 }
@@ -187,8 +187,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const listing = await prisma.listing.create({
+  const listing = await db!.listing.create({
     data: {
+      organizationId: orgId!,
       listingType: data.listingType,
       propertyCategory: data.propertyCategory,
       bedrooms: data.bedrooms ?? null,
@@ -226,12 +227,12 @@ export async function POST(req: NextRequest) {
   });
 
   if (data.images && data.images.length > 0) {
-    await prisma.listingImage.createMany({
+    await db!.listingImage.createMany({
       data: data.images.map((url, index) => ({ listingId: listing.id, url, sortOrder: index })),
     });
   }
 
-  await prisma.auditLog.create({
+  await db!.auditLog.create({
     data: {
       listingId: listing.id,
       userId: session!.user.id,
@@ -240,7 +241,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const created = await prisma.listing.findUnique({
+  const created = await db!.listing.findUnique({
     where: { id: listing.id },
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },

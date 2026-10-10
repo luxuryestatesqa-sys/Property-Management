@@ -10,6 +10,8 @@ import { AMENITY_LABELS } from "@/lib/propertyFinder/mapping";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import CallButton from "@/components/CallButton";
 import PhotoGallery from "@/components/PhotoGallery";
+import PhotoGalleryDesktop from "@/components/desktop/PhotoGalleryDesktop";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 
 // Public, unauthenticated listing view for share links - shows the same
@@ -25,7 +27,9 @@ function PublicListingView() {
 
   const [listing, setListing] = useState<PublicListingDTO | null>(null);
   const [agent, setAgent] = useState<PublicAgentDTO | null>(null);
+  const [org, setOrg] = useState<{ name: string; logoUrl: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
+  const isDesktop = useIsDesktop();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +39,7 @@ function PublicListingView() {
       const data = await res.json();
       setListing(data.listing);
       setAgent(data.agent);
+      setOrg(data.org ?? null);
     }
     setLoading(false);
   }, [id, agentId]);
@@ -57,7 +62,7 @@ function PublicListingView() {
 
   const isRent = listing.listingType === "RENT";
   const inquiryMessage = [
-    "Hi, I'm interested in this listing on Luxury Estates:",
+    `Hi, I'm interested in this listing on ${org?.name ?? "your website"}:`,
     "",
     `${listing.buildingName}, ${listing.community}, ${listing.area}`,
     "",
@@ -65,13 +70,26 @@ function PublicListingView() {
   ].join("\n");
 
   return (
-    <div className="px-4 pb-10">
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3">
-        <h1 className="text-lg font-bold truncate flex-1">{listing.buildingName}</h1>
+    <div className="px-4 pb-10 lg:max-w-6xl lg:mx-auto lg:px-8 lg:pb-20">
+      <div className="hidden items-center justify-between border-b border-border py-5 lg:flex">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={org?.logoUrl ?? "/logo.png"} alt={org?.name ?? ""} className="h-14 w-auto" />
+        <span className="text-[13px] text-muted">Property details</span>
+      </div>
+      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 lg:static lg:pt-9 lg:pb-6">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg font-bold truncate lg:text-[34px] lg:leading-tight lg:tracking-tight">{listing.buildingName}</h1>
+          <p className="hidden text-[15px] text-muted lg:block lg:mt-1">
+            {listing.area} → {listing.community}
+          </p>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <PhotoGallery images={listing.images} />
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-8 lg:items-start">
+        <div className="lg:sticky lg:top-6">
+          {isDesktop ? <PhotoGalleryDesktop images={listing.images} /> : <PhotoGallery images={listing.images} />}
+        </div>
+        <div className="flex flex-col gap-4">
 
         <div className="rounded-2xl border border-border bg-surface shadow-sm p-4">
           <div className="flex items-center gap-1.5">
@@ -92,7 +110,7 @@ function PublicListingView() {
             </span>
           </div>
 
-          <div className="text-[26px] font-extrabold text-foreground mt-2.5 leading-tight">
+          <div className="text-[26px] font-extrabold text-foreground mt-2.5 leading-tight lg:text-[36px] lg:tracking-tight">
             {isRent ? `${formatQAR(listing.rentPrice)}/month` : formatQAR(listing.salePrice)}
           </div>
           {!isRent && listing.rentalValue && (
@@ -157,7 +175,12 @@ function PublicListingView() {
         )}
 
         {agent && (
-          <div className="flex gap-2.5">
+          <div className="flex flex-col gap-2.5 lg:rounded-2xl lg:border lg:border-border lg:bg-surface lg:p-5 lg:shadow-sm">
+            <div className="hidden lg:block">
+              <div className="text-[12.5px] text-muted">Your agent</div>
+              <div className="text-[17px] font-semibold">{agent.name}</div>
+            </div>
+            <div className="flex gap-2.5">
             <WhatsAppButton
               number={agent.whatsapp}
               message={inquiryMessage}
@@ -166,8 +189,10 @@ function PublicListingView() {
               className="flex-1 justify-center py-3 text-[14px]"
             />
             <CallButton number={agent.whatsapp} label="Call Now" variant="full" className="flex-1 justify-center py-3 text-[14px]" />
+            </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

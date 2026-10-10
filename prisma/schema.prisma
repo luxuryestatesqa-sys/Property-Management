@@ -8,9 +8,39 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// OWNER: the person who created the agency (billing/ownership, cannot be removed
+// by other admins). ADMIN: full access to the agency's data and settings.
+// MANAGER: sees all of the agency's leads/listings and can assign them, but
+// has no settings or user management. AGENT: their own work plus shared
+// listings. Existing "ADMIN" accounts keep ADMIN.
 enum Role {
+  OWNER
   ADMIN
+  MANAGER
   AGENT
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// One real-estate agency. Every user, listing and portal credential belongs to
+// exactly one organization, and every query in the app is scoped to the
+// signed-in user's organization (see lib/tenant.ts) so agencies can never see
+// each other's data.
+model Organization {
+  id         String    @id @default(cuid())
+  name       String
+  slug       String    @unique // URL/identifier-safe short name
+  logoUrl    String? // data URL or hosted image shown in the app and on share pages
+  brandColor String? // hex, e.g. #8a6d1f - drives the app's primary colour
+  status     OrgStatus @default(ACTIVE)
+  createdAt  DateTime  @default(now())
+
+  users       User[]
+  listings    Listing[]
+  credentials PortalCredential[]
 }
 
 enum UserStatus {
@@ -86,9 +116,11 @@ enum BedroomCount {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  name         String
-  email        String     @unique
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String       @unique // a person belongs to one agency, so login stays by email alone
   whatsapp     String // mandatory WhatsApp contact number; agents can change their own, admin can correct any
   avatarUrl    String? // data URL of a resized/compressed profile photo; agents can change their own
   passwordHash String
@@ -107,10 +139,13 @@ model User {
 
   @@index([status])
   @@index([role])
+  @@index([organizationId])
 }
 
 model Listing {
-  id          Int         @id @default(autoincrement())
+  id             Int          @id @default(autoincrement())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   listingType ListingType
 
   propertyCategory PropertyCategory
@@ -197,6 +232,8 @@ model Listing {
   @@index([availabilityStatus])
   @@index([propertyCategory])
   @@index([bedrooms])
+  @@index([organizationId, status])
+  @@index([organizationId, dupKey])
 }
 
 model ListingImage {
@@ -287,8 +324,10 @@ enum Portal {
 }
 
 model PortalCredential {
-  id     String @id @default(cuid())
-  portal Portal @unique
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  portal         Portal // one row per (agency, portal)
 
   apiKey        String?
   apiSecret     String?
@@ -306,4 +345,6 @@ model PortalCredential {
   feedAgencyId String?
 
   updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, portal])
 }

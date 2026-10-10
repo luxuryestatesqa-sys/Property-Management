@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { Portal } from "@prisma/client";
+import { tenantDb } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 import { getChannelEligibility } from "@/lib/portals/eligibility";
@@ -75,9 +76,10 @@ export const FEED_LISTING_SELECT = {
   createdBy: { select: { name: true, whatsapp: true, email: true } },
 };
 
-async function loadFeedListings(portal: Portal, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedListing[]> {
+async function loadFeedListings(orgId: string, portal: Portal, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedListing[]> {
   const baseUrl = getAppBaseUrl(requestOrigin);
-  const rows = await prisma.listing.findMany({
+  const agencyName = (await prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } }))?.name ?? "us";
+  const rows = await tenantDb(orgId).listing.findMany({
     where: {
       status: "ACTIVE",
       visibility: "SHARED",
@@ -109,7 +111,7 @@ async function loadFeedListings(portal: Portal, filters: FeedFilters = {}, reque
     // Fallback copy for a listing with no title/description yet. It never
     // names the building - that stays internal - only the area and community.
     const defaultTitle = `${bedroomsLabel ? bedroomsLabel + " " : ""}${categoryLabel} for ${purpose} in ${location.area}`;
-    const defaultDescription = `${bedroomsLabel ? bedroomsLabel + " " : ""}${categoryLabel} available for ${purpose.toLowerCase()} in ${[location.subcommunity, location.community, location.area].filter(Boolean).join(", ")}. Contact Luxury Estates for details and viewings.`;
+    const defaultDescription = `${bedroomsLabel ? bedroomsLabel + " " : ""}${categoryLabel} available for ${purpose.toLowerCase()} in ${[location.subcommunity, location.community, location.area].filter(Boolean).join(", ")}. Contact ${agencyName} for details and viewings.`;
     // Stored as Property Finder's enum shape: "none", "1".."20".
     const bathroomCount = listing.bathrooms === "none" ? 0 : listing.bathrooms ? parseInt(listing.bathrooms, 10) : NaN;
 
@@ -168,11 +170,11 @@ function computeEtag(portal: Portal, listings: FeedListing[]): string {
 // separate cache-clearing step needed.
 const bodyCache = new Map<string, string>();
 
-export async function generateFeed(slug: string, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedResult | null> {
+export async function generateFeed(orgId: string, slug: string, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedResult | null> {
   const entry = FEED_SLUGS[slug];
   if (!entry) return null;
 
-  const listings = await loadFeedListings(entry.portal, filters, requestOrigin);
+  const listings = await loadFeedListings(orgId, entry.portal, filters, requestOrigin);
   const etag = computeEtag(entry.portal, listings);
 
   let body = bodyCache.get(etag);
