@@ -18,6 +18,7 @@ import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 import SearchableSelect from "@/components/SearchableSelect";
 import SegmentedControl from "@/components/SegmentedControl";
 import PropertyFinderPreviewSheet from "@/components/PropertyFinderPreviewSheet";
+import PortalPreviewSheet from "@/components/PortalPreviewSheet";
 import { isAdminRole } from "@/lib/roles";
 
 interface PFUserOption {
@@ -92,6 +93,7 @@ export default function MultiPortalPublishingPage() {
   const [saving, setSaving] = useState(false);
   const [actionNotice, setActionNotice] = useState<"published" | "unpublished" | "draft" | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [channelPreview, setChannelPreview] = useState<{ portal: "WEBSITE" | "QATAR_LIVING" | "OTHER_PORTALS"; label: string } | null>(null);
   const [resetting, setResetting] = useState(false);
 
   // Pull channels state
@@ -859,6 +861,15 @@ export default function MultiPortalPublishingPage() {
                 )}
 
                 <div className="flex items-center gap-2 pt-1 border-t border-border">
+                  {ch.key !== "PROPERTY_ORYX" && (
+                    <button
+                      type="button"
+                      onClick={() => setChannelPreview({ portal: ch.key as "WEBSITE" | "QATAR_LIVING" | "OTHER_PORTALS", label: ch.label })}
+                      className="rounded-xl px-4 py-3 text-[13px] font-semibold bg-accent-light text-primary active:opacity-70 shrink-0"
+                    >
+                      Preview
+                    </button>
+                  )}
                   {isChannelEnabled ? (
                     <>
                       <button
@@ -915,6 +926,8 @@ export default function MultiPortalPublishingPage() {
           })}
         </div>
       )}
+
+      {channelPreview && <PortalPreviewSheet listingId={listing.id} portal={channelPreview.portal} label={channelPreview.label} onClose={() => setChannelPreview(null)} />}
 
       <PropertyFinderPreviewSheet
         open={previewOpen}
