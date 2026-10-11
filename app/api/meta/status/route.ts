@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
   if (/localhost|127\.0\.0\.1/.test(base)) baseNote = "This is a local address. Meta can only send leads to a public https:// address, so set APP_BASE_URL to your live site (or use a tunnel while testing).";
 
-  const pages = await db!.metaPage.findMany({ orderBy: { name: "asc" }, select: { id: true, pageId: true, name: true, enabled: true, lastLeadAt: true, lastError: true, createdAt: true } });
+  const pages = await db!.metaPage.findMany({ orderBy: { name: "asc" }, select: { id: true, pageId: true, name: true, enabled: true, lastLeadAt: true, lastError: true, createdAt: true, businessId: true, businessName: true, disabledForms: true } });
   const missing = missingMetaEnv();
   return NextResponse.json({
     configured: missing.length === 0,

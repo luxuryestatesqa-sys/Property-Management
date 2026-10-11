@@ -128,6 +128,66 @@ export async function fetchFormName(formId: string, pageToken: string): Promise<
 
 export const listForms = async (pageId: string, pageToken: string) => (await graph<{ data: { id: string; name: string; status?: string }[] }>(`${pageId}/leadgen_forms`, { token: pageToken, params: { fields: "id,name,status", limit: "100" } })).data;
 
+export interface FormInfo {
+  id: string;
+  name: string;
+  status?: string; // ACTIVE | ARCHIVED | DELETED | DRAFT
+  leads_count?: number;
+  created_time?: string;
+}
+
+// Forms with the details the Settings screen shows (how many leads, whether it is still running).
+export async function listFormsDetailed(pageId: string, pageToken: string): Promise<FormInfo[]> {
+  const out: FormInfo[] = [];
+  let next: string | undefined = `${pageId}/leadgen_forms`;
+  let params: Record<string, string> | undefined = { fields: "id,name,status,leads_count,created_time", limit: "100" };
+  for (let i = 0; i < 5 && next; i++) {
+    const r: { data: FormInfo[]; paging?: { next?: string } } = await graph(next, { token: pageToken, params });
+    out.push(...r.data);
+    next = r.paging?.next;
+    params = undefined;
+  }
+  return out;
+}
+
+export interface BusinessPages {
+  id: string;
+  name: string;
+  pageIds: string[];
+}
+
+// The Business portfolios (Business Managers) the person belongs to, with the Pages each owns or has
+// been given access to. Needs the business_management permission; without it Facebook refuses and we
+// simply return an empty list, so connecting still works, just without the grouping.
+export async function listBusinessesWithPages(userToken: string): Promise<BusinessPages[]> {
+  let businesses: { id: string; name: string }[];
+  try {
+    businesses = (await graph<{ data: { id: string; name: string }[] }>("me/businesses", { token: userToken, params: { fields: "id,name", limit: "100" } })).data;
+  } catch {
+    return [];
+  }
+  const out: BusinessPages[] = [];
+  for (const b of businesses) {
+    const ids = new Set<string>();
+    for (const edge of ["owned_pages", "client_pages"]) {
+      let next: string | undefined = `${b.id}/${edge}`;
+      let params: Record<string, string> | undefined = { fields: "id", limit: "100" };
+      try {
+        for (let i = 0; i < 10 && next; i++) {
+          const r: { data: { id: string }[]; paging?: { next?: string } } = await graph(next, { token: userToken, params });
+          r.data.forEach((p) => ids.add(p.id));
+          next = r.paging?.next;
+          params = undefined;
+        }
+      } catch {
+        // an edge this person can't read: skip it
+      }
+    }
+    out.push({ id: b.id, name: b.name, pageIds: [...ids] });
+  }
+  return out;
+}
+
 // Leads of one form, newest first. Meta keeps them for 90 days.
 export async function listFormLeads(formId: string, pageToken: string, max = 500): Promise<GraphLead[]> {
   const out: GraphLead[] = [];

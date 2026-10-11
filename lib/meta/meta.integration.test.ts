@@ -29,6 +29,7 @@ const signedRequest = (o: unknown, s = SECRET) => `${createHmac("sha256", s).upd
 // A pretend Facebook: answers the Graph calls by path. `calls` records them.
 let calls: { method: string; path: string; auth: string | null }[] = [];
 let graphFail: null | { status: number; code: number } = null;
+let noBusiness = false; // pretend the business_management permission was not granted
 const LEADS: Record<string, unknown> = {
   LG1: { id: "LG1", created_time: "2026-10-11T09:30:00+0000", form_id: "F1", ad_name: "Lusail ad", campaign_name: "October", platform: "fb", field_data: [{ name: "full_name", values: ["Meta Buyer"] }, { name: "email", values: ["buyer@x.test"] }, { name: "phone_number", values: ["p:+97455560001"] }, { name: "city", values: ["Lusail"] }, { name: "budget", values: ["8000"] }] },
   LG2: { id: "LG2", form_id: "F1", field_data: [{ name: "full_name", values: ["Second"] }, { name: "phone_number", values: ["+97455560002"] }] },
@@ -45,9 +46,13 @@ function fakeFacebook() {
       if (graphFail && !path.startsWith("oauth") && !/subscribed_apps/.test(path)) return reply({ error: { message: "boom", code: graphFail.code } }, graphFail.status);
       if (path === "oauth/access_token") return reply({ access_token: u.searchParams.get("code") ? "short-user-token" : "long-user-token" });
       if (path === "me") return reply({ id: "fbuser1", name: "Admin Person" });
+      if (path === "me/businesses") return noBusiness ? reply({ error: { message: "(#200) Requires business_management permission", code: 200 } }, 403) : reply({ data: [{ id: "BIZ1", name: "Luxury Business" }] });
+      if (path === "BIZ1/owned_pages") return reply({ data: [{ id: "P1" }] });
+      if (path === "BIZ1/client_pages") return reply({ data: [{ id: "P2" }] });
       if (path === "me/accounts") return reply({ data: [{ id: "P1", name: "Luxury Estates", access_token: "PAGE-TOKEN-1", tasks: ["ADVERTISE", "MANAGE"] }, { id: "P2", name: "Other Brand", access_token: "PAGE-TOKEN-2", tasks: ["ANALYZE"] }, { id: "PTAKEN", name: "Someone Else", access_token: "PAGE-TOKEN-3", tasks: ["ADVERTISE"] }] });
       if (/\/subscribed_apps$|^P\d+\/subscribed_apps$/.test(path)) return reply({ success: true });
-      if (path === "P1/leadgen_forms") return reply({ data: [{ id: "F1", name: "Lusail Villas" }] });
+      if (path === "P1/leadgen_forms") return reply({ data: [{ id: "F1", name: "Lusail Villas", status: "ACTIVE", leads_count: 3 }, { id: "F2", name: "Old promo", status: "ARCHIVED", leads_count: 0 }, { id: "F3", name: "Gone", status: "DELETED" }] });
+      if (path === "F2/leads" || path === "F3/leads") return reply({ data: [] });
       if (path === "F1/leads") return reply({ data: [LEADS.LG1, LEADS.LG2, { id: "LG3", field_data: [{ name: "full_name", values: ["Third"] }, { name: "phone_number", values: ["+97455560003"] }] }] });
       if (path === "F1") return reply({ name: "Lusail Villas", id: "F1" });
       if (LEADS[path]) return reply(LEADS[path]);
@@ -129,6 +134,9 @@ describe.skipIf(!run)("Facebook / Instagram leads (real database)", () => {
     expect(p1.accessToken).not.toContain("PAGE-TOKEN-1");
     expect(decryptSecret(p1.accessToken)).toBe("PAGE-TOKEN-1");
     expect(p1.fbUserId).toBe("fbuser1");
+    // grouped under the Business portfolio that owns it (P1) or manages it for a client (P2)
+    expect([p1.businessId, p1.businessName]).toEqual(["BIZ1", "Luxury Business"]);
+    expect((pages.find((p) => p.pageId === "P2"))!.businessId).toBe("BIZ1");
     expect(pages.find((p) => p.pageId === "P2")!.lastError).toContain("can't run ads"); // no ADVERTISE permission
     // the other agency's page is untouched
     expect(decryptSecret((await prisma.metaPage.findUniqueOrThrow({ where: { pageId: "PTAKEN" } })).accessToken)).toBe("theirs");
@@ -253,6 +261,72 @@ describe.skipIf(!run)("Facebook / Instagram leads (real database)", () => {
     expect(first.created).toBe(1); // LG3 was new; LG1 and LG2 already came by webhook
     expect(await db.lead.count({ where: { source: "META" } })).toBe(4); // LG1 LG2 LG3 LG4
     expect((await go()).created).toBe(0);
+  });
+
+  it("without the business permission, connecting still works and keeps the grouping it had", async () => {
+    const { GET } = await import("../../app/api/meta/callback/route");
+    as(admin, "ADMIN");
+    noBusiness = true;
+    fakeFacebook();
+    const res = await GET(callbackUrl(signValue({ org, user: admin }, 600)));
+    noBusiness = false;
+    expect(res.headers.get("location")).toContain("meta=connected&pages=2");
+    expect((await tenantDb(org).metaPage.findFirstOrThrow({ where: { pageId: "P1" } })).businessName).toBe("Luxury Business");
+    // a brand-new page found without the permission just has no business
+    await prisma.metaPage.deleteMany({ where: { pageId: "P2", organizationId: org } });
+    noBusiness = true;
+    fakeFacebook();
+    await GET(callbackUrl(signValue({ org, user: admin }, 600)));
+    noBusiness = false;
+    expect((await tenantDb(org).metaPage.findFirstOrThrow({ where: { pageId: "P2" } })).businessId).toBeNull();
+  });
+
+  it("lists a page's lead forms from Facebook (not deleted ones) and lets the admin switch each on or off", async () => {
+    const { GET, PATCH } = await import("../../app/api/meta/pages/[id]/forms/route");
+    as(admin, "ADMIN");
+    const db = tenantDb(org);
+    const p1 = await db.metaPage.findFirstOrThrow({ where: { pageId: "P1" } });
+    fakeFacebook();
+    const list = async () => (await (await GET(new NextRequest("http://x.test"), { params: Promise.resolve({ id: p1.id }) })).json()).forms as { id: string; name: string; status: string; leads: number; enabled: boolean }[];
+    const forms = await list();
+    expect(forms.map((f) => [f.id, f.name, f.status, f.leads, f.enabled])).toEqual([["F1", "Lusail Villas", "ACTIVE", 3, true], ["F2", "Old promo", "ARCHIVED", 0, true]]);
+    expect(calls.find((c) => c.path === "P1/leadgen_forms")?.auth).toBe("Bearer PAGE-TOKEN-1");
+    const patch = (body: unknown) => PATCH(new NextRequest("http://x.test", { method: "PATCH", body: JSON.stringify(body) }), { params: Promise.resolve({ id: p1.id }) });
+    expect((await patch({ formId: "F2", enabled: false })).status).toBe(200);
+    expect((await db.metaPage.findFirstOrThrow({ where: { id: p1.id } })).disabledForms).toEqual(["F2"]);
+    expect((await list()).find((f) => f.id === "F2")!.enabled).toBe(false);
+    expect((await patch({ formId: "F2", enabled: true })).status).toBe(200);
+    expect((await db.metaPage.findFirstOrThrow({ where: { id: p1.id } })).disabledForms).toEqual([]);
+    expect((await patch({ enabled: true })).status).toBe(400);
+    as(agent, "AGENT");
+    expect((await patch({ formId: "F1", enabled: false })).status).toBe(403);
+  });
+
+  it("a switched-off form's leads are not imported, by webhook or by fetching; the others still are", async () => {
+    const { PATCH } = await import("../../app/api/meta/pages/[id]/forms/route");
+    const { POST: sync } = await import("../../app/api/meta/pages/[id]/sync/route");
+    as(admin, "ADMIN");
+    const db = tenantDb(org);
+    const p1 = await db.metaPage.findFirstOrThrow({ where: { pageId: "P1" } });
+    LEADS.LG10 = { id: "LG10", form_id: "F1", field_data: [{ name: "phone_number", values: ["+97455560010"] }] };
+    LEADS.LG11 = { id: "LG11", form_id: "F2", field_data: [{ name: "phone_number", values: ["+97455560011"] }] };
+    fakeFacebook();
+    await PATCH(new NextRequest("http://x.test", { method: "PATCH", body: JSON.stringify({ formId: "F2", enabled: false }) }), { params: Promise.resolve({ id: p1.id }) });
+    await webhook({ object: "page", entry: [{ id: "P1", time: 1, changes: [{ field: "leadgen", value: { leadgen_id: "LG11", page_id: "P1", form_id: "F2" } }] }] });
+    expect(await db.lead.count({ where: { externalId: "LG11" } })).toBe(0);
+    expect(calls.some((c) => c.path === "LG11")).toBe(false); // never even fetched
+    await webhook(event("LG10")); // F1 is still on
+    expect(await db.lead.count({ where: { externalId: "LG10" } })).toBe(1);
+    // fetching skips the off form, and can be limited to one form
+    calls = [];
+    await sync(new NextRequest("http://x.test", { method: "POST", body: JSON.stringify({}) }), { params: Promise.resolve({ id: p1.id }) });
+    expect(calls.some((c) => c.path === "F2/leads")).toBe(false);
+    expect(calls.some((c) => c.path === "F3/leads")).toBe(false); // deleted forms are skipped too
+    calls = [];
+    await PATCH(new NextRequest("http://x.test", { method: "PATCH", body: JSON.stringify({ formId: "F2", enabled: true }) }), { params: Promise.resolve({ id: p1.id }) });
+    await sync(new NextRequest("http://x.test", { method: "POST", body: JSON.stringify({ formId: "F2" }) }), { params: Promise.resolve({ id: p1.id }) });
+    expect(calls.some((c) => c.path === "F2/leads")).toBe(true);
+    expect(calls.some((c) => c.path === "F1/leads")).toBe(false); // only the chosen form
   });
 
   it("status lists only this agency's pages, never tokens; an agent can't use any of it", async () => {

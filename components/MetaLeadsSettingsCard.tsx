@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { timeAgo } from "@/lib/timeAgo";
 
 interface MetaPageRow {
@@ -10,6 +10,9 @@ interface MetaPageRow {
   enabled: boolean;
   lastLeadAt: string | null;
   lastError: string | null;
+  businessId: string | null;
+  businessName: string | null;
+  disabledForms: string[];
 }
 interface Status {
   configured: boolean;
@@ -22,6 +25,14 @@ interface Status {
   dataDeletionUrl: string;
   baseNote: string | null;
   pages: MetaPageRow[];
+}
+interface FormRow {
+  id: string;
+  name: string;
+  status: string | null;
+  leads: number | null;
+  createdAt: string | null;
+  enabled: boolean;
 }
 
 const MESSAGES: Record<string, { ok: boolean; text: string }> = {
@@ -56,14 +67,82 @@ function Copy({ label, value }: { label: string; value: string }) {
   );
 }
 
+function Switch({ on, onClick, disabled, label }: { on: boolean; onClick: () => void; disabled?: boolean; label: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={onClick} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${on ? "bg-emerald-500" : "bg-slate-300"}`}>
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+    </button>
+  );
+}
+
+// The lead forms of one Page, read from Facebook when the Page is opened.
+function FormsPanel({ page, busy, run }: { page: MetaPageRow; busy: string | null; run: (key: string, fn: () => Promise<Response>, ok: (d: Record<string, unknown>) => string, then?: () => void) => void }) {
+  const [forms, setForms] = useState<FormRow[] | null>(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setError("");
+    const res = await fetch(`/api/meta/pages/${page.id}/forms`);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return setError(d?.error ?? "Couldn't load the forms");
+    setForms(d.forms);
+  }, [page.id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (error) return <p className="px-4 pb-4 text-[13px] text-danger">{error}</p>;
+  if (!forms) return <p className="px-4 pb-4 text-[13px] text-muted">Loading forms…</p>;
+  if (forms.length === 0) return <p className="px-4 pb-4 text-[13px] text-muted">This page has no lead forms yet. Create one in Meta Ads Manager (Instant forms) and it will show up here.</p>;
+
+  return (
+    <ul className="mx-4 mb-4 divide-y divide-border rounded-xl border border-border bg-slate-50/60">
+      {forms.map((f) => (
+        <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3">
+          <Switch
+            on={f.enabled}
+            disabled={busy !== null}
+            label={`${f.enabled ? "Stop importing" : "Import"} ${f.name}`}
+            onClick={() =>
+              run(
+                `${page.id}:form:${f.id}`,
+                () => fetch(`/api/meta/pages/${page.id}/forms`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formId: f.id, enabled: !f.enabled }) }),
+                () => (f.enabled ? `“${f.name}” will no longer import leads.` : `“${f.name}” will import leads.`),
+                () => setForms((prev) => prev && prev.map((x) => (x.id === f.id ? { ...x, enabled: !x.enabled } : x)))
+              )
+            }
+          />
+          <div className="min-w-0 flex-1">
+            <div className={`truncate text-[13.5px] font-medium ${f.enabled ? "" : "text-muted line-through"}`}>{f.name}</div>
+            <div className="text-[12px] text-muted">
+              {f.status === "ARCHIVED" ? "Archived" : f.status === "ACTIVE" || !f.status ? "Active" : f.status.toLowerCase()}
+              {f.leads !== null ? ` · ${f.leads} lead${f.leads === 1 ? "" : "s"} so far` : ""}
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={busy !== null || !f.enabled}
+            onClick={() => run(`${page.id}:fsync:${f.id}`, () => fetch(`/api/meta/pages/${page.id}/sync`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formId: f.id }) }), (d) => `“${f.name}”: checked ${d.fetched ?? 0}, ${d.created ?? 0} new.`)}
+            className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-[12.5px] font-medium shadow-sm ring-1 ring-border hover:bg-surface-muted disabled:opacity-50"
+          >
+            {busy === `${page.id}:fsync:${f.id}` ? "Fetching…" : "Fetch leads"}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // Lets an agency's admin connect its Facebook Pages so Facebook and Instagram lead-form leads arrive
-// in the Leads list on their own.
+// in the Leads list on their own: Business portfolio > Page > lead form.
 export default function MetaLeadsSettingsCard() {
   const [status, setStatus] = useState<Status | null>(null);
   const [loadError, setLoadError] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [open, setOpen] = useState<string | null>(null); // the Page whose forms are showing
 
   const load = useCallback(async () => {
     const res = await fetch("/api/meta/status");
@@ -90,21 +169,66 @@ export default function MetaLeadsSettingsCard() {
     }
   }, [load]);
 
-  async function act(id: string, key: string, run: () => Promise<Response>, ok: (d: Record<string, unknown>) => string) {
-    setBusy(`${id}:${key}`);
+  async function run(key: string, fn: () => Promise<Response>, ok: (d: Record<string, unknown>) => string, then?: () => void) {
+    setBusy(key);
     setMsg(null);
     try {
-      const res = await run();
+      const res = await fn();
       const d = await res.json().catch(() => ({}));
       setMsg(res.ok ? { ok: true, text: ok(d) } : { ok: false, text: d?.error ?? "That didn't work" });
+      if (res.ok) then?.();
       await load();
     } finally {
       setBusy(null);
     }
   }
   const json = { "Content-Type": "application/json" };
+  const toggle = (p: MetaPageRow, enabled = !p.enabled) => run(`${p.id}:toggle`, () => fetch(`/api/meta/pages/${p.id}`, { method: "PATCH", headers: json, body: JSON.stringify({ enabled }) }), () => (enabled ? `${p.name} is on. New leads will arrive automatically.` : `${p.name} switched off.`));
 
-  const connected = (status?.pages.length ?? 0) > 0;
+  const pages = useMemo(() => status?.pages ?? [], [status]);
+  const connected = pages.length > 0;
+  // Business portfolios first (largest first), then Pages with no portfolio.
+  const groups = useMemo(() => {
+    const byBiz = new Map<string, { id: string | null; name: string; pages: MetaPageRow[] }>();
+    for (const p of pages) {
+      const key = p.businessId ?? "none";
+      if (!byBiz.has(key)) byBiz.set(key, { id: p.businessId, name: p.businessName ?? "", pages: [] });
+      byBiz.get(key)!.pages.push(p);
+    }
+    return [...byBiz.values()].sort((a, b) => (a.id === null ? 1 : 0) - (b.id === null ? 1 : 0) || b.pages.length - a.pages.length);
+  }, [pages]);
+  const anyBusiness = groups.some((g) => g.id !== null);
+
+  const pageRow = (p: MetaPageRow) => {
+    const isOpen = open === p.id;
+    return (
+      <li key={p.id}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5">
+          <Switch on={p.enabled} disabled={busy !== null} label={`${p.enabled ? "Turn off" : "Turn on"} ${p.name}`} onClick={() => toggle(p)} />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[14.5px] font-medium">{p.name}</div>
+            <div className="text-[12.5px] text-muted">{p.enabled ? (p.lastLeadAt ? `Last lead ${timeAgo(p.lastLeadAt)}` : "On · waiting for the first lead") : "Off"}</div>
+            {p.lastError && <div className="mt-1 text-[12.5px] text-danger">{p.lastError}</div>}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <button type="button" onClick={() => setOpen(isOpen ? null : p.id)} aria-expanded={isOpen} className="inline-flex items-center gap-1.5 rounded-lg bg-surface-muted px-3 py-1.5 text-[12.5px] font-medium hover:bg-border">
+              Lead forms
+              <svg className={`transition-transform ${isOpen ? "rotate-180" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <button type="button" disabled={busy !== null} onClick={() => run(`${p.id}:sync`, () => fetch(`/api/meta/pages/${p.id}/sync`, { method: "POST" }), (d) => `Checked ${d.fetched ?? 0} lead${d.fetched === 1 ? "" : "s"} on ${p.name}: ${d.created ?? 0} new.`)} className="rounded-lg bg-surface-muted px-3 py-1.5 text-[12.5px] font-medium hover:bg-border disabled:opacity-60">
+              {busy === `${p.id}:sync` ? "Fetching…" : "Fetch all"}
+            </button>
+            <button type="button" disabled={busy !== null} onClick={() => confirm(`Remove ${p.name}? It will stop sending leads. Leads already received stay.`) && run(`${p.id}:remove`, () => fetch(`/api/meta/pages/${p.id}`, { method: "DELETE" }), () => `${p.name} removed.`)} className="rounded-lg px-3 py-1.5 text-[12.5px] font-medium text-danger hover:bg-danger-bg disabled:opacity-60">
+              Remove
+            </button>
+          </div>
+        </div>
+        {isOpen && <FormsPanel page={p} busy={busy} run={run} />}
+      </li>
+    );
+  };
 
   return (
     <section className="surface-card p-6 lg:p-7">
@@ -137,49 +261,46 @@ export default function MetaLeadsSettingsCard() {
         </div>
       )}
 
-      {status?.configured && !connected && !msg && <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3.5 text-[13.5px] text-slate-600">No pages connected yet. Press &ldquo;Connect Facebook&rdquo; and choose the Pages that run your lead ads.</p>}
+      {status?.configured && !connected && !msg && <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3.5 text-[13.5px] text-slate-600">No pages connected yet. Press &ldquo;Connect Facebook&rdquo;, choose your Business portfolio and the Pages that run your lead ads.</p>}
 
       {connected && (
-        <ul className="mt-5 divide-y divide-border rounded-xl border border-border">
-          {status!.pages.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={p.enabled}
-                aria-label={`${p.enabled ? "Turn off" : "Turn on"} ${p.name}`}
-                disabled={busy !== null}
-                onClick={() => act(p.id, "toggle", () => fetch(`/api/meta/pages/${p.id}`, { method: "PATCH", headers: json, body: JSON.stringify({ enabled: !p.enabled }) }), () => (p.enabled ? `${p.name} switched off.` : `${p.name} is on. New leads will arrive automatically.`))}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${p.enabled ? "bg-emerald-500" : "bg-slate-300"}`}
-              >
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${p.enabled ? "left-[22px]" : "left-0.5"}`} />
-              </button>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[14.5px] font-medium">{p.name}</div>
-                <div className="text-[12.5px] text-muted">{p.enabled ? (p.lastLeadAt ? `Last lead ${timeAgo(p.lastLeadAt)}` : "On · waiting for the first lead") : "Off"}</div>
-                {p.lastError && <div className="mt-1 text-[12.5px] text-danger">{p.lastError}</div>}
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => act(p.id, "sync", () => fetch(`/api/meta/pages/${p.id}/sync`, { method: "POST" }), (d) => `Checked ${d.fetched ?? 0} lead${d.fetched === 1 ? "" : "s"} on ${p.name}: ${d.created ?? 0} new.`)}
-                  className="rounded-lg bg-surface-muted px-3 py-1.5 text-[12.5px] font-medium hover:bg-border disabled:opacity-60"
-                >
-                  {busy === `${p.id}:sync` ? "Fetching…" : "Fetch leads"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => confirm(`Remove ${p.name}? It will stop sending leads. Leads already received stay.`) && act(p.id, "remove", () => fetch(`/api/meta/pages/${p.id}`, { method: "DELETE" }), () => `${p.name} removed.`)}
-                  className="rounded-lg px-3 py-1.5 text-[12.5px] font-medium text-danger hover:bg-danger-bg disabled:opacity-60"
-                >
-                  Remove
-                </button>
-              </div>
-            </li>
+        <div className="mt-5 flex flex-col gap-5">
+          {groups.map((g) => (
+            <div key={g.id ?? "none"}>
+              {(anyBusiness || g.id !== null) && (
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-light text-primary">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 21V8l9-5 9 5v13M9 21v-6h6v6" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div className="text-[13.5px] font-medium">{g.id ? g.name : "Pages without a business portfolio"}</div>
+                      <div className="text-[11.5px] text-muted">{g.id ? "Business portfolio" : "Personal pages or pages Facebook didn't link to a business"} · {g.pages.length} page{g.pages.length === 1 ? "" : "s"}</div>
+                    </div>
+                  </div>
+                  {g.pages.length > 1 && (
+                    <div className="flex gap-1.5">
+                      <button type="button" disabled={busy !== null} onClick={() => run(`bulk:${g.id}:on`, async () => { for (const p of g.pages.filter((x) => !x.enabled)) { const r = await fetch(`/api/meta/pages/${p.id}`, { method: "PATCH", headers: json, body: JSON.stringify({ enabled: true }) }); if (!r.ok) return r; } return new Response("{}") }, () => "All pages in this portfolio are on.")} className="rounded-lg bg-surface-muted px-2.5 py-1 text-[12px] font-medium hover:bg-border disabled:opacity-60">
+                        Turn all on
+                      </button>
+                      <button type="button" disabled={busy !== null} onClick={() => run(`bulk:${g.id}:off`, async () => { for (const p of g.pages.filter((x) => x.enabled)) { const r = await fetch(`/api/meta/pages/${p.id}`, { method: "PATCH", headers: json, body: JSON.stringify({ enabled: false }) }); if (!r.ok) return r; } return new Response("{}") }, () => "All pages in this portfolio are off.")} className="rounded-lg bg-surface-muted px-2.5 py-1 text-[12px] font-medium hover:bg-border disabled:opacity-60">
+                        Turn all off
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <ul className="divide-y divide-border rounded-xl border border-border">{g.pages.map(pageRow)}</ul>
+            </div>
           ))}
-        </ul>
+          {!anyBusiness && (
+            <p className="rounded-xl bg-slate-50 px-4 py-3 text-[12.5px] leading-relaxed text-slate-600">
+              Want your pages grouped by Business portfolio? Add the <b className="font-medium">business_management</b> permission to your Facebook Login configuration, then press &ldquo;Connect more pages&rdquo; again.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="mt-5">
@@ -195,7 +316,7 @@ export default function MetaLeadsSettingsCard() {
             <Copy label="Deauthorize callback URL" value={status.deauthorizeUrl} />
             <Copy label="Data deletion request URL" value={status.dataDeletionUrl} />
             <div className="text-[12.5px] text-slate-600">
-              Webhook field to subscribe to: <b className="font-medium">leadgen</b> · Permissions requested: {status.scopes.join(", ")} · Graph API {status.graphVersion}
+              Webhook field to subscribe to: <b className="font-medium">leadgen</b> · Permissions requested: {status.scopes.join(", ")} (add <b className="font-medium">business_management</b> to group pages by business portfolio) · Graph API {status.graphVersion}
             </div>
           </div>
         )}

@@ -595,6 +595,11 @@ model MetaPage {
   enabled        Boolean      @default(false) // subscribed to the leadgen webhook
   lastLeadAt     DateTime?
   lastError      String?
+  // The Business portfolio (Business Manager) that owns or manages this Page, when Facebook let us read it.
+  businessId     String?
+  businessName   String?
+  // Lead forms the agency switched off: their leads are not imported. A new form is on by default.
+  disabledForms  String[]     @default([])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
