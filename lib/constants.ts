@@ -1,1 +1,1 @@
-export const MAX_LISTING_IMAGES = 10;
+export const MAX_LISTING_IMAGES = 25;

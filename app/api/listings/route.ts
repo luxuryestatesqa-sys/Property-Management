@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
+import { withImageLinks } from "@/lib/listingImages";
 import { listingCreateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
 import { redactPrivateFieldsList, unitDetailsSearchableWhere, visibleListingsWhere } from "@/lib/listingPrivacy";
@@ -258,9 +259,9 @@ export async function POST(req: NextRequest) {
     where: { id: listing.id },
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
-      images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true } },
+      images: { orderBy: { sortOrder: "asc" }, select: { id: true, createdAt: true } },
     },
   });
 
-  return NextResponse.json({ duplicate: false, listing: created }, { status: 201 });
+  return NextResponse.json({ duplicate: false, listing: created && { ...created, images: withImageLinks(created.id, created.images) } }, { status: 201 });
 }

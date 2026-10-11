@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withImageLinks } from "@/lib/listingImages";
 
 // Unauthenticated - this backs the public share link, so it must never
 // return createdBy, ownerName/ownerPhone/ownerWhatsapp, or any other field
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       furnished: true,
       billsStatus: true,
       availabilityStatus: true,
-      images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true } },
+      images: { orderBy: { sortOrder: "asc" }, select: { id: true, createdAt: true } },
     },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -55,5 +56,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // organizationId is internal; only the agency's public name/logo are returned.
   const { organizationId: _organizationId, ...publicListing } = listing;
   void _organizationId;
-  return NextResponse.json({ listing: publicListing, agent, org: { name: org.name, logoUrl: org.logoUrl } });
+  return NextResponse.json({ listing: { ...publicListing, images: withImageLinks(listing.id, listing.images) }, agent, org: { name: org.name, logoUrl: org.logoUrl } });
 }

@@ -8,6 +8,7 @@ import { unpublishListingFromPropertyFinder } from "@/lib/propertyFinder/sync";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
 import { Prisma, PropertyCategory } from "@prisma/client";
 import { isAdminRole } from "@/lib/roles";
+import { withImageLinks } from "@/lib/listingImages";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, db, error } = await requireSession();
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true, pfPublicProfileId: true } },
       auditLogs: { include: { user: { select: { name: true } } }, orderBy: { timestamp: "desc" } },
-      images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true } },
+      images: { orderBy: { sortOrder: "asc" }, select: { id: true, createdAt: true } },
       portalListings: true,
     },
   });
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { portalListings, ...listingRest } = listing;
   const shapedListing = {
     ...listingRest,
+    images: withImageLinks(listing.id, listing.images),
     propertyFinderState: portalListings.find((p) => p.portal === "PROPERTY_FINDER") ?? null,
     channelStates: {
       WEBSITE: portalListings.find((p) => p.portal === "WEBSITE") ?? null,
@@ -233,20 +235,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ listing });
   }
 
+  // Photos: keep the ones sent as {id}, add the ones sent as images, drop the rest, in the order given.
+  let imageOps: Prisma.PrismaPromise<unknown>[] = [];
+  if (data.images !== undefined) {
+    const have = new Set((await db!.listingImage.findMany({ where: { listingId: listing.id }, select: { id: true } })).map((i) => i.id));
+    const refs = data.images;
+    const keptIds = refs.flatMap((r) => (typeof r === "string" ? [] : [r.id]));
+    if (keptIds.some((kept) => !have.has(kept)) || new Set(keptIds).size !== keptIds.length) {
+      return NextResponse.json({ error: "A photo is no longer on this listing. Reload the page and try again." }, { status: 409 });
+    }
+    const fresh = refs.flatMap((r, index) => (typeof r === "string" ? [{ listingId: listing.id, url: r, sortOrder: index }] : []));
+    imageOps = [
+      db!.listingImage.deleteMany({ where: { listingId: listing.id, id: { notIn: keptIds } } }),
+      ...refs.flatMap((r, index) => (typeof r === "string" ? [] : [db!.listingImage.updateMany({ where: { id: r.id, listingId: listing.id }, data: { sortOrder: index } })])),
+      ...(fresh.length ? [db!.listingImage.createMany({ data: fresh })] : []),
+    ];
+  }
+
   const [updated] = await db!.$transaction([
     db!.listing.update({
       where: { id: listing.id },
       data: updateData,
       include: { createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } } },
     }),
-    ...(data.images !== undefined
-      ? [
-          db!.listingImage.deleteMany({ where: { listingId: listing.id } }),
-          db!.listingImage.createMany({
-            data: data.images.map((url, index) => ({ listingId: listing.id, url, sortOrder: index })),
-          }),
-        ]
-      : []),
+    ...imageOps,
   ]);
 
   if (auditEntries.length > 0) {
@@ -264,10 +276,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const images = await db!.listingImage.findMany({
     where: { listingId: listing.id },
     orderBy: { sortOrder: "asc" },
-    select: { id: true, url: true },
+    select: { id: true, createdAt: true },
   });
 
-  return NextResponse.json({ listing: { ...updated, images } });
+  return NextResponse.json({ listing: { ...updated, images: withImageLinks(listing.id, images) } });
 }
 
 // Permanently removes a listing (unlike the reversible ACTIVE/INACTIVE

@@ -29,6 +29,7 @@ import {
 } from "@/lib/propertyCategory";
 import { amenityOptionsFor, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
 import { extractErrorMessage } from "@/lib/errors";
+import { splitPhotoBatches } from "@/lib/photoBatches";
 import SaleDetailsFields, { EMPTY_SALE_DETAILS, saleDetailsPayload, saleDetailsProblem } from "@/components/SaleDetailsFields";
 
 type ListingType = "RENT" | "SALE";
@@ -197,6 +198,8 @@ export default function AddPropertyPage() {
     }
     setError("");
     setSubmitting(true);
+    // A request can only carry so much, so the first photos go with the listing and the rest follow.
+    const photoBatches = splitPhotoBatches(form.images);
     try {
       const res = await fetch("/api/listings", {
         method: "POST",
@@ -222,7 +225,7 @@ export default function AddPropertyPage() {
           ...(form.listingType === "SALE" ? saleDetailsPayload(form) : {}),
           furnished: form.furnished,
           billsStatus: form.listingType === "RENT" ? form.billsStatus : undefined,
-          images: form.images,
+          images: photoBatches[0],
           visibility: form.visibility,
           unitDetailsPrivate: form.unitDetailsPrivate,
           ownerName: form.privateDetails.ownerName || undefined,
@@ -250,6 +253,19 @@ export default function AddPropertyPage() {
         return;
       }
       setDuplicates(null);
+      const moreBatches = photoBatches.slice(1);
+      if (moreBatches.length > 0) {
+        try {
+          for (const batch of moreBatches) {
+            const up = await fetch(`/api/listings/${data.listing.id}/images`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: batch }) });
+            if (!up.ok) throw new Error(extractErrorMessage((await up.json().catch(() => null))?.error, "Couldn't upload the rest of the photos."));
+          }
+        } catch (err) {
+          setError(`The listing was saved, but not every photo uploaded. ${err instanceof Error ? err.message : ""} Open it and add the rest.`);
+          router.push(`/property/${data.listing.id}?edit=1`);
+          return;
+        }
+      }
       setSuccess(true);
       setTimeout(() => {
         router.push(`/property/${data.listing.id}`);

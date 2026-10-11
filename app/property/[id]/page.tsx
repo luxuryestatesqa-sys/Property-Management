@@ -47,6 +47,7 @@ import PublishToPortalsCard from "@/components/PublishToPortalsCard";
 import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
 import { bathroomsToInputValue, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
 import { isAdminRole } from "@/lib/roles";
+import { splitPhotoBatches } from "@/lib/photoBatches";
 import SaleDetailsFields, { SaleDetailsSummary, saleDetailsPayload, saleDetailsProblem, type SaleDetailsValue } from "@/components/SaleDetailsFields";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
@@ -77,6 +78,8 @@ export default function PropertyDetailPage() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [images, setImages] = useState<string[]>([]);
   const [initialImages, setInitialImages] = useState<string[]>([]);
+  // The photos the listing already has (by address), so an edit only uploads the new ones.
+  const [imageIds, setImageIds] = useState<Record<string, string>>({});
   const [unitDetailsPrivate, setUnitDetailsPrivate] = useState(false);
   const [canViewPrivateDetails, setCanViewPrivateDetails] = useState(false);
   const [privateDetails, setPrivateDetails] = useState<PrivateDetailsValue>(EMPTY_PRIVATE_DETAILS);
@@ -116,6 +119,7 @@ export default function PropertyDetailPage() {
       const urls = data.listing.images.map((img: { url: string }) => img.url);
       setImages(urls);
       setInitialImages(urls);
+      setImageIds(Object.fromEntries(data.listing.images.map((img: { id: string; url: string }) => [img.url, img.id])));
       setCanViewPrivateDetails(Boolean(data.canViewPrivateDetails));
       setUnitDetailsPrivate(Boolean(data.listing.unitDetailsPrivate));
       setPrivateDetails({
@@ -172,6 +176,23 @@ export default function PropertyDetailPage() {
   const canManage = isOwner || isAdmin;
   const isRent = listing.listingType === "RENT";
 
+  // New photos go up in small batches (one request can't carry them all); photos the listing already has
+  // are only referred to by id. Returns the final order for the save.
+  async function uploadNewPhotos(): Promise<{ id: string }[]> {
+    const fresh = images.filter((u) => !imageIds[u]);
+    const dropped = initialImages.filter((u) => imageIds[u] && !images.includes(u)).map((u) => imageIds[u]);
+    const uploaded: Record<string, string> = {};
+    for (const batch of splitPhotoBatches(fresh)) {
+      const res = await fetch(`/api/listings/${id}/images`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: batch, ignoreIds: dropped }) });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(extractErrorMessage(d?.error, "Couldn't upload the photos."));
+      batch.forEach((u, i) => {
+        uploaded[u] = d.images[i].id;
+      });
+    }
+    return images.map((u) => ({ id: imageIds[u] ?? uploaded[u] }));
+  }
+
   async function saveEdit() {
     setError("");
     if (isResidentialCategory(form.propertyCategory as PropertyCategory) && !form.bedrooms) {
@@ -216,7 +237,12 @@ export default function PropertyDetailPage() {
       };
       const imagesChanged = images.length !== initialImages.length || images.some((url, i) => url !== initialImages[i]);
       if (imagesChanged) {
-        body.images = images;
+        try {
+          body.images = await uploadNewPhotos();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Couldn't upload the photos.");
+          return;
+        }
       }
       if (isRent) {
         body.rentPrice = Number(form.rentPrice);

@@ -33,10 +33,15 @@ const BEDROOM_COUNTS = [
 
 // A resized/compressed photo encoded as a data URL, capped well above what
 // the client-side resize should ever produce, as a server-side safety limit.
-const listingImageSchema = z
+export const listingImageSchema = z
   .string()
   .startsWith("data:image/", "Invalid image")
   .max(900_000, "Image is too large");
+// When editing, a photo is either a new image or {id} of one the listing already has (kept as it is).
+const listingImageRefsSchema = z
+  .array(z.union([listingImageSchema, z.object({ id: z.string().min(1) })]))
+  .min(1, "At least one photo is required")
+  .max(MAX_LISTING_IMAGES, `Up to ${MAX_LISTING_IMAGES} photos allowed`);
 const listingImagesSchema = z
   .array(listingImageSchema)
   .min(1, "At least one photo is required")
@@ -188,7 +193,7 @@ export const listingUpdateSchema = z.object({
   availabilityStatus: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]).optional(),
   visibility: z.enum(["PRIVATE", "SHARED"]).optional(),
   unitDetailsPrivate: z.boolean().optional(),
-  images: listingImagesSchema.optional(),
+  images: listingImageRefsSchema.optional(),
   pfLocationId: z.number().int().positive().optional().nullable(),
   ...listingMarketingFields,
   ...privateListingFields,

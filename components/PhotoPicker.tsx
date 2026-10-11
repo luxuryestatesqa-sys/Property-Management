@@ -165,7 +165,9 @@ export default function PhotoPicker({ images, onChange }: PhotoPickerProps) {
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFilesSelected} className="hidden" />
 
       {error && <p className="text-[12px] text-danger mt-2">{error}</p>}
-      {images.length > 1 && <p className="text-[11px] text-muted mt-2">Drag a photo to reorder — the first one is the cover.</p>}
+      <p className="text-[11px] text-muted mt-2">
+        {images.length} of {MAX_LISTING_IMAGES} photos{images.length > 1 ? " · Drag a photo to reorder — the first one is the cover." : ""}
+      </p>
     </div>
   );
 }
