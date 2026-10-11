@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 
 // Models that carry their own organizationId column.
-const DIRECT = new Set(["User", "Listing", "PortalCredential"]);
+const DIRECT = new Set(["User", "Listing", "PortalCredential", "Lead", "LeadStage", "LeadActivity", "AssignmentRule"]);
 // Models that belong to a listing, so they belong to that listing's agency.
 const VIA_LISTING = new Set(["ListingImage", "AuditLog", "PortalListing"]);
 

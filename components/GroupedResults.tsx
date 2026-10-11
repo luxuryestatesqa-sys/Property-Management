@@ -6,6 +6,7 @@ import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatDate, listingCode } from "@/lib/format";
 import PropertyCard from "./PropertyCard";
 import ListingCardDesktop from "./desktop/ListingCardDesktop";
+import DuplicateGroupCardDesktop from "./desktop/DuplicateGroupCardDesktop";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useOrg } from "./OrgProvider";
 import WhatsAppButton from "./WhatsAppButton";
@@ -84,15 +85,14 @@ const DuplicateGroupCard = memo(function DuplicateGroupCard({ group }: { group: 
 export default function GroupedResults({ listings }: { listings: ListingDTO[] }) {
   const groups = groupByDupKey(listings);
   const isDesktop = useIsDesktop();
-  const Card = isDesktop ? ListingCardDesktop : PropertyCard;
 
   return (
-    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6">
+    <div className="stagger flex flex-col gap-3 lg:grid lg:grid-cols-3 lg:gap-6">
       {groups.map((group) =>
         group.length > 1 ? (
-          <DuplicateGroupCard key={group[0].dupKey} group={group} />
+          isDesktop ? <DuplicateGroupCardDesktop key={group[0].dupKey} group={group} /> : <DuplicateGroupCard key={group[0].dupKey} group={group} />
         ) : (
-          <Card key={group[0].id} listing={group[0]} />
+          isDesktop ? <ListingCardDesktop key={group[0].id} listing={group[0]} /> : <PropertyCard key={group[0].id} listing={group[0]} />
         )
       )}
     </div>

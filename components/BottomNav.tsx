@@ -26,6 +26,12 @@ const icons = {
       <path d="M17 14.2c2.8.4 5 2.4 5 5.3" />
     </svg>
   ),
+  leads: (active: boolean) => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
+      <path d="M8 9h8M8 12.5h5" />
+    </svg>
+  ),
   profile: (active: boolean) => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="8" r="4" />
@@ -57,6 +63,7 @@ export default function BottomNav() {
     { href: "/my-listings", label: "My Listings", icon: icons.listings },
   ];
   const rightItems = [
+    { href: "/leads", label: "Leads", icon: icons.leads },
     ...(isAdmin ? [{ href: "/admin/users", label: "Users", icon: icons.users }] : []),
     { href: "/profile", label: "Settings", icon: icons.profile },
   ];

@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getWebhookSecret } from "@/lib/propertyFinder/auth";
+import { ingestPropertyFinderLead } from "@/lib/leads/ingest";
+import { normalizePfLead, PfLeadLike } from "@/lib/leads/pfMapping";
+
+function signatureOk(rawBody: string, signature: string | null, secret: string | null): boolean {
+  if (!secret) return true; // no secret configured: nothing to verify against
+  if (!signature) return false;
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  return expected.length === signature.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
 
 // Property Finder calls this anonymously (no session) whenever a listing's
 // state changes. Writes here are idempotent (we just set state from the
@@ -13,14 +22,37 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-signature");
 
   let event: {
+    id?: string;
     type: string;
+    timestamp?: string;
     entity: { id: string; type: string };
-    payload?: { failureType?: string; reasons?: { en: string; ar: string }[] };
+    payload?: { failureType?: string; reasons?: { en: string; ar: string }[] } & Omit<PfLeadLike, "id">;
   };
   try {
     event = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+
+  // Lead events (lead.created / lead.updated / lead.assigned). The payload names the
+  // Property Finder agent profile the lead went to; the agency that has that profile
+  // linked to one of its users is the one whose webhook secret must match.
+  if (event.entity?.type === "lead") {
+    const profileId = event.payload?.publicProfile?.id;
+    if (!profileId) return NextResponse.json({ ok: true });
+    const agent = await prisma.user.findFirst({ where: { pfPublicProfileId: profileId }, select: { organizationId: true } });
+    if (!agent) return NextResponse.json({ ok: true });
+    const leadOrgId = agent.organizationId;
+    if (!signatureOk(rawBody, signature, await getWebhookSecret(leadOrgId))) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+    const normalized = normalizePfLead({ ...event.payload, id: event.entity.id } as PfLeadLike);
+    if (!normalized.receivedAt && event.timestamp) {
+      const t = new Date(event.timestamp);
+      if (!Number.isNaN(t.getTime())) normalized.receivedAt = t;
+    }
+    await ingestPropertyFinderLead(leadOrgId, normalized, event);
+    return NextResponse.json({ ok: true });
   }
 
   if (event.entity?.type !== "listing") {

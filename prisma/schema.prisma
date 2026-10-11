@@ -38,9 +38,13 @@ model Organization {
   status     OrgStatus @default(ACTIVE)
   createdAt  DateTime  @default(now())
 
-  users       User[]
-  listings    Listing[]
-  credentials PortalCredential[]
+  users           User[]
+  listings        Listing[]
+  credentials     PortalCredential[]
+  leads           Lead[]
+  leadStages      LeadStage[]
+  leadActivities  LeadActivity[]
+  assignmentRules AssignmentRule[]
 }
 
 enum UserStatus {
@@ -121,12 +125,12 @@ model User {
   organization   Organization @relation(fields: [organizationId], references: [id])
   name           String
   email          String       @unique // a person belongs to one agency, so login stays by email alone
-  whatsapp     String // mandatory WhatsApp contact number; agents can change their own, admin can correct any
-  avatarUrl    String? // data URL of a resized/compressed profile photo; agents can change their own
-  passwordHash String
-  role         Role       @default(AGENT)
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime   @default(now())
+  whatsapp       String // mandatory WhatsApp contact number; agents can change their own, admin can correct any
+  avatarUrl      String? // data URL of a resized/compressed profile photo; agents can change their own
+  passwordHash   String
+  role           Role         @default(AGENT)
+  status         UserStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now())
 
   // This agent's Property Finder public profile id (GET /v1/users), picked by
   // an admin from the real PF account list - never free text - so listings
@@ -134,8 +138,10 @@ model User {
   // them. See lib/propertyFinder/client.ts.
   pfPublicProfileId Int?
 
-  listings  Listing[]  @relation("CreatedListings")
-  auditLogs AuditLog[]
+  listings       Listing[]      @relation("CreatedListings")
+  auditLogs      AuditLog[]
+  leads          Lead[]         @relation("AssignedLeads")
+  leadActivities LeadActivity[]
 
   @@index([status])
   @@index([role])
@@ -146,7 +152,7 @@ model Listing {
   id             Int          @id @default(autoincrement())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  listingType ListingType
+  listingType    ListingType
 
   propertyCategory PropertyCategory
   bedrooms         BedroomCount? // null for non-residential categories (Office / Retail / Land)
@@ -155,8 +161,8 @@ model Listing {
 
   // Marketing copy, not required for internal use but required to publish to
   // any external portal (Property Finder needs title.en/description.en).
-  title       String?
-  description String?
+  title         String?
+  description   String?
   // Optional Arabic variants (Property Finder's own listing form has an
   // English/Arabic toggle for both fields - title.ar/description.ar - unlike
   // title/description above, these are never required to publish.
@@ -173,7 +179,7 @@ model Listing {
   // published. This is the location every feed and AI description uses, so
   // they show exactly what Property Finder shows; area/community above are
   // only the fallback for a listing with no Property Finder location yet.
-  pfLocation Json?
+  pfLocation   Json?
 
   // Location hierarchy: area (top-level location) -> community (area/community) -> buildingName -> floor -> apartmentNumber
   area            String
@@ -217,6 +223,7 @@ model Listing {
   auditLogs      AuditLog[]
   images         ListingImage[]
   portalListings PortalListing[]
+  leads          Lead[]
 
   @@index([area])
   @@index([community])
@@ -347,4 +354,152 @@ model PortalCredential {
   updatedAt DateTime @updatedAt
 
   @@unique([organizationId, portal])
+}
+
+// ---------------------------------------------------------------------------
+// Leads
+// ---------------------------------------------------------------------------
+
+enum LeadSource {
+  PROPERTY_FINDER
+  META // Facebook / Instagram lead ads (later)
+  MANUAL
+  IMPORT
+}
+
+enum LeadChannel {
+  WHATSAPP
+  CALL
+  EMAIL
+  OTHER
+}
+
+// OPEN stages are in progress; WON / LOST end a lead's life.
+enum LeadStageKind {
+  OPEN
+  WON
+  LOST
+}
+
+// The pipeline columns for one agency. Seeded with sensible defaults the first
+// time a lead arrives (lib/leads/stages.ts); admins can rename/reorder later.
+model LeadStage {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  position       Int
+  kind           LeadStageKind @default(OPEN)
+  color          String?
+  createdAt      DateTime      @default(now())
+
+  leads Lead[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, position])
+}
+
+// One enquiry from a portal / ad / manual entry. A lead is stored once, keyed by
+// the source's own id (Property Finder's lead id), so webhook retries and the
+// periodic sync can never create duplicates.
+model Lead {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  source     LeadSource
+  externalId String // the source's lead id
+  channel    LeadChannel @default(OTHER)
+  entityType String? // Property Finder: listing | project | developer | agent | company | seller
+
+  name             String
+  phone            String?
+  email            String?
+  whatsappUsername String?
+
+  // What the portal told us. pfStatus is Property Finder's own delivery status
+  // (sent / delivered / read / replied) - separate from our pipeline stage.
+  pfStatus     String?
+  responseLink String?
+  tags         String[] @default([])
+
+  // The property it was about, when we can tell (reference "LE-123" -> our listing).
+  listingId        Int?
+  listing          Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  listingReference String?
+  // Area -> community of that listing (or the seller's own location for seller leads).
+  region           String?
+
+  // Who it belongs to. pfPublicProfileId is the Property Finder agent profile it
+  // was sent to; assignedToId is the matching user in this agency (null = unassigned).
+  pfPublicProfileId Int?
+  assignedToId      String?
+  assignedTo        User?   @relation("AssignedLeads", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  stageId String
+  stage   LeadStage @relation(fields: [stageId], references: [id])
+
+  // Call leads
+  callTalkTime  Int? // seconds
+  callWaitTime  Int? // seconds
+  callRecordUrl String?
+
+  sellerProperty Json?
+  raw            Json?
+
+  receivedAt       DateTime // when it reached the source (Property Finder's createdAt)
+  firstContactedAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  activities LeadActivity[]
+
+  @@unique([organizationId, source, externalId])
+  @@index([organizationId, assignedToId])
+  @@index([organizationId, stageId])
+  @@index([organizationId, receivedAt])
+  @@index([phone])
+}
+
+// The timeline: everything that happens to a lead, newest last when shown.
+model LeadActivity {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId         String? // who did it; null for system events
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type           String // RECEIVED | ASSIGNED | STAGE_CHANGED | PF_STATUS | NOTE | ...
+  text           String?
+  data           Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([organizationId])
+}
+
+// How new leads are routed. Rules run in order (position) and the first match wins;
+// they are checked BEFORE the default routing (the Property Finder agent profile, then
+// the listing owner), so a manager can steer a region or share the load.
+enum AssignmentRuleKind {
+  REGION // lead's region contains matchText (e.g. "Lusail")
+  ROUND_ROBIN // every lead, shared across agentIds
+}
+
+model AssignmentRule {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  kind           AssignmentRuleKind
+  matchText      String?
+  // The agents the rule hands leads to. With more than one, the least busy
+  // (fewest open leads) gets the next one.
+  agentIds       String[]
+  position       Int
+  active         Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+
+  @@index([organizationId, position])
 }

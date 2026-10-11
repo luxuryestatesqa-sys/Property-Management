@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
 import AppShell from "@/components/AppShell";
 import { OrgProvider } from "@/components/OrgProvider";
-import { getOrgBranding, lighten, isValidBrandColor } from "@/lib/org";
+import { getOrgBranding } from "@/lib/org";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,16 +43,10 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const session = await auth();
   const org = session?.user?.organizationId ? await getOrgBranding(session.user.organizationId) : null;
-  // The agency's brand colour replaces the default gold across the whole app.
-  const brand = org?.brandColor && isValidBrandColor(org.brandColor) ? org.brandColor : null;
-  const brandStyle = brand
-    ? ({ "--primary": brand, "--primary-light": lighten(brand, 0.25), "--accent": lighten(brand, 0.35), "--accent-light": lighten(brand, 0.88) } as React.CSSProperties)
-    : undefined;
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      style={brandStyle}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {/* Part of the initial HTML (not a client component) so it paints the

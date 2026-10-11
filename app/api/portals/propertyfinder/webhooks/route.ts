@@ -6,6 +6,9 @@ import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 
 // The events this app needs to keep PortalListing.state current.
 const REQUIRED_EVENTS = ["listing.published", "listing.unpublished", "listing.publishFailed", "listing.action", "listing.systemUpdated"];
+// Lead events need the API key to have the `leads:read` scope, so they are subscribed
+// separately and a missing scope never breaks the listing webhooks above.
+const LEAD_EVENTS = ["lead.created", "lead.updated", "lead.assigned"];
 
 // One-time setup, not something that runs per listing: registers this app's
 // webhook callback URL with Property Finder for each event type it needs.
@@ -23,6 +26,7 @@ export async function GET() {
       callbackUrl,
       missing: REQUIRED_EVENTS.filter((e) => !subscribed.has(e)),
       subscribed: REQUIRED_EVENTS.filter((e) => subscribed.has(e)),
+      leadsSubscribed: LEAD_EVENTS.every((e) => subscribed.has(e)),
     });
   } catch (err) {
     return NextResponse.json({ error: describePropertyFinderError(err) }, { status: 502 });
@@ -56,7 +60,16 @@ export async function POST() {
       await subscribeWebhook(orgId!, eventId, callbackUrl, credential.webhookSecret!);
     }
 
-    return NextResponse.json({ created: toCreate });
+    // Lead events: best effort. A key without leads:read is refused by Property Finder.
+    let leadsError: string | null = null;
+    const leadsToCreate = LEAD_EVENTS.filter((e) => !subscribed.has(e));
+    try {
+      for (const eventId of leadsToCreate) await subscribeWebhook(orgId!, eventId, callbackUrl, credential.webhookSecret!);
+    } catch (err) {
+      leadsError = describePropertyFinderError(err);
+    }
+
+    return NextResponse.json({ created: toCreate, leadsCreated: leadsError ? [] : leadsToCreate, leadsError });
   } catch (err) {
     return NextResponse.json({ error: describePropertyFinderError(err) }, { status: 502 });
   }

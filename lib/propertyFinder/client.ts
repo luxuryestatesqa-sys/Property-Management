@@ -304,3 +304,17 @@ export async function subscribeWebhook(orgId: string, eventId: string, callbackU
     body: JSON.stringify({ eventId, callbackUrl, secret }),
   });
 }
+
+export interface PFLeadsPage {
+  data: import("@/lib/leads/pfMapping").PfLeadLike[];
+  pagination: { page: number; perPage: number; total: number; totalPages: number; nextPage: number | null };
+}
+
+// GET /v1/leads (needs the API key's `leads:read` scope). Property Finder caps a
+// page at 50 and only looks back 3 months, so anything older must already be
+// stored in our own database.
+export async function listLeads(orgId: string, params: { page?: number; perPage?: number; createdAtFrom?: Date }): Promise<PFLeadsPage> {
+  const q = new URLSearchParams({ page: String(params.page ?? 1), perPage: String(params.perPage ?? 50), orderBy: "createdAt", orderDirection: "desc" });
+  if (params.createdAtFrom) q.set("createdAtFrom", params.createdAtFrom.toISOString());
+  return pfFetch<PFLeadsPage>(orgId, `/v1/leads?${q.toString()}`);
+}

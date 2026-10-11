@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { ReactNode } from "react";
 import BottomNav from "./BottomNav";
 import Sidebar from "./Sidebar";
+import CommandPalette from "./CommandPalette";
 import { ConfirmProvider } from "./ConfirmDialog";
 import InstallPrompt from "./InstallPrompt";
 
@@ -22,13 +23,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {/* Phones/tablets: a centred single column with the bottom tab bar.
             Desktop (lg+): a left sidebar and a wide, padded content area. */}
         <div
-          className={`flex-1 mx-auto w-full max-w-md ${
+          className={`min-w-0 flex-1 mx-auto w-full max-w-md ${
             hideNav ? "lg:max-w-none" : "pb-20 lg:pb-10 lg:max-w-[1440px] lg:px-6 xl:px-8"
           }`}
         >
           {children}
         </div>
         {!hideNav && <Sidebar />}
+        {!hideNav && <CommandPalette />}
         {!hideNav && <BottomNav />}
         {/* Only for a visitor who isn't signed in yet - once an agent is
             logged in (or opens a shared listing link, which isn't an agent

@@ -5,9 +5,11 @@ interface AvatarProps {
   avatarUrl?: string | null;
   size?: number;
   className?: string;
+  // fixed neutral colour instead of the agency's brand colour (used in the sidebar)
+  neutral?: boolean;
 }
 
-export default function Avatar({ name, avatarUrl, size = 40, className = "" }: AvatarProps) {
+export default function Avatar({ name, avatarUrl, size = 40, className = "", neutral }: AvatarProps) {
   const initial = name?.charAt(0).toUpperCase() || "?";
 
   if (avatarUrl) {

@@ -8,19 +8,15 @@ import { extractErrorMessage } from "@/lib/errors";
 interface Org {
   name: string;
   logoUrl: string | null;
-  brandColor: string | null;
 }
 
-const DEFAULT_COLOR = "#8a6d1f";
-
-// Admin-only: the agency's name, logo and brand colour, shown across the app
+// Admin-only: the agency's name and logo, shown across the app
 // (sidebar, share pages, WhatsApp texts, feeds).
 export default function AgencyBrandingCard() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState("");
-  const [color, setColor] = useState(DEFAULT_COLOR);
   const [logo, setLogo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -31,7 +27,6 @@ export default function AgencyBrandingCard() {
       .then((d: { org: Org | null }) => {
         if (d.org) {
           setName(d.org.name);
-          setColor(d.org.brandColor ?? DEFAULT_COLOR);
           setLogo(d.org.logoUrl);
         }
       })
@@ -63,7 +58,7 @@ export default function AgencyBrandingCard() {
       const res = await fetch("/api/org", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, brandColor: color, logoUrl: logo }),
+        body: JSON.stringify({ name, logoUrl: logo }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -81,7 +76,7 @@ export default function AgencyBrandingCard() {
     <form onSubmit={save} className="rounded-2xl border border-border bg-surface p-4 flex flex-col gap-4 lg:p-5">
       <div>
         <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide">Agency Branding</h3>
-        <p className="text-[12.5px] text-muted mt-1">Your name, logo and colour appear in the sidebar, shared listing pages and messages.</p>
+        <p className="text-[12.5px] text-muted mt-1">Your name and logo appear in the sidebar, shared listing pages and messages.</p>
       </div>
 
       <div>
@@ -122,18 +117,6 @@ export default function AgencyBrandingCard() {
           </div>
         </div>
 
-        <div>
-          <label className="text-sm font-medium block mb-1.5">Brand colour</label>
-          <div className="flex items-center gap-3">
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Brand colour" className="w-12 h-12 rounded-lg border border-border bg-surface p-1 cursor-pointer" />
-            <input
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              maxLength={7}
-              className="w-28 rounded-xl border border-border bg-surface px-3 py-2.5 text-[15px] font-mono outline-none focus:border-primary"
-            />
-          </div>
-        </div>
       </div>
 
       {message && (

@@ -130,6 +130,8 @@ export const listingCreateSchema = z
     confirmDuplicate: z.boolean().optional(),
     visibility: z.enum(["PRIVATE", "SHARED"]).optional(),
     unitDetailsPrivate: z.boolean().optional(),
+    // Property Finder's own location id, picked from its search (optional - a custom location has none)
+    pfLocationId: z.number().int().positive().optional().nullable(),
     ...listingMarketingFields,
     ...privateListingFields,
   })

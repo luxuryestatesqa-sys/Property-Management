@@ -6,6 +6,7 @@ import { redactPrivateFieldsList, unitDetailsSearchableWhere, visibleListingsWhe
 import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
 import { isAdminRole } from "@/lib/roles";
+import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
 
 const DEFAULT_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 100;
@@ -187,9 +188,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Keep Property Finder's readable name/tree/coordinates for the chosen location, so feeds show
+  // exactly what PF shows. A failed lookup just leaves it empty (retried on the next save/publish).
+  const pfSnapshot = data.pfLocationId ? await fetchPfLocationSnapshot(orgId!, data.pfLocationId) : null;
+
   const listing = await db!.listing.create({
     data: {
       organizationId: orgId!,
+      pfLocationId: data.pfLocationId ?? null,
+      ...(pfSnapshot ? { pfLocation: pfSnapshot as unknown as Prisma.InputJsonValue } : {}),
       listingType: data.listingType,
       propertyCategory: data.propertyCategory,
       bedrooms: data.bedrooms ?? null,

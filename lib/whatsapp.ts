@@ -56,3 +56,11 @@ export function buildListingShareMessage(listing: ListingDTO, url: string, agenc
     url,
   ].join("\n");
 }
+
+// First message an agent sends to a new lead from the Leads page.
+export function buildWhatsAppLeadMessage(leadName: string, agencyName: string, propertyName: string | null): string {
+  const first = leadName.trim().split(/\s+/)[0] || "there";
+  return propertyName
+    ? `Hi ${first}, thank you for your interest in ${propertyName} with ${agencyName}. How can I help you?`
+    : `Hi ${first}, thank you for contacting ${agencyName}. How can I help you?`;
+}

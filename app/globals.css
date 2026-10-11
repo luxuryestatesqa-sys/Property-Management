@@ -21,6 +21,11 @@
   --sale-text: #b4650a;
 }
 
+/* wide laptops/desktops: switch result grids to three columns */
+@theme {
+  --breakpoint-wide: 85rem;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -228,4 +233,148 @@ div.bg-danger-bg {
 div.bg-success-bg {
   --notice-edge: var(--success);
   background: #dff3e6;
+}
+
+/* ------------------------------------------------------------------ */
+/* Desktop design system (lg+). Phones keep the original look.        */
+/* Soft cool-grey canvas, hairline borders, layered shadows, tighter   */
+/* typography, rich primary buttons and gentle entrance motion.        */
+/* ------------------------------------------------------------------ */
+@media (min-width: 1024px) {
+  :root {
+    /* Platform theme (desktop): deep ink + one signature indigo on a faintly tinted canvas.
+       To re-theme, change these colours (and the gradient stops in .bg-primary / the primary-button rule below). */
+    --primary: #4f46e5;
+    --primary-light: #6366f1;
+    --accent: #818cf8;
+    --accent-light: #eef0ff;
+    --background: #f7f7fb;
+    --surface-muted: #f0f1f7;
+    --border: #e6e8f1;
+    --foreground: #0b0f1e;
+    --brand-gradient: linear-gradient(135deg, #7062ff 0%, #4f46e5 52%, #4338ca 100%);
+    --shadow-card: 0 0 0 1px rgba(30, 27, 75, 0.045), 0 1px 2px rgba(30, 27, 75, 0.04), 0 2px 8px -2px rgba(30, 27, 75, 0.07);
+    --shadow-card-hover: 0 0 0 1px rgba(79, 70, 229, 0.18), 0 4px 10px -2px rgba(30, 27, 75, 0.1), 0 22px 40px -14px rgba(79, 70, 229, 0.28);
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv11";
+    letter-spacing: -0.006em;
+    /* a whisper of the agency colour at the top of the canvas */
+    background-image: radial-gradient(900px 380px at 82% -140px, color-mix(in srgb, #7062ff 13%, transparent), transparent 70%), radial-gradient(700px 320px at 8% -160px, color-mix(in srgb, #4f46e5 7%, transparent), transparent 70%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+
+  /* prices and counts line up and read as figures */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Every solid brand-coloured control gets depth: a faint top-light gradient,
+     an inner highlight and a soft contact shadow. */
+  [style*="background: var(--primary)"],
+  .bg-primary {
+    background-image: var(--brand-gradient);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(30, 27, 75, 0.25), 0 8px 18px -8px rgba(79, 70, 229, 0.65);
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+  select,
+  textarea {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  /* inputs show the soft glow ring instead of the hard keyboard outline */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+  }
+  input[data-bare]:focus {
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  input:not([data-bare]):focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+
+
+  /* Existing white cards across every desktop page get the same hairline-free,
+     layered-shadow treatment as the new components. */
+  .rounded-2xl.border.bg-surface,
+  .rounded-xl.border.bg-surface:not(input):not(button):not(a) {
+    border-color: transparent;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Surfaces used by the desktop pages. */
+  .surface-card {
+    background: var(--surface);
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Staggered entrance for page content and card grids. */
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .page-in {
+    animation: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  .stagger > * {
+    animation: fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 45ms; }
+  .stagger > *:nth-child(3) { animation-delay: 90ms; }
+  .stagger > *:nth-child(4) { animation-delay: 135ms; }
+  .stagger > *:nth-child(5) { animation-delay: 180ms; }
+  .stagger > *:nth-child(6) { animation-delay: 225ms; }
+  .stagger > *:nth-child(n + 7) { animation-delay: 270ms; }
+
+  /* Loading skeletons shimmer instead of pulsing. */
+  @keyframes shimmer {
+    from {
+      background-position: -400px 0;
+    }
+    to {
+      background-position: 400px 0;
+    }
+  }
+  .animate-pulse {
+    animation: none !important;
+  }
+  .animate-pulse .bg-surface-muted,
+  .animate-pulse.bg-surface {
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    background-size: 400px 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 1.4s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-in,
+  .stagger > *,
+  .animate-pulse .bg-surface-muted {
+    animation: none !important;
+  }
 }

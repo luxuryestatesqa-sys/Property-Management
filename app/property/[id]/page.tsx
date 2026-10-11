@@ -36,7 +36,8 @@ import PhotoPicker from "@/components/PhotoPicker";
 import PhotoGallery from "@/components/PhotoGallery";
 import PhotoGalleryDesktop from "@/components/desktop/PhotoGalleryDesktop";
 import { TypePill, AvailabilityPill, PrivatePill } from "@/components/desktop/Badges";
-import { IconPin, IconBed, IconBath, IconRuler, IconBuilding, IconEdit } from "@/components/desktop/icons";
+import { IconPin, IconBed, IconBath, IconRuler, IconBuilding, IconEdit, IconChevronLeft, IconCheck, IconLink, IconLock } from "@/components/desktop/icons";
+import RowMenu from "@/components/desktop/RowMenu";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useOrg } from "@/components/OrgProvider";
 import { AMENITY_LABELS } from "@/lib/propertyFinder/mapping";
@@ -667,90 +668,180 @@ export default function PropertyDetailPage() {
     </>
   );
 
-  const desktopSummary = (
-    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-      <div className="p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <TypePill type={listing.listingType} />
-          <AvailabilityPill status={listing.availabilityStatus} />
-          {listing.visibility === "PRIVATE" && <PrivatePill />}
-          {listing.unitDetailsPrivate && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold leading-none text-muted">Unit hidden</span>
+  const price = isRent ? listing.rentPrice : listing.salePrice;
+  const unitLine = unitSummary(listing, false);
+
+  const desktopHeader = (
+    <div className="pb-5 pt-8">
+      <div className="mb-4 flex items-center gap-2 text-[13px] text-muted">
+        <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-1 font-medium transition-colors hover:text-slate-900">
+          <IconChevronLeft size={15} />
+          Back
+        </button>
+        <span className="text-slate-300">/</span>
+        <Link href="/" className="transition-colors hover:text-slate-900">
+          Properties
+        </Link>
+        <span className="text-slate-300">/</span>
+        <span className="font-medium text-slate-700">{listingCode(listing.id)}</span>
+      </div>
+
+      <div className="flex items-start justify-between gap-8">
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <TypePill type={listing.listingType} />
+            <AvailabilityPill status={listing.availabilityStatus} />
+            {listing.visibility === "PRIVATE" && <PrivatePill />}
+            {listing.unitDetailsPrivate && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold leading-none text-muted">
+                <IconLock size={11} /> Unit hidden
+              </span>
+            )}
+            {listing.status === "INACTIVE" && <span className="rounded-full bg-danger-bg px-2.5 py-1 text-[11px] font-semibold leading-none text-danger">Inactive</span>}
+          </div>
+          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">
+            {listing.buildingName}
+            {unitLine && <span className="font-normal text-muted"> · {unitLine}</span>}
+          </h1>
+          <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-muted">
+            <IconPin size={16} className="shrink-0" />
+            {listing.area} → {listing.community}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2.5 pt-1">
+          {session?.user?.id && (
+            <>
+              <button
+                type="button"
+                onClick={copyListingLink}
+                aria-label="Copy listing link"
+                title="Copy share link"
+                className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-600 shadow-[var(--shadow-card)] transition-colors hover:text-slate-900"
+              >
+                {linkCopied ? <IconCheck size={17} className="text-emerald-600" /> : <IconLink size={17} />}
+              </button>
+              <WhatsAppButton
+                message={buildListingShareMessage(listing, buildListingShareUrl(listing.id, session.user.id), org.name)}
+                ariaLabel="Share this listing on WhatsApp"
+                size={44}
+                className="!rounded-xl shadow-[var(--shadow-card)]"
+              />
+            </>
+          )}
+          {canManage && (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="inline-flex h-11 items-center gap-2 rounded-xl px-5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ background: "var(--primary)" }}
+              >
+                <IconEdit size={15} />
+                Edit listing
+              </button>
+              <div className="rounded-xl bg-white shadow-[var(--shadow-card)]">
+                <RowMenu
+                  disabled={saving}
+                  items={[
+                    { label: "Publish to portals", onClick: () => router.push(`/property/${listing.id}/portals`) },
+                    { label: listing.status === "ACTIVE" ? "Deactivate listing" : "Reactivate listing", onClick: toggleStatus, danger: listing.status === "ACTIVE", separator: true },
+                  ]}
+                />
+              </div>
+            </>
           )}
         </div>
-        <div className="mt-4 text-[36px] font-bold leading-none tracking-tight">
-          {isRent ? formatQAR(listing.rentPrice) : formatQAR(listing.salePrice)}
-          {isRent && <span className="ml-1.5 text-[16px] font-medium text-muted">/ month</span>}
-        </div>
-        {!isRent && listing.rentalValue && <div className="mt-2 text-[13.5px] text-muted">Rental value {formatQAR(listing.rentalValue)} / month</div>}
-        <div className="mt-5 flex items-start gap-2 text-[14px] text-muted">
-          <IconPin size={16} className="mt-0.5 shrink-0" />
-          <span>
-            {listing.area} → {listing.community}
-          </span>
-        </div>
-        <div className="mt-1 text-[18px] font-semibold">
-          {listing.buildingName}
-          {unitSummary(listing, false) && <span className="font-normal text-muted"> · {unitSummary(listing, false)}</span>}
-        </div>
       </div>
-      <dl className="grid grid-cols-3 divide-x divide-border border-t border-border">
-        {[
-          { icon: <IconBuilding size={16} />, label: "Type", value: PROPERTY_CATEGORY_LABELS[listing.propertyCategory] },
-          { icon: <IconBed size={16} />, label: "Bedrooms", value: listing.bedrooms ? BEDROOM_SHORT_LABELS[listing.bedrooms] : "—" },
-          { icon: <IconRuler size={16} />, label: "Size", value: listing.sizeSqm ? formatSqm(listing.sizeSqm) : "—" },
-        ].map((x) => (
-          <div key={x.label} className="px-4 py-4">
-            <dt className="flex items-center gap-1.5 text-[12px] text-muted">
-              {x.icon}
-              {x.label}
-            </dt>
-            <dd className="mt-1 text-[14px] font-semibold">{x.value}</dd>
-          </div>
-        ))}
-      </dl>
-      {listing.propertyCategory !== "LAND" && (
-        <dl className="grid grid-cols-3 divide-x divide-border border-t border-border">
-          {[
-            { icon: <IconBath size={16} />, label: "Bathrooms", value: listing.bathrooms && listing.bathrooms !== "none" ? listing.bathrooms : "—" },
-            { icon: null, label: "Furnishing", value: listing.furnished === "FURNISHED" ? "Furnished" : "Unfurnished" },
-            { icon: null, label: "Bills", value: isRent && listing.billsStatus ? (listing.billsStatus === "INCLUDED" ? "Included" : "Excluded") : "—" },
-          ].map((x) => (
-            <div key={x.label} className="px-4 py-4">
-              <dt className="flex items-center gap-1.5 text-[12px] text-muted">
-                {x.icon}
-                {x.label}
-              </dt>
-              <dd className="mt-1 text-[14px] font-semibold">{x.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
     </div>
   );
 
-  const desktopDescription =
-    listing.title || listing.description || listing.amenities.length > 0 ? (
-      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        {listing.title && <h2 className="text-[20px] font-bold leading-snug tracking-tight">{listing.title}</h2>}
-        {listing.description && <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-foreground/85">{listing.description}</p>}
-        {listing.amenities.length > 0 && (
-          <div className="mt-5">
-            <div className="mb-2.5 text-[13px] font-semibold text-muted">Amenities</div>
-            <div className="flex flex-wrap gap-2">
-              {listing.amenities.map((a) => (
-                <span key={a} className="rounded-full bg-surface-muted px-3 py-1.5 text-[12.5px] font-medium">
-                  {AMENITY_LABELS[a] ?? a}
-                </span>
-              ))}
+  const factTiles = [
+    { icon: <IconBuilding size={18} />, label: "Property type", value: PROPERTY_CATEGORY_LABELS[listing.propertyCategory] },
+    ...(listing.propertyCategory !== "LAND" ? [{ icon: <IconBed size={18} />, label: "Bedrooms", value: listing.bedrooms ? BEDROOM_SHORT_LABELS[listing.bedrooms] : "—" }] : []),
+    ...(listing.propertyCategory !== "LAND" ? [{ icon: <IconBath size={18} />, label: "Bathrooms", value: listing.bathrooms && listing.bathrooms !== "none" ? listing.bathrooms : "—" }] : []),
+    { icon: <IconRuler size={18} />, label: "Size", value: listing.sizeSqm ? formatSqm(listing.sizeSqm) : "—" },
+    ...(listing.propertyCategory !== "LAND" ? [{ icon: <IconCheck size={18} />, label: "Furnishing", value: listing.furnished === "FURNISHED" ? "Furnished" : "Unfurnished" }] : []),
+    ...(isRent && listing.billsStatus ? [{ icon: <IconCheck size={18} />, label: "Bills", value: listing.billsStatus === "INCLUDED" ? "Included" : "Excluded" }] : []),
+  ];
+
+  const desktopFacts = (
+    <section className="surface-card p-6">
+      <h2 className="mb-4 text-[17px] font-semibold tracking-[-0.01em]">Overview</h2>
+      <div className="grid grid-cols-2 gap-3 wide:grid-cols-3">
+        {factTiles.map((f) => (
+          <div key={f.label} className="flex items-center gap-3.5 rounded-xl bg-slate-50 px-4 py-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm">{f.icon}</span>
+            <div className="min-w-0">
+              <div className="text-[12px] text-muted">{f.label}</div>
+              <div className="truncate text-[14.5px] font-semibold">{f.value}</div>
             </div>
           </div>
-        )}
+        ))}
+      </div>
+    </section>
+  );
+
+  const desktopDescription =
+    listing.title || listing.description ? (
+      <section className="surface-card p-6">
+        <h2 className="mb-3 text-[17px] font-semibold tracking-[-0.01em]">About this property</h2>
+        {listing.title && <p className="text-[18px] font-semibold leading-snug tracking-[-0.015em]">{listing.title}</p>}
+        {listing.description && <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-foreground/80">{listing.description}</p>}
       </section>
     ) : null;
 
+  const desktopAmenities =
+    listing.amenities.length > 0 ? (
+      <section className="surface-card p-6">
+        <h2 className="mb-4 text-[17px] font-semibold tracking-[-0.01em]">Amenities</h2>
+        <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+          {listing.amenities.map((a) => (
+            <div key={a} className="flex items-center gap-2.5 text-[14px]">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-light text-primary">
+                <IconCheck size={12} strokeWidth={3} />
+              </span>
+              {AMENITY_LABELS[a] ?? a}
+            </div>
+          ))}
+        </div>
+      </section>
+    ) : null;
+
+  const desktopPriceCard = (
+    <div className="surface-card overflow-hidden">
+      <div className="p-5">
+        <div className="text-[12.5px] font-medium text-muted">{isRent ? "Rent" : "Price"}</div>
+        <div className="tnum mt-1 text-[30px] font-semibold leading-none tracking-[-0.025em]">
+          {formatQAR(price)}
+          {isRent && <span className="ml-1.5 text-[16px] font-medium text-muted">/ month</span>}
+        </div>
+        {!isRent && listing.rentalValue && <div className="mt-2 text-[13.5px] text-muted">Rental value {formatQAR(listing.rentalValue)} / month</div>}
+      </div>
+
+      <div className="border-t border-slate-100 p-5">
+        <div className="flex items-center gap-3">
+          <Avatar name={listing.createdBy.name} avatarUrl={listing.createdBy.avatarUrl} size={40} />
+          <div className="min-w-0">
+            <div className="truncate text-[15px] font-semibold">{listing.createdBy.name}</div>
+            <div className="text-[12.5px] text-muted">{isOwner ? "You listed this property" : "Listing agent"}</div>
+          </div>
+        </div>
+        {!isOwner && (
+          <div className="mt-4 flex gap-2.5">
+            <WhatsAppButton number={listing.createdBy.whatsapp} message={buildListingInquiryMessage(listing, org.name)} label="WhatsApp" variant="full" className="flex-1 justify-center py-3 text-[14px]" />
+            <CallButton number={listing.createdBy.whatsapp} label="Call" variant="full" className="flex-1 justify-center py-3 text-[14px]" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="px-4 pb-10 lg:px-0">
+      {isDesktop && !editing ? (
+        desktopHeader
+      ) : (
       <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 lg:pt-8 lg:pb-5">
         <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 rounded-full bg-surface-muted flex items-center justify-center shrink-0 active:opacity-70">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--foreground)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
@@ -812,23 +903,27 @@ export default function PropertyDetailPage() {
           </div>
         )}
       </div>
+      )}
 
       {!editing ? (
         isDesktop ? (
-          <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-8 xl:grid-cols-[minmax(0,1fr)_430px]">
-            <div className="flex flex-col gap-6">
-              <PhotoGalleryDesktop images={listing.images} />
+          <div className="flex flex-col gap-6">
+            <PhotoGalleryDesktop images={listing.images} height={400} />
+            <div className="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-6">
+            <div className="flex min-w-0 flex-col gap-5">
+              {desktopFacts}
               {desktopDescription}
+              {desktopAmenities}
               {view_info}
               {view_priv}
               {view_dups}
               {view_hist}
             </div>
-            <div className="flex flex-col gap-5">
-              {desktopSummary}
-              {view_contact}
+            <div className="sticky top-6 flex flex-col gap-5">
+              {desktopPriceCard}
               {view_avail}
               {view_portals}
+            </div>
             </div>
           </div>
         ) : (

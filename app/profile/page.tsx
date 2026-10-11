@@ -14,11 +14,28 @@ import OpenAiSettingsCard from "@/components/OpenAiSettingsCard";
 import QatarLivingApiCard from "@/components/QatarLivingApiCard";
 import AgencyBrandingCard from "@/components/AgencyBrandingCard";
 import { isAdminRole, ROLE_LABELS } from "@/lib/roles";
+import { useIsDesktop } from "@/lib/useIsDesktop";
+import { IconUsers, IconBuilding, IconGlobe, IconLock, IconSettings } from "@/components/desktop/icons";
 
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024; // 10MB raw upload cap, before client-side resize
 
+type SettingsTab = "profile" | "security" | "agency" | "integrations" | "ai";
+
+const inputCls = "w-full rounded-xl border border-border bg-surface px-4 py-3 text-[15px] outline-none";
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[200px_minmax(0,1fr)] items-center gap-4 px-7 py-4">
+      <div className="text-[13.5px] text-muted">{label}</div>
+      <div className="min-w-0 text-[14.5px] font-medium">{children}</div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { data: session } = useSession();
+  const isDesktop = useIsDesktop();
+  const [tab, setTab] = useState<SettingsTab>("profile");
   const [profile, setProfile] = useState<UserDTO | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [changingPassword, setChangingPassword] = useState(false);
@@ -149,6 +166,218 @@ export default function ProfilePage() {
     } finally {
       setWhatsappSaving(false);
     }
+  }
+
+  if (isDesktop) {
+    const nav: { key: SettingsTab; label: string; hint: string; icon: React.ReactNode; admin?: boolean }[] = [
+      { key: "profile", label: "Profile", hint: "Your details and photo", icon: <IconUsers size={18} /> },
+      { key: "security", label: "Security", hint: "Password and sign out", icon: <IconLock size={18} /> },
+      { key: "agency", label: "Agency", hint: "Name and logo", icon: <IconBuilding size={18} />, admin: true },
+      { key: "integrations", label: "Portals & feeds", hint: "Property Finder and more", icon: <IconGlobe size={18} />, admin: true },
+      { key: "ai", label: "AI writing", hint: "OpenAI key", icon: <IconSettings size={18} />, admin: true },
+    ];
+    const visible = nav.filter((n) => !n.admin || isAdmin);
+    const roleLabel = ROLE_LABELS[user.role];
+
+    return (
+      <div className="page-in">
+        <div className="pb-7 pt-10">
+          <h1 className="text-[28px] font-semibold leading-none tracking-[-0.025em]">Settings</h1>
+          <p className="mt-2.5 text-[15px] text-muted">Manage your account{isAdmin ? ", your agency and its integrations" : ""}.</p>
+        </div>
+
+        <div className="grid grid-cols-[250px_minmax(0,1fr)] items-start gap-8">
+          <nav className="surface-card sticky top-6 flex flex-col gap-1 p-2.5" aria-label="Settings sections">
+            {visible.map((n, i) => {
+              const active = tab === n.key;
+              return (
+                <div key={n.key}>
+                  {n.admin && !visible[i - 1]?.admin && <div className="mx-3 mb-1.5 mt-3 border-t border-slate-100 pt-3 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-slate-400">Agency settings</div>}
+                  <button
+                    type="button"
+                    onClick={() => setTab(n.key)}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${active ? "bg-accent-light text-primary" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    <span className={active ? "text-primary" : "text-slate-400"}>{n.icon}</span>
+                    <span className="min-w-0">
+                      <span className={`block text-[14px] ${active ? "font-semibold" : "font-medium"}`}>{n.label}</span>
+                      <span className="block truncate text-[11.5px] font-normal text-slate-400">{n.hint}</span>
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
+          </nav>
+
+          <div key={tab} className="page-in flex min-w-0 flex-col gap-6">
+            {tab === "profile" && (
+              <>
+                <div className="surface-card overflow-hidden">
+                  <div className="h-28" style={{ background: "var(--brand-gradient)" }} />
+                  <div className="px-7 pb-7">
+                    <div className="-mt-12 flex items-end justify-between">
+                      <div className="relative">
+                        <div className="rounded-full ring-4 ring-white">
+                          <Avatar name={user.name ?? "?"} avatarUrl={profile?.avatarUrl} size={96} className="text-3xl" />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={avatarUploading}
+                          aria-label="Change profile photo"
+                          className="absolute -bottom-0.5 -right-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow transition-colors hover:bg-slate-700 disabled:opacity-60"
+                        >
+                          {avatarUploading ? (
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          ) : (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                              <circle cx="12" cy="13" r="4" />
+                            </svg>
+                          )}
+                        </button>
+                        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarSelected} className="hidden" />
+                      </div>
+                      <span className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-success-bg px-3 py-1.5 text-[12px] font-semibold" style={{ color: "var(--success)" }}>
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} />
+                        {user.status === "ACTIVE" ? "Active account" : "Inactive"}
+                      </span>
+                    </div>
+                    {avatarError && <div className="mt-3 rounded-xl bg-danger-bg px-3 py-2 text-[12.5px] text-danger">{avatarError}</div>}
+                    <div className="mt-4 flex items-center gap-3">
+                      <h2 className="text-[22px] font-semibold tracking-[-0.02em]">{user.name}</h2>
+                      <span className="rounded-full bg-accent-light px-2.5 py-1 text-[11.5px] font-semibold text-primary">{roleLabel}</span>
+                    </div>
+                    <p className="mt-0.5 text-[14px] text-muted">{user.email}</p>
+                  </div>
+                </div>
+
+                <div className="surface-card divide-y divide-slate-100 py-1">
+                  <div className="px-7 pb-3 pt-5">
+                    <h3 className="text-[16px] font-semibold tracking-[-0.01em]">Personal information</h3>
+                    <p className="mt-0.5 text-[13px] text-muted">Agents see your WhatsApp number to contact you about listings.</p>
+                  </div>
+                  <Row label="Full name">{user.name}</Row>
+                  <Row label="Email">{user.email}</Row>
+                  <Row label="WhatsApp number">
+                    {!editingWhatsapp ? (
+                      <div className="flex items-center gap-3">
+                        <span>{profile?.whatsapp ?? "—"}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWhatsappInput(profile?.whatsapp ?? "");
+                            setWhatsappError("");
+                            setEditingWhatsapp(true);
+                          }}
+                          className="rounded-lg px-2.5 py-1 text-[12.5px] font-semibold text-primary hover:bg-accent-light"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={submitWhatsappChange} className="flex flex-col gap-2.5">
+                        <input type="tel" required value={whatsappInput} onChange={(e) => setWhatsappInput(e.target.value)} placeholder="+974 5000 0000" className={inputCls} />
+                        {whatsappError && <div className="rounded-xl bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger">{whatsappError}</div>}
+                        <div className="flex gap-2">
+                          <button type="submit" disabled={whatsappSaving} className="rounded-xl px-5 py-2 text-[13.5px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--primary)" }}>
+                            {whatsappSaving ? "Saving..." : "Save"}
+                          </button>
+                          <button type="button" onClick={() => setEditingWhatsapp(false)} className="rounded-xl bg-surface-muted px-5 py-2 text-[13.5px] font-semibold hover:bg-border">
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </Row>
+                  <Row label="Account status">
+                    <span style={{ color: user.status === "ACTIVE" ? "var(--success)" : "var(--danger)" }}>{user.status === "ACTIVE" ? "Active" : "Inactive"}</span>
+                  </Row>
+                </div>
+              </>
+            )}
+
+            {tab === "security" && (
+              <>
+                <div className="surface-card p-7">
+                  <h3 className="text-[16px] font-semibold tracking-[-0.01em]">Password</h3>
+                  <p className="mt-0.5 text-[13px] text-muted">Use at least 6 characters. You will stay signed in on this device.</p>
+                  {!changingPassword ? (
+                    <button type="button" onClick={() => setChangingPassword(true)} className="mt-5 rounded-xl bg-surface-muted px-5 py-2.5 text-[14px] font-semibold hover:bg-border">
+                      Change password
+                    </button>
+                  ) : (
+                    <form onSubmit={submitPasswordChange} className="mt-5 flex max-w-md flex-col gap-4">
+                      <div>
+                        <label className="mb-1.5 block text-[13.5px] font-semibold text-slate-700">Current password</label>
+                        <input type="password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[13.5px] font-semibold text-slate-700">New password</label>
+                        <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[13.5px] font-semibold text-slate-700">Confirm new password</label>
+                        <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputCls} />
+                      </div>
+                      {error && <div className="rounded-xl bg-danger-bg px-4 py-3 text-[13.5px] text-danger">{error}</div>}
+                      {success && <div className="rounded-xl bg-success-bg px-4 py-3 text-[13.5px]" style={{ color: "var(--success)" }}>Password updated.</div>}
+                      <div className="flex gap-2.5">
+                        <button type="submit" disabled={submitting} className="rounded-xl px-6 py-2.5 text-[14px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--primary)" }}>
+                          {submitting ? "Saving..." : "Update password"}
+                        </button>
+                        <button type="button" onClick={() => setChangingPassword(false)} className="rounded-xl bg-surface-muted px-5 py-2.5 text-[14px] font-semibold hover:bg-border">
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+
+                <div className="surface-card flex items-center justify-between gap-6 p-7">
+                  <div>
+                    <h3 className="text-[16px] font-semibold tracking-[-0.01em]">Sign out</h3>
+                    <p className="mt-0.5 text-[13px] text-muted">End your session on this device.</p>
+                  </div>
+                  <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className="rounded-xl bg-danger-bg px-5 py-2.5 text-[14px] font-semibold text-danger hover:opacity-80">
+                    Log out
+                  </button>
+                </div>
+              </>
+            )}
+
+            {tab === "agency" && isAdmin && (
+              <>
+                <TabIntro title="Agency" text="How your agency appears in the sidebar, on shared listing pages and in WhatsApp messages." />
+                <AgencyBrandingCard />
+              </>
+            )}
+
+            {tab === "integrations" && isAdmin && (
+              <>
+                <TabIntro title="Portals & feeds" text="Connect Property Finder and give other portals and your website a feed of your listings." />
+                <div className="flex flex-col gap-5">
+                  <PropertyFinderSettingsCard />
+                  <PortalFeedCard portal="WEBSITE" slug="website.json" label="Website" />
+                  <PortalFeedCard portal="PROPERTY_FINDER" slug="pf.xml" label="Property Finder" />
+                  <QatarLivingApiCard />
+                  <PortalFeedCard portal="PROPERTY_ORYX" slug="oryx.xml" label="Property Oryx" />
+                  <MasterFeedCard />
+                </div>
+              </>
+            )}
+
+            {tab === "ai" && isAdmin && (
+              <>
+                <TabIntro title="AI writing" text="Powers the Write with AI buttons for listing titles and descriptions. Your key is stored securely on the server." />
+                <OpenAiSettingsCard />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -358,6 +587,15 @@ export default function ProfilePage() {
         </form>
       )}
       </div>
+    </div>
+  );
+}
+
+function TabIntro({ title, text }: { title: string; text: string }) {
+  return (
+    <div>
+      <h2 className="text-[20px] font-semibold tracking-[-0.02em]">{title}</h2>
+      <p className="mt-1 max-w-2xl text-[14px] text-muted">{text}</p>
     </div>
   );
 }

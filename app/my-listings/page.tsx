@@ -5,6 +5,8 @@ import { ListingDTO } from "@/lib/types";
 import MyListingCard from "@/components/MyListingCard";
 import MyListingCardSkeleton from "@/components/MyListingCardSkeleton";
 import MyListingsTable from "@/components/desktop/MyListingsTable";
+import MyListingsGrid from "@/components/desktop/MyListingsGrid";
+import { IconGrid, IconList } from "@/components/desktop/icons";
 import { IconPlus } from "@/components/desktop/icons";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import Link from "next/link";
@@ -13,6 +15,18 @@ type Tab = "ACTIVE" | "INACTIVE";
 
 export default function MyListingsPage() {
   const [tab, setTab] = useState<Tab>("ACTIVE");
+  const [view, setViewState] = useState<"grid" | "table">("grid");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("mylistings.view") === "table") setViewState("table");
+    } catch {}
+  }, []);
+  function setView(v: "grid" | "table") {
+    setViewState(v);
+    try {
+      localStorage.setItem("mylistings.view", v);
+    } catch {}
+  }
   const [listingsByTab, setListingsByTab] = useState<Record<Tab, ListingDTO[]>>({ ACTIVE: [], INACTIVE: [] });
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({ ACTIVE: 0, INACTIVE: 0 });
@@ -57,7 +71,7 @@ export default function MyListingsPage() {
       <div>
         <div className="flex items-end justify-between gap-6 pb-7 pt-10">
           <div>
-            <h1 className="text-[32px] font-bold leading-none tracking-tight">My Listings</h1>
+            <h1 className="text-[28px] font-semibold leading-none tracking-[-0.025em]">My Listings</h1>
             <p className="mt-2.5 text-[15px] text-muted">Manage the properties you have added: availability, publishing and visibility.</p>
           </div>
           <Link
@@ -80,7 +94,8 @@ export default function MyListingsPage() {
           ))}
         </div>
 
-        <div className="mt-8 flex gap-7 border-b border-border">
+        <div className="mt-8 flex items-end justify-between border-b border-border">
+          <div className="flex gap-7">
           {(["ACTIVE", "INACTIVE"] as Tab[]).map((t) => (
             <button
               key={t}
@@ -91,6 +106,14 @@ export default function MyListingsPage() {
               <span className={`ml-2 rounded-full px-2 py-0.5 text-[11.5px] ${tab === t ? "bg-accent-light" : "bg-surface-muted"}`}>{counts[t]}</span>
             </button>
           ))}
+          </div>
+          <div className="mb-2 flex rounded-lg border border-border bg-surface p-0.5 shadow-sm" role="group" aria-label="Layout">
+            {([["grid", IconGrid, "Grid view"], ["table", IconList, "Table view"]] as const).map(([v, Icon, label]) => (
+              <button key={v} type="button" onClick={() => setView(v)} aria-label={label} aria-pressed={view === v} className={`flex h-9 w-10 items-center justify-center rounded-md transition-colors ${view === v ? "bg-slate-100 text-slate-900" : "text-muted hover:text-foreground"}`}>
+                <Icon size={16} />
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="py-6">
@@ -106,7 +129,7 @@ export default function MyListingsPage() {
               <p className="mt-1 text-[14px] text-muted">{tab === "ACTIVE" ? "Properties you add will appear here." : "Deactivated listings will appear here."}</p>
             </div>
           ) : (
-            <MyListingsTable listings={listings} onChange={load} />
+            view === "grid" ? <MyListingsGrid listings={listings} onChange={load} /> : <MyListingsTable listings={listings} onChange={load} />
           )}
         </div>
       </div>

@@ -15,6 +15,8 @@ export interface TableColumn {
   className?: string;
   // hide this column below the xl breakpoint (narrow laptops) so the row actions stay visible
   xlOnly?: boolean;
+  // hide below the `wide` breakpoint (1360px) so the table fits on laptops
+  wideOnly?: boolean;
   render: (l: ListingDTO) => ReactNode;
 }
 
@@ -82,7 +84,7 @@ const dateOf = (l: ListingDTO) => (
 
 // Default columns for the company-wide Properties list.
 export const PROPERTY_COLUMNS: TableColumn[] = [
-  { key: "property", header: "Property", className: "w-[32%]", render: (l) => <PropertyCell listing={l} /> },
+  { key: "property", header: "Property", className: "w-[30%]", render: (l) => <PropertyCell listing={l} /> },
   {
     key: "specs",
     header: "Details",
@@ -99,7 +101,7 @@ export const PROPERTY_COLUMNS: TableColumn[] = [
   { key: "price", header: "Price", render: priceOf },
   { key: "status", header: "Status", render: (l) => <AvailabilityPill status={l.availabilityStatus} /> },
   { key: "agent", header: "Agent", render: agentOf },
-  { key: "added", header: "Added", render: dateOf },
+  { key: "added", header: "Added", wideOnly: true, render: dateOf },
 ];
 
 export default function ListingTable({
@@ -117,12 +119,12 @@ export default function ListingTable({
 }) {
   const router = useRouter();
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(20,24,31,.04)]">
-      <table className="w-full min-w-[860px] border-collapse text-left">
+    <div className="surface-card overflow-x-auto">
+      <table className="w-full min-w-[760px] border-collapse text-left">
         <thead>
           <tr className="border-b border-border bg-surface-muted/60 text-[11.5px] font-semibold uppercase tracking-wider text-muted">
             {columns.map((c) => (
-              <th key={c.key} className={`whitespace-nowrap px-4 py-3 ${c.className ?? ""} ${c.xlOnly ? "hidden xl:table-cell" : ""}`}>
+              <th key={c.key} className={`whitespace-nowrap px-3 py-3 ${c.className ?? ""} ${c.xlOnly ? "hidden xl:table-cell" : ""} ${c.wideOnly ? "hidden wide:table-cell" : ""}`}>
                 {c.header}
               </th>
             ))}
@@ -139,7 +141,7 @@ export default function ListingTable({
                 className="group cursor-pointer border-b border-border last:border-b-0 transition-colors hover:bg-accent-light/40"
               >
                 {columns.map((c, i) => (
-                  <td key={c.key} className={`px-4 py-3 align-middle ${c.className ?? ""} ${c.xlOnly ? "hidden xl:table-cell" : ""}`}>
+                  <td key={c.key} className={`px-3 py-3 align-middle ${c.className ?? ""} ${c.xlOnly ? "hidden xl:table-cell" : ""} ${c.wideOnly ? "hidden wide:table-cell" : ""}`}>
                     {c.render(l)}
                     {i === 0 && dups > 1 && (
                       <span className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold" style={{ background: "var(--accent-light)", color: "var(--primary)" }}>

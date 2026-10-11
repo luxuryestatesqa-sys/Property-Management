@@ -13,7 +13,7 @@ function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-function ListingCardDesktop({ listing }: { listing: ListingDTO }) {
+function ListingCardDesktop({ listing, compact = false }: { listing: ListingDTO; compact?: boolean }) {
   const isRent = listing.listingType === "RENT";
   const cover = listing.images[0];
   const unitText = unitSummary(listing);
@@ -22,9 +22,9 @@ function ListingCardDesktop({ listing }: { listing: ListingDTO }) {
   return (
     <Link
       href={`/property/${listing.id}`}
-      className="card-cv-compact group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(20,24,31,.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/70 hover:shadow-[0_14px_32px_-12px_rgba(20,24,31,.25)]"
+      className="card-cv-compact group flex flex-col overflow-hidden rounded-[18px] bg-surface shadow-[var(--shadow-card)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]"
     >
-      <div className="relative aspect-[16/11] overflow-hidden bg-surface-muted">
+      <div className={`relative overflow-hidden bg-surface-muted ${compact ? "aspect-[4/3]" : "aspect-[16/10] wide:aspect-[16/11]"}`}>
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -40,6 +40,7 @@ function ListingCardDesktop({ listing }: { listing: ListingDTO }) {
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/[0.06]" />
 
         <div className="absolute left-3 top-3 flex items-center gap-1.5">
           <TypePill type={listing.listingType} solid />
@@ -52,7 +53,7 @@ function ListingCardDesktop({ listing }: { listing: ListingDTO }) {
         </div>
 
         <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2 text-white">
-          <div className="text-[22px] font-bold leading-none tracking-tight drop-shadow">
+          <div className={`tnum font-semibold leading-none tracking-tight drop-shadow ${compact ? "text-[18px]" : "text-[22px]"}`}>
             {formatQAR(price)}
             {isRent && <span className="ml-1 text-[13px] font-medium opacity-90">/mo</span>}
           </div>
@@ -60,9 +61,9 @@ function ListingCardDesktop({ listing }: { listing: ListingDTO }) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className={`flex flex-1 flex-col ${compact ? "gap-2 p-3" : "gap-3 p-4"}`}>
         <div className="min-w-0">
-          <h3 className="truncate text-[16px] font-semibold leading-snug text-foreground">
+          <h3 className={`truncate font-semibold leading-snug text-foreground ${compact ? "text-[14.5px]" : "text-[16px]"}`}>
             {listing.buildingName}
             {unitText && <span className="font-normal text-muted"> · {unitText}</span>}
           </h3>
@@ -74,7 +75,7 @@ function ListingCardDesktop({ listing }: { listing: ListingDTO }) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-foreground/80">
+        <div className={`flex flex-wrap items-center gap-y-1 text-foreground/80 ${compact ? "gap-x-3 text-[12px]" : "gap-x-4 text-[13px]"}`}>
           <span className="inline-flex items-center gap-1.5">
             <IconBuilding size={15} className="text-muted" />
             {PROPERTY_CATEGORY_LABELS[listing.propertyCategory]}

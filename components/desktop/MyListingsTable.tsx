@@ -10,7 +10,7 @@ import { TypePill, PrivatePill } from "./Badges";
 import { IconDots, IconEdit, IconGlobe } from "./icons";
 
 // Availability control: looks like a status pill, behaves like a select.
-function AvailabilitySelect({ listing, onChange }: { listing: ListingDTO; onChange: () => void }) {
+export function AvailabilitySelect({ listing, onChange }: { listing: ListingDTO; onChange: () => void }) {
   const { busy, changeAvailability } = useListingActions(listing, onChange);
   const c = AVAILABILITY_COLORS[listing.availabilityStatus];
   return (
@@ -36,7 +36,7 @@ function AvailabilitySelect({ listing, onChange }: { listing: ListingDTO; onChan
   );
 }
 
-function PortalsCell({ listing }: { listing: ListingDTO }) {
+export function PortalsCell({ listing }: { listing: ListingDTO }) {
   const pf = listing.propertyFinderState;
   const live = pf?.state === "live";
   const website = listing.channelStates?.WEBSITE?.enabled;
@@ -62,7 +62,7 @@ function PortalsCell({ listing }: { listing: ListingDTO }) {
   );
 }
 
-function RowActions({ listing, onChange }: { listing: ListingDTO; onChange: () => void }) {
+export function RowActions({ listing, onChange }: { listing: ListingDTO; onChange: () => void }) {
   const { busy, deleteError, toggleStatus, deleteListing } = useListingActions(listing, onChange);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 

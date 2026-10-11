@@ -1,6 +1,8 @@
 "use client";
 
-import AddPropertyAside, { AddAsideData } from "@/components/desktop/AddPropertyAside";
+import { AddAsideData } from "@/components/desktop/AddPropertyAside";
+import AddPropertySimple from "@/components/desktop/AddPropertySimple";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SegmentedControl from "@/components/SegmentedControl";
@@ -50,6 +52,8 @@ const initialState = {
   unitDetailsPrivate: false,
   area: "",
   community: "",
+  pfLocationId: null as number | null,
+  pfLocationLabel: "",
   buildingName: "",
   floor: "",
   apartmentNumber: "",
@@ -110,6 +114,7 @@ function Card({ children, wide }: { children: React.ReactNode; wide?: boolean })
 
 export default function AddPropertyPage() {
   const router = useRouter();
+  const isDesktop = useIsDesktop();
   const [form, setForm] = useState(initialState);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -204,6 +209,7 @@ export default function AddPropertyPage() {
           amenities: form.propertyCategory !== "LAND" && form.amenities.length > 0 ? form.amenities : undefined,
           area: form.area,
           community: form.community,
+          pfLocationId: form.pfLocationId ?? undefined,
           buildingName: form.buildingName,
           floor: unitLabelFor(form.propertyCategory as PropertyCategory).showFloor ? form.floor : NO_FLOOR_VALUE,
           apartmentNumber: form.apartmentNumber,
@@ -277,17 +283,38 @@ export default function AddPropertyPage() {
     area: form.area,
     community: form.community,
     buildingName: form.buildingName,
+    recommended: [{ label: "Title & description", done: Boolean(form.title.trim() && form.description.trim()), target: "sec-text" }],
     checklist: [
-      { label: "Property type", done: Boolean(form.propertyCategory) },
-      ...(form.propertyCategory && isResidentialCategory(form.propertyCategory) ? [{ label: "Bedrooms", done: Boolean(form.bedrooms) }] : []),
-      { label: "Size", done: Boolean(form.sizeSqm) },
-      { label: form.listingType === "RENT" ? "Rent price" : "Sale price", done: Boolean(form.listingType === "RENT" ? form.rentPrice : form.salePrice) },
-      { label: "At least one photo", done: form.images.length > 0 },
-      { label: "Location & area", done: Boolean(form.area.trim() && form.community.trim()) },
-      { label: "Building name", done: Boolean(form.buildingName.trim()) },
-      { label: unitInfo ? `${unitInfo.showFloor ? "Floor & " : ""}${unitInfo.unitLabel}` : "Unit details", done: Boolean(unitInfo && form.apartmentNumber.trim() && (!unitInfo.showFloor || form.floor.trim())) },
+      { label: "Property type", done: Boolean(form.propertyCategory), target: "sec-type" },
+      ...(form.propertyCategory && isResidentialCategory(form.propertyCategory) ? [{ label: "Bedrooms", done: Boolean(form.bedrooms), target: "sec-type" }] : []),
+      { label: "Size", done: Boolean(form.sizeSqm), target: "sec-type" },
+      { label: form.listingType === "RENT" ? "Rent price" : "Sale price", done: Boolean(form.listingType === "RENT" ? form.rentPrice : form.salePrice), target: "sec-price" },
+      { label: "At least one photo", done: form.images.length > 0, target: "sec-photos" },
+      { label: "Location & area", done: Boolean(form.area.trim() && form.community.trim()), target: "sec-where" },
+      { label: "Building name", done: Boolean(form.buildingName.trim()), target: "sec-where" },
+      { label: unitInfo ? `${unitInfo.showFloor ? "Floor & " : ""}${unitInfo.unitLabel}` : "Unit details", done: Boolean(unitInfo && form.apartmentNumber.trim() && (!unitInfo.showFloor || form.floor.trim())), target: "sec-where" },
     ],
   };
+
+  if (isDesktop) {
+    return (
+      <>
+        <AddPropertySimple
+          form={form}
+          setForm={setForm}
+          update={update}
+          aside={asideData}
+          error={error}
+          submitting={submitting}
+          aiBusy={aiBusy}
+          aiError={aiError}
+          generateWithAi={generateWithAi}
+          onSubmit={() => submit(false)}
+        />
+        {duplicates && <DuplicateWarningModal existing={duplicates} submitting={submitting} onCancel={() => setDuplicates(null)} onContinue={() => submit(true)} />}
+      </>
+    );
+  }
 
   return (
     <div className="px-4 pb-8 lg:px-0">
@@ -599,14 +626,6 @@ export default function AddPropertyPage() {
         </button>
       </div>
 
-      <div className="hidden lg:block">
-        <AddPropertyAside
-          data={asideData}
-          submitting={submitting}
-          error={error}
-          onSubmit={() => submit(false)}
-        />
-      </div>
       </div>
 
       {duplicates && (
