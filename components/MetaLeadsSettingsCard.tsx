@@ -296,7 +296,7 @@ export default function MetaLeadsSettingsCard() {
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-[13.5px] leading-relaxed text-amber-900">
           <div className="font-medium">Facebook isn&apos;t set up on the server yet</div>
           <p className="mt-1">
-            The person who runs this software needs to create a Meta app and add its details to the server ({status.missing.join(", ")}). Open &ldquo;Setup details&rdquo; below for the addresses Meta asks for.
+            The person who runs this software needs to create a Meta app and add its details to the server ({(status.missing ?? []).join(", ")}). Open &ldquo;Setup details&rdquo; below for the addresses Meta asks for.
           </p>
         </div>
       )}

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { isAdminRole } from "@/lib/roles";
 
 const icons = {
   properties: (active: boolean) => (
@@ -16,14 +16,6 @@ const icons = {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="4" y="4" width="16" height="16" rx="2" />
       <path d="M8 9h8M8 13h8M8 17h4" />
-    </svg>
-  ),
-  users: (active: boolean) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3" />
-      <path d="M2 20c0-3.3 3-5.5 7-5.5s7 2.2 7 5.5" />
-      <circle cx="17" cy="8" r="2.5" />
-      <path d="M17 14.2c2.8.4 5 2.4 5 5.3" />
     </svg>
   ),
   leads: (active: boolean) => (
@@ -40,11 +32,14 @@ const icons = {
   ),
 };
 
-function NavItem({ href, label, icon, active }: { href: string; label: string; icon: (active: boolean) => React.ReactNode; active: boolean }) {
+function NavItem({ href, label, icon, active, badge }: { href: string; label: string; icon: (active: boolean) => React.ReactNode; active: boolean; badge?: number }) {
   return (
-    <Link href={href} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 active:bg-surface-muted">
-      {icon(active)}
-      <span className="text-[11px] font-medium" style={{ color: active ? "var(--primary)" : "#8a93a3" }}>
+    <Link href={href} aria-current={active ? "page" : undefined} className="relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 active:opacity-70">
+      <span className={`relative flex h-8 w-14 items-center justify-center rounded-full transition-colors ${active ? "bg-accent-light" : ""}`}>
+        {icon(active)}
+        {badge ? <span className="tnum absolute -right-0.5 -top-0.5 min-w-[17px] rounded-full bg-rose-500 px-1 py-0.5 text-center text-[10px] font-semibold leading-none text-white ring-2 ring-white">{badge > 99 ? "99+" : badge}</span> : null}
+      </span>
+      <span className={`text-[11px] ${active ? "font-medium" : ""}`} style={{ color: active ? "var(--primary)" : "#8a93a3" }}>
         {label}
       </span>
     </Link>
@@ -54,7 +49,23 @@ function NavItem({ href, label, icon, active }: { href: string; label: string; i
 export default function BottomNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const isAdmin = isAdminRole(session?.user?.role);
+  // New leads and overdue follow-ups, for the badge on the Leads tab.
+  const [leadBadge, setLeadBadge] = useState(0);
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    const load = () =>
+      fetch("/api/leads/summary")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => !cancelled && d && setLeadBadge((d.newCount ?? 0) + (d.overdueCount ?? 0)))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [session?.user, pathname]);
 
   const addActive = pathname.startsWith("/add");
 
@@ -63,8 +74,7 @@ export default function BottomNav() {
     { href: "/my-listings", label: "My Listings", icon: icons.listings },
   ];
   const rightItems = [
-    { href: "/leads", label: "Leads", icon: icons.leads },
-    ...(isAdmin ? [{ href: "/admin/users", label: "Users", icon: icons.users }] : []),
+    { href: "/leads", label: "Leads", icon: icons.leads, badge: leadBadge },
     { href: "/profile", label: "Settings", icon: icons.profile },
   ];
 

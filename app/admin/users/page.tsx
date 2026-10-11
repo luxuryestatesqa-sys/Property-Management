@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { UserDTO } from "@/lib/types";
-import { formatDate } from "@/lib/format";
 import AddUserModal from "@/components/AddUserModal";
 import ResetPasswordModal from "@/components/ResetPasswordModal";
 import LinkPropertyFinderModal from "@/components/LinkPropertyFinderModal";
@@ -318,85 +317,55 @@ export default function AdminUsersPage() {
             const isSelf = u.id === session?.user?.id;
             return (
               <div key={u.id} className="rounded-2xl bg-surface border border-border p-4 lg:p-5 lg:hover:shadow-md lg:transition-shadow">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex items-start gap-2.5">
-                    <Avatar name={u.name} avatarUrl={u.avatarUrl} size={38} />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-[15px] truncate">{u.name}</h3>
-                        <span
-                          className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: "var(--accent-light)", color: "var(--primary)" }}
-                        >
-                          {ROLE_LABELS[u.role]}
-                        </span>
-                      </div>
-                      <p className="text-[13px] text-muted truncate mt-0.5">{u.email}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <p className="text-[13px] text-muted truncate">{u.whatsapp}</p>
-                        {!isSelf && <WhatsAppButton number={u.whatsapp} name={u.name} size={28} />}
-                      </div>
+                <div className="flex items-start gap-3">
+                  <Avatar name={u.name} avatarUrl={u.avatarUrl} size={44} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <h3 className="truncate text-[15.5px] font-medium">{u.name}</h3>
+                      <span className="rounded-full px-2 py-0.5 text-[10.5px] font-medium" style={{ background: "var(--accent-light)", color: "var(--primary)" }}>
+                        {ROLE_LABELS[u.role]}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-[13px] text-muted">{u.email}</p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <p className="truncate text-[13px] text-muted">{u.whatsapp}</p>
+                      {!isSelf && <WhatsAppButton number={u.whatsapp} name={u.name} size={26} />}
                     </div>
                   </div>
-                  <span
-                    className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg ${
-                      u.status === "ACTIVE" ? "bg-success-bg" : "bg-danger-bg text-danger"
-                    }`}
-                    style={u.status === "ACTIVE" ? { color: "var(--success)" } : undefined}
-                  >
+                  {/* One tidy menu instead of a stack of buttons. The owner account can only be changed by the owner. */}
+                  {!isSelf && !(u.role === "OWNER" && session?.user?.role !== "OWNER") && (
+                    <RowMenu
+                      disabled={busyId === u.id}
+                      items={[
+                        { label: "Reset password", onClick: () => setResetUser(u) },
+                        { label: u.pfPublicProfileId ? "Property Finder account…" : "Link Property Finder…", onClick: () => setPfLinkUser(u) },
+                        { label: "Make Agent", onClick: () => changeRole(u, "AGENT"), hidden: u.role === "AGENT" || u.role === "OWNER", separator: true },
+                        { label: "Make Manager", onClick: () => changeRole(u, "MANAGER"), hidden: u.role === "MANAGER" || u.role === "OWNER" },
+                        { label: "Make Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" },
+                        { label: u.status === "ACTIVE" ? "Deactivate user" : "Activate user", onClick: () => toggleStatus(u), separator: true },
+                        { label: "Remove user", onClick: () => removeUser(u), danger: true },
+                      ]}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-[12px]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium" style={u.status === "ACTIVE" ? { background: "var(--success-bg)", color: "var(--success)" } : { background: "var(--surface-muted)", color: "var(--muted)" }}>
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: u.status === "ACTIVE" ? "var(--success)" : "var(--muted)" }} />
                     {u.status === "ACTIVE" ? "Active" : "Inactive"}
                   </span>
-                </div>
-
-                <div className="flex items-center justify-between mt-3 text-[12px] text-muted">
-                  <span>{u.activeListingsCount ?? 0} active listing{(u.activeListingsCount ?? 0) === 1 ? "" : "s"}</span>
-                  <span>Joined {formatDate(u.createdAt)}</span>
-                </div>
-
-                <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
-                  {/* Linking your own Property Finder account is safe and not
-                      self-locking (unlike reset/deactivate/remove below), so
-                      it's available on the admin's own row too - otherwise
-                      an admin who also publishes listings could never link
-                      themselves. */}
                   <button
+                    type="button"
                     onClick={() => setPfLinkUser(u)}
                     disabled={busyId === u.id}
-                    className="w-full rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60 bg-surface-muted text-foreground"
+                    className="rounded-full px-2.5 py-1 font-medium active:opacity-70 disabled:opacity-60"
+                    style={u.pfPublicProfileId ? { background: "var(--success-bg)", color: "var(--success)" } : { background: "var(--surface-muted)", color: "var(--foreground)" }}
                   >
-                    {u.pfPublicProfileId ? "Property Finder: Linked" : "Link Property Finder Account"}
+                    {u.pfPublicProfileId ? "Property Finder linked" : "Link Property Finder"}
                   </button>
-                  {!isSelf && (
-                    <>
-                      <button
-                        onClick={() => setResetUser(u)}
-                        disabled={busyId === u.id}
-                        className="w-full rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60"
-                        style={{ background: "var(--accent-light)", color: "var(--primary)" }}
-                      >
-                        Reset Password
-                      </button>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => toggleStatus(u)}
-                          disabled={busyId === u.id}
-                          className={`flex-1 rounded-lg py-2.5 text-[13px] font-semibold active:opacity-70 disabled:opacity-60 ${
-                            u.status === "ACTIVE" ? "bg-danger-bg text-danger" : "bg-success-bg"
-                          }`}
-                          style={u.status === "INACTIVE" ? { color: "var(--success)" } : undefined}
-                        >
-                          {u.status === "ACTIVE" ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          onClick={() => removeUser(u)}
-                          disabled={busyId === u.id}
-                          className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold bg-surface-muted text-foreground active:opacity-70 disabled:opacity-60"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <span className="ml-auto text-muted">
+                    {u.activeListingsCount ?? 0} listing{(u.activeListingsCount ?? 0) === 1 ? "" : "s"}
+                  </span>
                 </div>
               </div>
             );

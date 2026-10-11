@@ -240,9 +240,9 @@ div.bg-success-bg {
 /* Soft cool-grey canvas, hairline borders, layered shadows, tighter   */
 /* typography, rich primary buttons and gentle entrance motion.        */
 /* ------------------------------------------------------------------ */
-@media (min-width: 1024px) {
+@media all {
   :root {
-    /* Platform theme (desktop): deep ink + one signature indigo on a faintly tinted canvas.
+    /* Platform theme (desktop and phone): deep ink + one signature indigo on a faintly tinted canvas.
        To re-theme, change these colours (and the gradient stops in .bg-primary / the primary-button rule below). */
     --primary: #4f46e5;
     --primary-light: #6366f1;

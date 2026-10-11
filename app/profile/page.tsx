@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { UserDTO } from "@/lib/types";
 import { resizeImageFile } from "@/lib/image";
@@ -220,44 +221,51 @@ export default function ProfilePage() {
           <div key={tab} className="page-in flex min-w-0 flex-col gap-6">
             {tab === "profile" && (
               <>
-                <div className="surface-card overflow-hidden">
-                  <div className="h-28" style={{ background: "var(--brand-gradient)" }} />
-                  <div className="px-7 pb-7">
-                    <div className="-mt-12 flex items-end justify-between">
-                      <div className="relative">
-                        <div className="rounded-full ring-4 ring-white">
-                          <Avatar name={user.name ?? "?"} avatarUrl={profile?.avatarUrl} size={96} className="text-3xl" />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={avatarUploading}
-                          aria-label="Change profile photo"
-                          className="absolute -bottom-0.5 -right-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow transition-colors hover:bg-slate-700 disabled:opacity-60"
-                        >
-                          {avatarUploading ? (
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          ) : (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                              <circle cx="12" cy="13" r="4" />
-                            </svg>
-                          )}
-                        </button>
-                        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarSelected} className="hidden" />
+                <div className="surface-card relative overflow-hidden">
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-indigo-50/80 to-transparent" />
+                  <div className="relative flex flex-wrap items-center gap-x-6 gap-y-4 px-7 py-7">
+                    <div className="relative shrink-0">
+                      <div className="rounded-full ring-4 ring-white shadow-sm">
+                        <Avatar name={user.name ?? "?"} avatarUrl={profile?.avatarUrl} size={88} className="text-3xl" />
                       </div>
-                      <span className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-success-bg px-3 py-1.5 text-[12px] font-semibold" style={{ color: "var(--success)" }}>
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} />
-                        {user.status === "ACTIVE" ? "Active account" : "Inactive"}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={avatarUploading}
+                        aria-label="Change profile photo"
+                        title="Change photo"
+                        className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow transition-colors hover:bg-slate-700 disabled:opacity-60"
+                      >
+                        {avatarUploading ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                            <circle cx="12" cy="13" r="4" />
+                          </svg>
+                        )}
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarSelected} className="hidden" />
                     </div>
-                    {avatarError && <div className="mt-3 rounded-xl bg-danger-bg px-3 py-2 text-[12.5px] text-danger">{avatarError}</div>}
-                    <div className="mt-4 flex items-center gap-3">
-                      <h2 className="text-[22px] font-semibold tracking-[-0.02em]">{user.name}</h2>
-                      <span className="rounded-full bg-accent-light px-2.5 py-1 text-[11.5px] font-semibold text-primary">{roleLabel}</span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <h2 className="truncate text-[24px] font-medium tracking-[-0.02em]">{user.name}</h2>
+                        <span className="rounded-full bg-accent-light px-2.5 py-1 text-[11.5px] font-medium text-primary">{roleLabel}</span>
+                      </div>
+                      <p className="mt-1 truncate text-[14.5px] text-muted">{user.email}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-bg px-3 py-1 text-[12px] font-medium" style={{ color: "var(--success)" }}>
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} />
+                          {user.status === "ACTIVE" ? "Active account" : "Inactive"}
+                        </span>
+                        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={avatarUploading} className="rounded-full px-3 py-1 text-[12px] font-medium text-slate-600 ring-1 ring-border transition-colors hover:bg-surface-muted disabled:opacity-60">
+                          Change photo
+                        </button>
+                      </div>
                     </div>
-                    <p className="mt-0.5 text-[14px] text-muted">{user.email}</p>
                   </div>
+                  {avatarError && <div className="relative mx-7 mb-6 -mt-2 rounded-xl bg-danger-bg px-3 py-2 text-[12.5px] text-danger">{avatarError}</div>}
                 </div>
 
                 <div className="surface-card divide-y divide-slate-100 py-1">
@@ -514,6 +522,19 @@ export default function ProfilePage() {
 
       {isAdmin && (
         <div className="mt-5 lg:mt-0 lg:col-start-2 lg:row-start-1 lg:row-span-3">
+          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Team</h2>
+          <Link href="/admin/users" className="mb-5 flex items-center gap-3.5 rounded-2xl border border-border bg-surface p-4 active:opacity-70">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-light text-primary">
+              <IconUsers size={22} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-medium">Users</span>
+              <span className="block text-[12.5px] text-muted">Add agents, reset passwords, link Property Finder</span>
+            </span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a93a3" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </Link>
           <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Agency</h2>
           <div className="flex flex-col gap-3 mb-5">
             <AgencyBrandingCard />

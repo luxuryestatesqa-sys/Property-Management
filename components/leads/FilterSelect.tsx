@@ -37,20 +37,20 @@ export default function FilterSelect({ value, onChange, options, allValue, label
   }
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative w-full shrink-0 sm:w-auto">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={label}
-        className={`flex h-[46px] items-center gap-2.5 rounded-xl border bg-surface pl-3.5 pr-3 text-[13.5px] font-medium shadow-sm outline-none transition-colors focus-visible:ring-4 focus-visible:ring-accent-light ${active ? "border-primary text-primary" : "border-border text-slate-700 hover:bg-slate-50"}`}
-        style={{ minWidth: width }}
+        className={`flex h-[46px] w-full items-center gap-2 rounded-xl border bg-surface pl-3 pr-2.5 text-[13px] font-medium shadow-sm outline-none transition-colors focus-visible:ring-4 focus-visible:ring-accent-light sm:w-auto sm:gap-2.5 sm:pl-3.5 sm:pr-3 sm:text-[13.5px] sm:min-w-[var(--fs-min)] ${active ? "border-primary text-primary" : "border-border text-slate-700 hover:bg-slate-50"}`}
+        style={{ ["--fs-min" as string]: `${width}px` }}
       >
         {current?.avatar && <Avatar name={current.avatar.name} avatarUrl={current.avatar.avatarUrl} size={22} />}
         {current?.color && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: current.color }} />}
         <span className="min-w-0 flex-1 truncate text-left">{current?.label}</span>
-        {current?.count !== undefined && <span className="tnum rounded-full bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold leading-none text-muted">{current.count}</span>}
+        {current?.count !== undefined && <span className="tnum hidden rounded-full sm:inline bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold leading-none text-muted">{current.count}</span>}
         <svg className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="m6 9 6 6 6-6" />
         </svg>
@@ -59,7 +59,7 @@ export default function FilterSelect({ value, onChange, options, allValue, label
       {open && (
         <>
           <button type="button" aria-label="Close" className="fixed inset-0 z-30 cursor-default" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-[52px] z-40 overflow-hidden rounded-2xl border border-border bg-surface shadow-xl" style={{ minWidth: Math.max(width, 260) }}>
+          <div className="absolute left-0 top-[52px] z-40 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-surface shadow-xl sm:w-auto" style={{ minWidth: Math.max(width, 260) }}>
             {searchable && (
               <div className="border-b border-border p-2">
                 <div className="flex items-center gap-2 rounded-lg bg-surface-muted px-3">

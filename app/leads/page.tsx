@@ -341,6 +341,7 @@ export default function LeadsPage() {
             </button>
           )}
         </div>
+        <div className={`grid w-full gap-2 sm:contents ${canManage ? "grid-cols-3" : "grid-cols-2"}`}>
         {canManage && data && (
           <FilterSelect
             label="Filter by agent"
@@ -367,6 +368,7 @@ export default function LeadsPage() {
           />
         )}
         <FilterSelect label="Filter by channel" value={channel} onChange={(v) => setChannel(v as (typeof CHANNELS)[number][0])} allValue="ALL" width={170} options={CHANNELS.map(([v, l]) => ({ value: v, label: l }))} />
+        </div>
         {isDesktop && (
           <div className="flex shrink-0 rounded-lg border border-border bg-surface p-0.5 shadow-sm" role="group" aria-label="Layout">
             {([["table", IconList, "Table view"], ["board", IconGrid, "Board view"]] as const).map(([v, Icon, label]) => (
