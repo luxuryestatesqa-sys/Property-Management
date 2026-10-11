@@ -31,7 +31,7 @@ export default auth((req) => {
   // Meta (Facebook / Instagram) calls these itself, with no session: the lead webhook and the
   // deauthorize / data-deletion callbacks (all verified by signature in the route), and the page it
   // sends a person to after a deletion request. The connect / callback / pages routes need a login.
-  const isMetaPublic = ["/api/meta/webhook", "/api/meta/deauthorize", "/api/meta/data-deletion", "/data-deletion"].includes(nextUrl.pathname);
+  const isMetaPublic = ["/api/meta/webhook", "/api/meta/deauthorize", "/api/meta/data-deletion", "/data-deletion", "/privacy", "/terms"].includes(nextUrl.pathname);
 
   const isSignupApi = nextUrl.pathname === "/api/signup";
 
