@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
+import { extractLeadDetails } from "@/lib/leads/details";
 
 // Everything the lead detail page needs: the lead, its listing, the timeline,
 // the other leads from the same phone number, and the pickers (stages, agents).
@@ -22,6 +23,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         },
       },
       activities: { orderBy: { createdAt: "desc" }, include: { user: { select: { id: true, name: true, avatarUrl: true } } } },
+      tasks: { orderBy: [{ doneAt: { sort: "asc", nulls: "first" } }, { dueAt: "asc" }], take: 50 },
+      groupLinks: { select: { group: { select: { id: true, name: true, color: true } } } },
     },
   });
   if (!lead || (!manager && lead.assignedToId !== session!.user.id)) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
@@ -39,10 +42,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       : Promise.resolve([]),
   ]);
 
-  const { raw: _raw, callRecordUrl, ...rest } = lead;
-  void _raw;
+  const groups = await db!.leadGroup.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } });
+
+  const { raw, callRecordUrl, groupLinks, ...rest } = lead;
   return NextResponse.json({
-    lead: { ...rest, callRecordUrl, listing: lead.listing ? { ...lead.listing, cover: lead.listing.images[0]?.url ?? null, images: undefined } : null },
+    groups,
+    // Attachments keep only their metadata here; the file is fetched from the attachments route.
+    lead: { ...rest, activities: rest.activities.map((a) => (a.type === "VOICE_NOTE" || a.type === "DOCUMENT" ? { ...a, data: { name: (a.data as { name?: string } | null)?.name, mime: (a.data as { mime?: string } | null)?.mime, size: (a.data as { size?: number } | null)?.size } } : a.type === "STAGE_CHANGED" ? a : { ...a, data: undefined })), callRecordUrl, details: extractLeadDetails({ sellerProperty: lead.sellerProperty, raw }), groups: groupLinks.map((g) => g.group), listing: lead.listing ? { ...lead.listing, cover: lead.listing.images[0]?.url ?? null, images: undefined } : null },
     stages: stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, color: s.color, position: s.position })),
     agents,
     related,

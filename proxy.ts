@@ -28,9 +28,14 @@ export default auth((req) => {
   // itself (lib/qatarLiving/auth.ts); same redirect risk as above.
   const isQatarLivingFeed = nextUrl.pathname.startsWith("/api/qatar-living/");
 
+  // Meta (Facebook / Instagram) calls these itself, with no session: the lead webhook and the
+  // deauthorize / data-deletion callbacks (all verified by signature in the route), and the page it
+  // sends a person to after a deletion request. The connect / callback / pages routes need a login.
+  const isMetaPublic = ["/api/meta/webhook", "/api/meta/deauthorize", "/api/meta/data-deletion", "/data-deletion"].includes(nextUrl.pathname);
+
   const isSignupApi = nextUrl.pathname === "/api/signup";
 
-  if (isApiAuth || isSignupApi || isPublicShare || isPortalImageFetch || isPortalWebhook || isQatarLivingFeed) return NextResponse.next();
+  if (isApiAuth || isSignupApi || isMetaPublic || isPublicShare || isPortalImageFetch || isPortalWebhook || isQatarLivingFeed) return NextResponse.next();
 
   if (!isLoggedIn) {
     if (isApiRoute) {

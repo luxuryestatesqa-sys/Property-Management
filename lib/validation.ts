@@ -98,6 +98,14 @@ const listingMarketingFields = {
   bathrooms: z.enum(PF_BATHROOM_OPTIONS as [string, ...string[]]).optional().nullable(),
 };
 
+// Property Finder's mandatory sale details. Only used for SALE listings (ignored for rentals).
+const saleDetailFields = {
+  projectStatus: z.enum(["RESALE_READY", "RESALE_OFF_PLAN", "PRIMARY_READY", "PRIMARY_OFF_PLAN"]).optional().nullable(),
+  paymentMethods: z.enum(["CASH", "INSTALLMENTS", "CASH_AND_INSTALLMENTS"]).optional().nullable(),
+  downPayment: z.number().int("Enter a whole number").min(0, "Down payment can't be negative").max(1_000_000_000).optional().nullable(),
+  mortgageYears: z.number().int("Enter a whole number of years").min(1, "Enter the number of years").max(50, "That's too many years").optional().nullable(),
+};
+
 const privateListingFields = {
   ownerName: optionalPrivateText(120),
   ownerPhone: optionalPrivatePhone("Enter a valid phone number, e.g. +974 5000 0000"),
@@ -122,6 +130,7 @@ export const listingCreateSchema = z
     rentPrice: z.number().positive().optional().nullable(),
     salePrice: z.number().positive().optional().nullable(),
     rentalValue: z.number().positive().optional().nullable(),
+    ...saleDetailFields,
     furnished: z.enum(["FURNISHED", "UNFURNISHED"]),
     // Only meaningful for RENT listings - the server nulls it out for SALE
     // regardless of what's sent, so it's optional here.
@@ -141,6 +150,14 @@ export const listingCreateSchema = z
     }
     if (data.listingType === "SALE" && !data.salePrice) {
       ctx.addIssue({ code: "custom", message: "Sale price is required", path: ["salePrice"] });
+    }
+    if (data.listingType === "SALE") {
+      if (!data.projectStatus) ctx.addIssue({ code: "custom", message: "Project status is required", path: ["projectStatus"] });
+      if (!data.paymentMethods) ctx.addIssue({ code: "custom", message: "Payment methods is required", path: ["paymentMethods"] });
+      else if (data.paymentMethods !== "CASH") {
+        if (data.downPayment === null || data.downPayment === undefined) ctx.addIssue({ code: "custom", message: "Down payment is required (enter 0 if none)", path: ["downPayment"] });
+        if (!data.mortgageYears) ctx.addIssue({ code: "custom", message: "Number of years is required", path: ["mortgageYears"] });
+      }
     }
     if (isResidentialCategory(data.propertyCategory) && !data.bedrooms) {
       ctx.addIssue({ code: "custom", message: "Bedrooms is required", path: ["bedrooms"] });
@@ -165,6 +182,7 @@ export const listingUpdateSchema = z.object({
   rentPrice: z.number().positive().optional().nullable(),
   salePrice: z.number().positive().optional().nullable(),
   rentalValue: z.number().positive().optional().nullable(),
+  ...saleDetailFields,
   furnished: z.enum(["FURNISHED", "UNFURNISHED"]).optional(),
   billsStatus: z.enum(["INCLUDED", "EXCLUDED"]).optional().nullable(),
   availabilityStatus: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]).optional(),

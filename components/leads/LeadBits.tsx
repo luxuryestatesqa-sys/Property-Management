@@ -14,6 +14,13 @@ function ChannelIcon({ channel }: { channel: LeadRow["channel"] }) {
         <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
       </svg>
     );
+  if (channel === "FORM")
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" {...stroke}>
+        <rect x="5" y="3" width="14" height="18" rx="2" />
+        <path d="M9 8h6M9 12h6M9 16h3" />
+      </svg>
+    );
   if (channel === "EMAIL")
     return (
       <svg width="12" height="12" viewBox="0 0 24 24" {...stroke}>
@@ -31,10 +38,10 @@ function ChannelIcon({ channel }: { channel: LeadRow["channel"] }) {
 // Source + channel, e.g. "Property Finder · WhatsApp".
 export function SourceBadge({ lead }: { lead: LeadRow }) {
   const tone =
-    lead.channel === "WHATSAPP" ? { bg: "#e7f9ee", fg: "#1a7f3c" } : lead.channel === "CALL" ? { bg: "#eaf1ff", fg: "#2b50c8" } : { bg: "var(--surface-muted)", fg: "var(--muted)" };
+    lead.channel === "WHATSAPP" ? { bg: "#e7f9ee", fg: "#1a7f3c" } : lead.channel === "CALL" ? { bg: "#eaf1ff", fg: "#2b50c8" } : lead.channel === "FORM" ? { bg: "#eef2ff", fg: "#4338ca" } : { bg: "var(--surface-muted)", fg: "var(--muted)" };
   return (
     <div className="flex flex-col items-start gap-1">
-      <span className="text-[12.5px] font-medium text-foreground">{SOURCE_LABELS[lead.source]}</span>
+      <span className="whitespace-nowrap text-[12.5px] font-medium text-foreground">{SOURCE_LABELS[lead.source]}</span>
       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tone.bg, color: tone.fg }}>
         <ChannelIcon channel={lead.channel} />
         {CHANNEL_LABELS[lead.channel]}
@@ -63,7 +70,7 @@ export function StageSelect({ lead, stages, onChange, compact }: { lead: LeadRow
         aria-label="Lead stage"
         onClick={(e) => e.stopPropagation()}
         className={`cursor-pointer appearance-none rounded-full font-semibold outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-primary ${compact ? "py-1 pl-2.5 pr-6 text-[11.5px]" : "py-1.5 pl-3 pr-7 text-[12.5px]"}`}
-        style={{ background: `color-mix(in srgb, ${color} 14%, white)`, color, fontSize: compact ? 11.5 : 12.5 }}
+        style={{ background: `color-mix(in srgb, ${color} 14%, white)`, color: `color-mix(in srgb, ${color} 72%, black)`, fontSize: compact ? 11.5 : 12.5 }}
       >
         {stages.map((s) => (
           <option key={s.id} value={s.id}>

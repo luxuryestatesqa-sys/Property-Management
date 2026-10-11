@@ -16,6 +16,7 @@ import PrivateDetailsSection from "../PrivateDetailsSection";
 import AddPropertyAside, { AddAsideData } from "./AddPropertyAside";
 import { IconChevronRight } from "./icons";
 import type { AddForm } from "./addFormTypes";
+import SaleDetailsFields, { saleDetailsProblem } from "../SaleDetailsFields";
 
 interface Props {
   form: AddForm;
@@ -145,7 +146,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
   // What is still missing in each numbered section (same rules the server checks).
   const problems: Record<string, string | null> = {
     "sec-type": !category ? "Choose a property type" : residential && !form.bedrooms ? "Choose the number of bedrooms" : !form.sizeSqm ? "Enter the size in sqm" : null,
-    "sec-price": isRent ? (form.rentPrice ? null : "Enter the monthly rent") : form.salePrice ? null : "Enter the sale price",
+    "sec-price": isRent ? (form.rentPrice ? null : "Enter the monthly rent") : form.salePrice ? saleDetailsProblem(form) : "Enter the sale price",
     "sec-photos": form.images.length === 0 ? "Add at least one photo" : null,
     "sec-where": !form.area.trim() || !form.community.trim()
       ? "Choose the location"
@@ -280,6 +281,9 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                     Rental value <span className="font-normal text-muted">(optional)</span>
                   </label>
                   <MoneyInput value={form.rentalValue} onChange={(v) => update("rentalValue", v)} suffix="/ month" placeholder="10,000" />
+                </div>
+                <div className="col-span-2 border-t border-slate-100 pt-5">
+                  <SaleDetailsFields value={form} onChange={(patch) => (Object.keys(patch) as (keyof typeof patch)[]).forEach((k) => update(k, patch[k] as never))} showErrors={Boolean(shown("sec-price"))} />
                 </div>
               </div>
             )}

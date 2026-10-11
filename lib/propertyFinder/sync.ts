@@ -2,6 +2,7 @@ import { tenantDb } from "@/lib/tenant";
 import type { Listing, Prisma } from "@prisma/client";
 import { fetchPfLocationSnapshot } from "./location";
 import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
+import { missingSaleDetails, pfSalePriceExtras, PF_PROJECT_STATUS } from "./saleDetails";
 import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, getListing, PFListingPayload, PFListingResponse, PropertyFinderApiError } from "./client";
 
 // This portal's identity in the generic PortalListing/PortalCredential
@@ -69,7 +70,7 @@ export interface PropertyFinderEligibility {
 // Shared by the toggle API route and the publish UI, so both enforce
 // (and explain) exactly the same rules.
 export function getPropertyFinderEligibility(
-  listing: Pick<Listing, "title" | "description" | "bathrooms" | "propertyCategory" | "pfLocationId" | "listingType" | "rentPrice" | "salePrice">,
+  listing: Pick<Listing, "title" | "description" | "bathrooms" | "propertyCategory" | "pfLocationId" | "listingType" | "rentPrice" | "salePrice"> & Partial<Pick<Listing, "projectStatus" | "paymentMethods" | "downPayment" | "mortgageYears">>,
   images: { id: string }[],
   assignedProfileId: number | null
 ): PropertyFinderEligibility {
@@ -79,6 +80,8 @@ export function getPropertyFinderEligibility(
   // a clear instruction instead of after a failed publish.
   const price = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
   if (!price || price <= 0) reasons.push(listing.listingType === "RENT" ? "Set a monthly rent price" : "Set a sale price");
+  // Property Finder requires these for every sale.
+  if (listing.listingType === "SALE") reasons.push(...missingSaleDetails(listing));
   if (!listing.title) reasons.push("Add a title");
   if (!listing.description) reasons.push("Add a description");
   if (listing.propertyCategory !== "LAND" && !listing.bathrooms) reasons.push("Set the number of bathrooms");
@@ -91,6 +94,7 @@ export function getPropertyFinderEligibility(
 // Property Finder's own field names, in words an agent recognises.
 const PF_FIELD_LABELS: Record<string, string> = {
   price: "Price",
+  projectStatus: "Project status",
   bathrooms: "Bathrooms",
   bedrooms: "Bedrooms",
   size: "Size",
@@ -120,7 +124,7 @@ export function describePropertyFinderRejection(err: PropertyFinderApiError): st
   return Array.from(new Set(lines)).join("; ");
 }
 
-function buildListingPayload(
+export function buildListingPayload(
   listing: Listing & { images: { id: string }[] },
   assignedProfileId: number,
   pfUserId: number,
@@ -156,7 +160,8 @@ function buildListingPayload(
     location: { id: listing.pfLocationId! },
     assignedTo: { id: assignedProfileId },
     createdBy: { id: pfUserId },
-    price: { type: priceType, amounts: { [priceType]: priceAmount ?? undefined } },
+    price: { type: priceType, amounts: { [priceType]: priceAmount ?? undefined }, ...(listing.listingType === "SALE" ? pfSalePriceExtras(listing) : {}) },
+    ...(listing.listingType === "SALE" && listing.projectStatus ? { projectStatus: PF_PROJECT_STATUS[listing.projectStatus] } : {}),
     media: {
       // Cache-busted with the listing's own updatedAt (which saveListingFields
       // bumps on every publish attempt) so PF always sees a URL it hasn't

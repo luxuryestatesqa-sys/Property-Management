@@ -85,4 +85,4 @@ export function listingIdFromReference(reference: string | null | undefined): nu
   return m ? Number(m[1]) : null;
 }
 
-export const CHANNEL_LABELS: Record<LeadChannel, string> = { WHATSAPP: "WhatsApp", CALL: "Phone call", EMAIL: "Email", OTHER: "Other" };
+export const CHANNEL_LABELS: Record<LeadChannel, string> = { WHATSAPP: "WhatsApp", CALL: "Phone call", EMAIL: "Email", OTHER: "Other", FORM: "Lead form" };

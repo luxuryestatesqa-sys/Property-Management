@@ -1,4 +1,4 @@
-export type LeadChannel = "WHATSAPP" | "CALL" | "EMAIL" | "OTHER";
+export type LeadChannel = "WHATSAPP" | "CALL" | "EMAIL" | "OTHER" | "FORM";
 
 export interface LeadStageDTO {
   id: string;
@@ -26,6 +26,14 @@ export interface LeadRow {
   hasRecording: boolean;
   tags: string[];
   entityType: string | null;
+  groups: LeadGroupDTO[];
+  nextFollowUp: string | null;
+}
+
+export interface LeadGroupDTO {
+  id: string;
+  name: string;
+  color: string | null;
 }
 
 export interface LeadsResponse {
@@ -45,4 +53,4 @@ export const SOURCE_LABELS: Record<LeadRow["source"], string> = {
   IMPORT: "Import",
 };
 
-export const CHANNEL_LABELS: Record<LeadChannel, string> = { WHATSAPP: "WhatsApp", CALL: "Call", EMAIL: "Email", OTHER: "Other" };
+export const CHANNEL_LABELS: Record<LeadChannel, string> = { WHATSAPP: "WhatsApp", CALL: "Call", EMAIL: "Email", OTHER: "Other", FORM: "Lead form" };

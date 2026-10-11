@@ -29,6 +29,7 @@ import {
 } from "@/lib/propertyCategory";
 import { amenityOptionsFor, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
 import { extractErrorMessage } from "@/lib/errors";
+import SaleDetailsFields, { EMPTY_SALE_DETAILS, saleDetailsPayload, saleDetailsProblem } from "@/components/SaleDetailsFields";
 
 type ListingType = "RENT" | "SALE";
 
@@ -46,6 +47,7 @@ const initialState = {
   rentPrice: "",
   salePrice: "",
   rentalValue: "",
+  ...EMPTY_SALE_DETAILS,
   furnished: "FURNISHED" as "FURNISHED" | "UNFURNISHED",
   billsStatus: "INCLUDED" as "INCLUDED" | "EXCLUDED",
   visibility: "SHARED" as "PRIVATE" | "SHARED",
@@ -183,6 +185,7 @@ export default function AddPropertyPage() {
     if (!form.apartmentNumber.trim()) return `${unit.unitLabel} is required`;
     if (form.listingType === "RENT" && !form.rentPrice) return "Rent price is required";
     if (form.listingType === "SALE" && !form.salePrice) return "Sale price is required";
+    if (form.listingType === "SALE") return saleDetailsProblem(form);
     return null;
   }
 
@@ -216,6 +219,7 @@ export default function AddPropertyPage() {
           rentPrice: form.listingType === "RENT" ? Number(form.rentPrice) : undefined,
           salePrice: form.listingType === "SALE" ? Number(form.salePrice) : undefined,
           rentalValue: form.listingType === "SALE" && form.rentalValue ? Number(form.rentalValue) : undefined,
+          ...(form.listingType === "SALE" ? saleDetailsPayload(form) : {}),
           furnished: form.furnished,
           billsStatus: form.listingType === "RENT" ? form.billsStatus : undefined,
           images: form.images,
@@ -459,6 +463,7 @@ export default function AddPropertyPage() {
                     <span className="text-muted text-[13px]">/month</span>
                   </div>
                 </div>
+                <SaleDetailsFields value={form} onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))} showErrors={Boolean(error)} />
               </>
             )}
           </div>

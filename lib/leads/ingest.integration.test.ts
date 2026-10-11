@@ -131,38 +131,32 @@ describe.skipIf(!run)("Property Finder lead intake (real database)", () => {
     await prisma.portalCredential.deleteMany({ where: { organizationId: orgA } });
   });
 
-  it("rules: a region rule beats the Property Finder profile and listing owner, and an off rule is ignored", async () => {
+  it("Property Finder leads go to the listing's owner even when a rule would pick someone else", async () => {
     const db = tenantDb(orgA);
-    const rule = await db.assignmentRule.create({ data: { organizationId: orgA, name: "Lusail to owner", kind: "REGION", matchText: "lusail", agentIds: [ownerOnlyA], position: 0 } });
+    await db.assignmentRule.create({ data: { organizationId: orgA, name: "Lusail to owner", kind: "REGION", matchText: "lusail", agentIds: [ownerOnlyA], position: 0 } });
+    await db.assignmentRule.create({ data: { organizationId: orgA, name: "Share", kind: "ROUND_ROBIN", agentIds: [ownerOnlyA], position: 1 } });
     const r = await ingestPropertyFinderLead(orgA, lead("R1")); // profile 777 -> agentA, region contains Lusail
-    expect((await db.lead.findFirstOrThrow({ where: { id: r.leadId } })).assignedToId).toBe(ownerOnlyA);
-
-    await db.assignmentRule.update({ where: { id: rule.id }, data: { active: false } });
-    const r2 = await ingestPropertyFinderLead(orgA, lead("R2"));
-    expect((await db.lead.findFirstOrThrow({ where: { id: r2.leadId } })).assignedToId).toBe(agentA);
+    expect((await db.lead.findFirstOrThrow({ where: { id: r.leadId } })).assignedToId).toBe(agentA);
+    // no profile match: falls back to whoever owns the listing, still not the rule's agent
+    const r2 = await ingestPropertyFinderLead(orgA, lead("R2", { publicProfile: { id: 12345 } }));
+    expect((await db.lead.findFirstOrThrow({ where: { id: r2.leadId } })).assignedToId).toBe(ownerOnlyA); // ownerOnlyA created the listing
     await db.assignmentRule.deleteMany({});
   });
 
-  it("rules: sharing across agents hands the next lead to the least busy one", async () => {
-    const db = tenantDb(orgA);
-    await db.assignmentRule.create({ data: { organizationId: orgA, name: "Share", kind: "ROUND_ROBIN", agentIds: [agentA, ownerOnlyA], position: 0 } });
-    const openBefore = await db.lead.count({ where: { assignedToId: agentA, stage: { kind: "OPEN" } } });
-    const openOwner = await db.lead.count({ where: { assignedToId: ownerOnlyA, stage: { kind: "OPEN" } } });
-    const r = await ingestPropertyFinderLead(orgA, lead("R3", { publicProfile: { id: 12345 } }));
-    const got = (await db.lead.findFirstOrThrow({ where: { id: r.leadId } })).assignedToId;
-    expect(got).toBe(openBefore <= openOwner ? agentA : ownerOnlyA);
-    await db.assignmentRule.deleteMany({});
-  });
-
-  it("rules: applying them to the Unassigned inbox assigns waiting leads and logs it", async () => {
+  it("a Property Finder lead with no owner stays Unassigned, and rules never take it", async () => {
     const { applyRulesToUnassigned } = await import("./rules");
     const db = tenantDb(orgA);
     const waiting = await ingestPropertyFinderLead(orgA, normalizePfLead({ id: "R4", entityType: "project", channel: "email", publicProfile: { id: 424242 }, sender: { name: "Waiting", contacts: [] } }));
     expect((await db.lead.findFirstOrThrow({ where: { id: waiting.leadId } })).assignedToId).toBeNull();
     await db.assignmentRule.create({ data: { organizationId: orgA, name: "Catch all", kind: "ROUND_ROBIN", agentIds: [agentA], position: 0 } });
+    await applyRulesToUnassigned(orgA, ownerOnlyA);
+    expect((await db.lead.findFirstOrThrow({ where: { id: waiting.leadId } })).assignedToId).toBeNull();
+    // ...but the same rule does assign a Meta lead that is waiting
+    const stage = (await db.leadStage.findFirstOrThrow({ orderBy: { position: "asc" } })).id;
+    const meta = await db.lead.create({ data: { organizationId: orgA, source: "META", externalId: "M1", name: "Meta buyer", channel: "OTHER", stageId: stage, receivedAt: new Date() } });
     const res = await applyRulesToUnassigned(orgA, ownerOnlyA);
-    expect(res.assigned).toBeGreaterThanOrEqual(1);
-    const after = await db.lead.findFirstOrThrow({ where: { id: waiting.leadId }, include: { activities: true } });
+    expect(res.assigned).toBe(1);
+    const after = await db.lead.findFirstOrThrow({ where: { id: meta.id }, include: { activities: true } });
     expect(after.assignedToId).toBe(agentA);
     expect(after.activities.some((a) => a.type === "ASSIGNED" && a.text?.includes("Catch all"))).toBe(true);
     await db.assignmentRule.deleteMany({});

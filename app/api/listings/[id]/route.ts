@@ -185,6 +185,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } else {
     trackChange("salePrice", listing.salePrice, data.salePrice, "SALE_PRICE");
     trackChange("rentalValue", listing.rentalValue, data.rentalValue, "RENTAL_VALUE");
+    trackChange("projectStatus", listing.projectStatus, data.projectStatus, "PROJECT_STATUS");
+    trackChange("paymentMethods", listing.paymentMethods, data.paymentMethods, "PAYMENT_METHODS");
+    // A down payment and years only mean something with installments; paying cash clears them.
+    const method = data.paymentMethods !== undefined ? data.paymentMethods : listing.paymentMethods;
+    const installments = method === "INSTALLMENTS" || method === "CASH_AND_INSTALLMENTS";
+    trackChange("downPayment", listing.downPayment, installments ? data.downPayment : method ? null : undefined, "DOWN_PAYMENT");
+    trackChange("mortgageYears", listing.mortgageYears, installments ? data.mortgageYears : method ? null : undefined, "MORTGAGE_YEARS");
   }
 
   // Private fields get a single generic audit entry with no values recorded -

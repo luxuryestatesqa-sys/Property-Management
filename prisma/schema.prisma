@@ -45,6 +45,10 @@ model Organization {
   leadStages      LeadStage[]
   leadActivities  LeadActivity[]
   assignmentRules AssignmentRule[]
+  leadTasks       LeadTask[]
+  leadGroups      LeadGroup[]
+  leadGroupLinks  LeadGroupLink[]
+  metaPages       MetaPage[]
 }
 
 enum UserStatus {
@@ -142,10 +146,25 @@ model User {
   auditLogs      AuditLog[]
   leads          Lead[]         @relation("AssignedLeads")
   leadActivities LeadActivity[]
+  leadTasks      LeadTask[]
 
   @@index([status])
   @@index([role])
   @@index([organizationId])
+}
+
+// Property Finder's mandatory sale details (Qatar): the project status and how the buyer can pay.
+enum ProjectStatus {
+  RESALE_READY // Resale - ready to move  (PF: completed)
+  RESALE_OFF_PLAN // Resale - off-plan        (PF: off_plan)
+  PRIMARY_READY // Primary - ready to move  (PF: completed_primary)
+  PRIMARY_OFF_PLAN // Primary - off-plan       (PF: off_plan_primary)
+}
+
+enum SalePaymentMethod {
+  CASH
+  INSTALLMENTS
+  CASH_AND_INSTALLMENTS
 }
 
 model Listing {
@@ -192,6 +211,12 @@ model Listing {
   rentPrice   Float?
   salePrice   Float?
   rentalValue Float? // optional, only relevant for SALE listings
+
+  // SALE listings only - Property Finder requires these to publish a sale.
+  projectStatus  ProjectStatus?
+  paymentMethods SalePaymentMethod?
+  downPayment    Int? // QAR; 0 when no down payment is needed. Only with installments.
+  mortgageYears  Int? // number of years of the installment plan. Only with installments.
 
   furnished   Furnished
   billsStatus BillsStatus? // only relevant for RENT listings; always null for SALE
@@ -372,6 +397,7 @@ enum LeadChannel {
   CALL
   EMAIL
   OTHER
+  FORM // a lead-form submission (Facebook / Instagram lead ads)
 }
 
 // OPEN stages are in progress; WON / LOST end a lead's life.
@@ -453,6 +479,8 @@ model Lead {
   updatedAt        DateTime  @updatedAt
 
   activities LeadActivity[]
+  tasks      LeadTask[]
+  groupLinks LeadGroupLink[]
 
   @@unique([organizationId, source, externalId])
   @@index([organizationId, assignedToId])
@@ -495,11 +523,81 @@ model AssignmentRule {
   kind           AssignmentRuleKind
   matchText      String?
   // The agents the rule hands leads to. With more than one, the least busy
-  // (fewest open leads) gets the next one.
+  // (fewest open leads, weighted by share) gets the next one.
   agentIds       String[]
+  // { [userId]: 1-10 } - how big a share of the leads each agent gets. Missing = 1.
+  shares         Json?
   position       Int
   active         Boolean            @default(true)
   createdAt      DateTime           @default(now())
 
   @@index([organizationId, position])
+}
+
+// A follow-up reminder on a lead ("call back Thursday 4pm"). Due tasks that are not
+// done show up as "needs attention" for the agent they belong to.
+model LeadTask {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedToId   String? // who has to do it (the lead's agent when created)
+  assignedTo     User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  text           String
+  dueAt          DateTime
+  doneAt         DateTime?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, doneAt, dueAt])
+  @@index([leadId])
+  @@index([assignedToId, doneAt])
+}
+
+// Labels an agency uses to sort leads: "Hot", "Investors", "Lusail buyers"...
+model LeadGroup {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String?
+  createdAt      DateTime        @default(now())
+  links          LeadGroupLink[]
+
+  @@unique([organizationId, name])
+}
+
+// A lead can sit in several groups.
+model LeadGroupLink {
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  groupId        String
+  group          LeadGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([leadId, groupId])
+  @@index([groupId])
+}
+
+// A Facebook Page an agency has connected so its Facebook / Instagram lead-form leads arrive here.
+// A Page can belong to one agency at a time (the webhook finds the agency from the Page id).
+model MetaPage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pageId         String       @unique
+  name           String
+  accessToken    String // the Page access token, encrypted (lib/crypto.ts)
+  fbUserId       String? // the Facebook user who connected it (for Meta's deauthorize / data deletion callbacks)
+  connectedById  String? // the app user who connected it
+  enabled        Boolean      @default(false) // subscribed to the leadgen webhook
+  lastLeadAt     DateTime?
+  lastError      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([fbUserId])
 }

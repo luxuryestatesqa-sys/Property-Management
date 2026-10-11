@@ -39,16 +39,12 @@ export async function ingestPropertyFinderLead(orgId: string, n: NormalizedLead,
       ? (n.sellerProperty.locationPath as string)
       : null;
 
-  // Which agent should see it? The Property Finder profile it was sent to, mapped
-  // to the user linked to that profile; failing that, whoever owns the listing.
+  // Property Finder leads are strictly the property owner's: the agent linked to the Property
+  // Finder profile the lead was sent to, otherwise the agent who owns the listing here. The
+  // agency's assignment rules (sharing, regions) are for other sources and never apply to these.
+  // If neither is found the lead waits in Unassigned for a manager to hand over by hand.
   let assignedToId: string | null = null;
   let assignReason = "";
-  // The agency's own rules come first (a manager steering a region or sharing the load).
-  const ruleMatch = await pickAgentByRules(orgId, { region });
-  if (ruleMatch) {
-    assignedToId = ruleMatch.userId;
-    assignReason = `Assigned by rule “${ruleMatch.ruleName}”`;
-  }
   if (!assignedToId && n.pfPublicProfileId) {
     const user = await db.user.findFirst({ where: { pfPublicProfileId: n.pfPublicProfileId, status: "ACTIVE" }, select: { id: true } });
     if (user) {

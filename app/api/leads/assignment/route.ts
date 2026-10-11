@@ -14,7 +14,10 @@ export async function GET() {
   if (error) return error;
   if (!isManagerRole(session!.user.role)) return forbid();
 
-  const [unassigned, agents, rules, audit, openByAgent, totalByAgent, doneByAgent, responded] = await Promise.all([
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const weekAgo = new Date(Date.now() - 7 * 86400000);
+  const [unassigned, agents, rules, audit, openByAgent, totalByAgent, doneByAgent, responded, todayByAgent, weekByAgent, shareable] = await Promise.all([
     db!.lead.findMany({
       where: { assignedToId: null },
       orderBy: { receivedAt: "desc" },
@@ -33,6 +36,9 @@ export async function GET() {
     db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null } }, _count: { _all: true } }),
     db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null }, stage: { kind: "WON" } }, _count: { _all: true } }),
     db!.lead.findMany({ where: { assignedToId: { not: null }, firstContactedAt: { not: null } }, orderBy: { receivedAt: "desc" }, take: 300, select: { assignedToId: true, receivedAt: true, firstContactedAt: true } }),
+    db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null }, receivedAt: { gte: startOfToday } }, _count: { _all: true } }),
+    db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null }, receivedAt: { gte: weekAgo } }, _count: { _all: true } }),
+    db!.lead.count({ where: { assignedToId: null, source: { not: "PROPERTY_FINDER" } } }),
   ]);
 
   const count = (rows: { assignedToId: string | null; _count: { _all: number } }[], id: string) => rows.find((r) => r.assignedToId === id)?._count._all ?? 0;
@@ -43,6 +49,8 @@ export async function GET() {
       open: count(openByAgent, a.id),
       total: count(totalByAgent, a.id),
       won: count(doneByAgent, a.id),
+      today: count(todayByAgent, a.id),
+      week: count(weekByAgent, a.id),
       avgResponseMinutes: times.length ? Math.round(times.reduce((x, y) => x + y, 0) / times.length / 60000) : null,
     };
   });
@@ -50,7 +58,8 @@ export async function GET() {
   return NextResponse.json({
     unassigned: unassigned.map((l) => ({ ...l, listing: l.listing?.buildingName ?? null })),
     workload,
-    rules: rules.map((r) => ({ id: r.id, name: r.name, kind: r.kind, matchText: r.matchText, agentIds: r.agentIds, active: r.active, position: r.position })),
+    shareable, // waiting leads that rules may hand out (not Property Finder)
+    rules: rules.map((r) => ({ id: r.id, name: r.name, kind: r.kind, matchText: r.matchText, agentIds: r.agentIds, shares: r.shares ?? {}, active: r.active, position: r.position })),
     audit: audit.map((a) => ({ id: a.id, text: a.text, createdAt: a.createdAt, by: a.user?.name ?? null, lead: a.lead })),
   });
 }

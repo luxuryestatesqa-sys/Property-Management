@@ -202,7 +202,13 @@ export interface PFListingPayload {
   price: {
     type: "sale" | "yearly" | "monthly" | "weekly" | "daily";
     amounts: Partial<Record<"sale" | "yearly" | "monthly" | "weekly" | "daily", number>>;
+    // Sale listings: how the buyer can pay (mandatory on Property Finder's side).
+    paymentMethods?: ("cash" | "installments")[];
+    downpayment?: number;
+    numberOfMortgageYears?: number;
   };
+  // Sale listings: resale / primary and ready / off-plan.
+  projectStatus?: "completed" | "off_plan" | "completed_primary" | "off_plan_primary";
   media: { images: { url?: string; original?: { url: string } }[] };
 }
 

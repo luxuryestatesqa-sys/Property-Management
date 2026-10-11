@@ -13,6 +13,11 @@ export interface AddForm {
   rentPrice: string;
   salePrice: string;
   rentalValue: string;
+  // Property Finder's mandatory sale details (kept as text while typing).
+  projectStatus: string;
+  paymentMethods: string;
+  downPayment: string;
+  mortgageYears: string;
   furnished: "FURNISHED" | "UNFURNISHED";
   billsStatus: "INCLUDED" | "EXCLUDED";
   visibility: "PRIVATE" | "SHARED";

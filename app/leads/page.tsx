@@ -6,15 +6,25 @@ import { useSession } from "next-auth/react";
 import Avatar from "@/components/Avatar";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { IconSearch, IconGrid, IconList, IconPin, IconClose } from "@/components/desktop/icons";
-import { ContactButtons, ReceivedAt, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
-import { LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
+import FilterSelect from "@/components/leads/FilterSelect";
+import BulkBar from "@/components/leads/BulkBar";
+import { AddLeadModal, ImportLeadsModal } from "@/components/leads/LeadIntake";
+import { ContactButtons, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
+import { LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
 import { timeAgo } from "@/lib/timeAgo";
+
+interface Attention {
+  overdue: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
+  today: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
+  waiting: { id: string; name: string; receivedAt: string; assignedTo: { name: string } | null }[];
+}
 
 const CHANNELS = [
   ["ALL", "All channels"],
   ["WHATSAPP", "WhatsApp"],
   ["CALL", "Calls"],
   ["EMAIL", "Email"],
+  ["FORM", "Lead forms"],
 ] as const;
 
 function Initial({ name }: { name: string }) {
@@ -66,6 +76,14 @@ export default function LeadsPage() {
   const [syncMsg, setSyncMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
+  const [group, setGroup] = useState("all");
+  const [groups, setGroups] = useState<LeadGroupDTO[]>([]);
+  const [attention, setAttention] = useState<Attention | null>(null);
+  const [attentionOpen, setAttentionOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [flash, setFlash] = useState<string | null>(null);
+  const [intake, setIntake] = useState<null | "add" | "import">(null);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -89,13 +107,16 @@ export default function LeadsPage() {
     if (assignee !== "all") p.set("assignee", assignee);
     if (channel !== "ALL") p.set("channel", channel);
     if (debounced) p.set("q", debounced);
+    if (group !== "all") p.set("group", group);
     try {
-      const res = await fetch(`/api/leads?${p.toString()}`);
+      const [res, gRes, aRes] = await Promise.all([fetch(`/api/leads?${p.toString()}`), fetch("/api/leads/groups"), fetch("/api/leads/attention")]);
       if (res.ok) setData(await res.json());
+      if (gRes.ok) setGroups((await gRes.json()).groups);
+      if (aRes.ok) setAttention(await aRes.json());
     } finally {
       setLoading(false);
     }
-  }, [assignee, channel, debounced]);
+  }, [assignee, channel, debounced, group]);
 
   useEffect(() => {
     if (status === "authenticated") load();
@@ -130,6 +151,16 @@ export default function LeadsPage() {
   const all = useMemo(() => data?.leads ?? [], [data]);
   const visible = useMemo(() => (stageFilter === "all" ? all : all.filter((l) => l.stageId === stageFilter)), [all, stageFilter]);
   const canManage = data?.canManage ?? false;
+  // Only leads still on screen count as selected, so filtering never acts on hidden ones.
+  const picked = useMemo(() => visible.filter((l) => selected.has(l.id)).map((l) => l.id), [visible, selected]);
+  const allPicked = visible.length > 0 && picked.length === visible.length;
+  const toggle = (id: string) =>
+    setSelected((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
 
   const counts = {
@@ -143,7 +174,8 @@ export default function LeadsPage() {
 
   const empty = !loading && all.length === 0;
 
-  const filtersActive = Boolean(debounced) || channel !== "ALL" || stageFilter !== "all" || assignee !== "all";
+  const filtersActive = Boolean(debounced) || channel !== "ALL" || stageFilter !== "all" || assignee !== "all" || group !== "all";
+  const attentionItems = attention ? attention.overdue.length + attention.today.length + attention.waiting.length : 0;
 
   return (
     <div className="px-4 pb-24 lg:px-0 lg:pb-10 page-in">
@@ -154,26 +186,84 @@ export default function LeadsPage() {
           <p className="mt-1 text-[13px] text-muted lg:mt-2.5 lg:text-[15px]">{canManage ? "Every enquiry from Property Finder, sorted by agent." : "Enquiries sent to you from Property Finder."}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
-        {canManage && (
-          <Link href="/leads/assignment" className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-semibold shadow-sm transition-colors hover:bg-surface-muted">
-            Assignment{counts.unassigned > 0 && <span className="tnum rounded-full bg-amber-500 px-1.5 py-0.5 text-[10.5px] font-bold leading-none text-white">{counts.unassigned}</span>}
-          </Link>
-        )}
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={syncNow}
-            disabled={syncing}
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-semibold shadow-sm transition-colors hover:bg-surface-muted disabled:opacity-60"
-          >
-            <svg className={syncing ? "animate-spin" : ""} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M3 21v-5h5" />
+          <button type="button" onClick={() => setIntake("add")} className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13.5px] font-medium text-white shadow-sm" style={{ background: "var(--primary)" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
             </svg>
-            {syncing ? "Syncing…" : "Sync from Property Finder"}
+            Add lead
           </button>
-        )}
+
+          <div className="relative">
+            <button type="button" onClick={() => setMoreOpen((o) => !o)} aria-haspopup="menu" aria-expanded={moreOpen} className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-medium shadow-sm transition-colors hover:bg-surface-muted">
+              More
+              {counts.unassigned > 0 && canManage && <span className="tnum rounded-full bg-amber-500 px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-white">{counts.unassigned}</span>}
+              <svg className={`transition-transform ${moreOpen ? "rotate-180" : ""}`} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            {moreOpen && (
+              <>
+                <button type="button" aria-label="Close menu" className="fixed inset-0 z-30 cursor-default" onClick={() => setMoreOpen(false)} />
+                <div role="menu" className="absolute right-0 top-12 z-40 w-72 overflow-hidden rounded-2xl border border-border bg-surface p-1.5 shadow-xl">
+                  {[
+                    { show: true, label: "Import leads", hint: "From a CSV or Excel file", icon: "M12 16V4M7 9l5-5 5 5M5 20h14", onClick: () => setIntake("import") },
+                    { show: canManage, label: "Assignment", hint: "Give waiting leads to an agent", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6", href: "/leads/assignment", badge: counts.unassigned },
+                    { show: canManage, label: "Assignment rules", hint: "Round robin or manual", icon: "M4 6h16M4 12h16M4 18h10", href: "/leads/rules" },
+                    { show: isAdmin, label: "Lead stages", hint: "Add, rename or reorder stages", icon: "M5 12h14M13 6l6 6-6 6", href: "/leads/stages" },
+                    { show: isAdmin, label: syncing ? "Syncing…" : "Sync from Property Finder", hint: "Fetch the latest leads now", icon: "M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M3 21v-5h5", onClick: syncNow, disabled: syncing },
+                  ]
+                    .filter((i) => i.show)
+                    .map((i) => {
+                      const inner = (
+                        <>
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-light text-primary">
+                            <svg className={i.disabled ? "animate-spin" : ""} width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d={i.icon} />
+                            </svg>
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[14px] font-medium">{i.label}</span>
+                            <span className="block text-[12px] text-muted">{i.hint}</span>
+                          </span>
+                          {i.badge ? <span className="tnum rounded-full bg-amber-500 px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-white">{i.badge}</span> : null}
+                        </>
+                      );
+                      const cls = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-muted disabled:opacity-60";
+                      return i.href ? (
+                        <Link key={i.label} href={i.href} role="menuitem" onClick={() => setMoreOpen(false)} className={cls}>
+                          {inner}
+                        </Link>
+                      ) : (
+                        <button
+                          key={i.label}
+                          type="button"
+                          role="menuitem"
+                          disabled={i.disabled}
+                          onClick={() => {
+                            setMoreOpen(false);
+                            i.onClick?.();
+                          }}
+                          className={cls}
+                        >
+                          {inner}
+                        </button>
+                      );
+                    })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
+
+      {flash && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-success-bg px-4 py-3 text-[13.5px]" style={{ color: "var(--success)" }}>
+          <span>{flash}</span>
+          <button type="button" onClick={() => setFlash(null)} aria-label="Dismiss" className="shrink-0 opacity-70 hover:opacity-100">
+            <IconClose size={14} />
+          </button>
+        </div>
+      )}
 
       {syncMsg && (
         <div className={`mb-4 flex items-start justify-between gap-3 rounded-xl px-4 py-3 text-[13.5px] ${syncMsg.ok ? "bg-success-bg" : "bg-danger-bg text-danger"}`} style={syncMsg.ok ? { color: "var(--success)" } : undefined}>
@@ -181,6 +271,43 @@ export default function LeadsPage() {
           <button type="button" onClick={() => setSyncMsg(null)} aria-label="Dismiss" className="shrink-0 opacity-70 hover:opacity-100">
             <IconClose size={14} />
           </button>
+        </div>
+      )}
+
+      {/* Needs attention: one slim row; the list opens on demand and scrolls inside a small box */}
+      {attention && attentionItems > 0 && (
+        <div className="mb-4 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/70">
+          <button type="button" onClick={() => setAttentionOpen((o) => !o)} aria-expanded={attentionOpen} className="flex w-full items-center gap-3 px-4 py-2.5 text-left">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+            <span className="text-[13.5px] font-semibold text-amber-900">Needs attention</span>
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              {attention.overdue.length > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11.5px] font-semibold text-rose-700">{attention.overdue.length} overdue</span>}
+              {attention.today.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.today.length} due today</span>}
+              {attention.waiting.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.waiting.length} not contacted</span>}
+            </span>
+            <span className="shrink-0 text-[12.5px] font-semibold text-amber-900">{attentionOpen ? "Hide" : "View"}</span>
+            <svg className={`shrink-0 text-amber-900 transition-transform ${attentionOpen ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          {attentionOpen && (
+            <ul className="max-h-56 divide-y divide-amber-100 overflow-y-auto border-t border-amber-200 bg-white/60">
+              {[
+                ...attention.overdue.map((t) => ({ key: t.id, href: `/leads/${t.lead.id}`, name: t.lead.name, note: t.text, tag: `Overdue · ${timeAgo(t.dueAt)}`, tone: "bg-rose-100 text-rose-700" })),
+                ...attention.today.map((t) => ({ key: t.id, href: `/leads/${t.lead.id}`, name: t.lead.name, note: t.text, tag: `Today ${new Date(t.dueAt).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true })}`, tone: "bg-amber-100 text-amber-800" })),
+                ...attention.waiting.map((l) => ({ key: l.id, href: `/leads/${l.id}`, name: l.name, note: l.assignedTo ? l.assignedTo.name : "Unassigned", tag: timeAgo(l.receivedAt), tone: "bg-amber-100 text-amber-800" })),
+              ].map((r) => (
+                <li key={r.key}>
+                  <Link href={r.href} className="flex items-center justify-between gap-3 px-4 py-2 text-[13px] transition-colors hover:bg-amber-50">
+                    <span className="min-w-0 truncate">
+                      <b className="font-semibold">{r.name}</b> <span className="text-muted">· {r.note}</span>
+                    </span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.tone}`}>{r.tag}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -203,34 +330,9 @@ export default function LeadsPage() {
         ))}
       </div>
 
-      {/* Agent tabs (managers) */}
-      {canManage && data && (
-        <div className="no-scrollbar mt-6 flex gap-1.5 overflow-x-auto pb-1">
-          {[
-            { id: "all", label: "All leads", count: totalAll },
-            { id: "unassigned", label: "Unassigned", count: agentCount(null) },
-            ...data.agents.map((a) => ({ id: a.id, label: a.name, count: agentCount(a.id), avatar: a })),
-          ].map((t) => {
-            const on = assignee === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setAssignee(t.id)}
-                className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13px] font-medium transition-colors ${on ? "border-primary bg-accent-light text-primary" : "border-border bg-surface text-slate-600 hover:bg-slate-50"}`}
-              >
-                {"avatar" in t && t.avatar && <Avatar name={t.avatar.name} avatarUrl={t.avatar.avatarUrl} size={20} />}
-                {t.label}
-                <span className={`tnum rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none ${on ? "bg-white/70" : "bg-surface-muted text-muted"}`}>{t.count}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Search + filters */}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <div className="flex min-w-[240px] flex-1 items-center gap-2.5 rounded-xl border border-border bg-surface px-3.5 shadow-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
+        <div className="flex min-w-[180px] flex-1 items-center gap-2.5 rounded-xl border border-border bg-surface px-3.5 shadow-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
           <IconSearch size={16} className="shrink-0 text-muted" />
           <input data-bare value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, phone, email or area" className="min-w-0 flex-1 bg-transparent py-3 text-[14.5px] outline-none" />
           {query && (
@@ -239,13 +341,32 @@ export default function LeadsPage() {
             </button>
           )}
         </div>
-        <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
-          {CHANNELS.map(([v, l]) => (
-            <button key={v} type="button" onClick={() => setChannel(v)} className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-2 text-[12.5px] font-medium transition-colors ${channel === v ? "border-primary bg-accent-light text-primary" : "border-border bg-surface text-slate-600 hover:bg-slate-50"}`}>
-              {l}
-            </button>
-          ))}
-        </div>
+        {canManage && data && (
+          <FilterSelect
+            label="Filter by agent"
+            value={assignee}
+            onChange={setAssignee}
+            allValue="all"
+            searchable
+            searchPlaceholder="Search agents…"
+            options={[
+              { value: "all", label: "All agents", count: totalAll },
+              { value: "unassigned", label: "Unassigned", count: agentCount(null) },
+              ...data.agents.map((a) => ({ value: a.id, label: a.name, count: agentCount(a.id), avatar: { name: a.name, avatarUrl: a.avatarUrl } })),
+            ]}
+          />
+        )}
+        {(!isDesktop || view === "table") && stages.length > 0 && (
+          <FilterSelect
+            label="Filter by lead stage"
+            value={stageFilter}
+            onChange={setStageFilter}
+            allValue="all"
+            width={200}
+            options={[{ value: "all", label: "All stages", count: all.length }, ...stages.map((s) => ({ value: s.id, label: s.name, color: s.color, count: all.filter((l) => l.stageId === s.id).length }))]}
+          />
+        )}
+        <FilterSelect label="Filter by channel" value={channel} onChange={(v) => setChannel(v as (typeof CHANNELS)[number][0])} allValue="ALL" width={170} options={CHANNELS.map(([v, l]) => ({ value: v, label: l }))} />
         {isDesktop && (
           <div className="flex shrink-0 rounded-lg border border-border bg-surface p-0.5 shadow-sm" role="group" aria-label="Layout">
             {([["table", IconList, "Table view"], ["board", IconGrid, "Board view"]] as const).map(([v, Icon, label]) => (
@@ -257,17 +378,22 @@ export default function LeadsPage() {
         )}
       </div>
 
-      {/* Stage chips (table / mobile) */}
-      {(!isDesktop || view === "table") && stages.length > 0 && (
-        <div className="no-scrollbar mt-3 flex gap-1.5 overflow-x-auto">
-          {[{ id: "all", name: "All stages", color: null as string | null }, ...stages].map((s) => {
-            const n = s.id === "all" ? all.length : all.filter((l) => l.stageId === s.id).length;
-            const on = stageFilter === s.id;
+      {/* Group chips */}
+      {groups.length > 0 && (
+        <div className="no-scrollbar mt-3 flex items-center gap-1.5 overflow-x-auto">
+          <span className="shrink-0 text-[12px] font-medium text-muted">Groups</span>
+          {[{ id: "all", name: "All", color: null as string | null, count: null as number | null }, ...groups.map((g) => ({ ...g, count: (g as { count?: number | null }).count ?? null }))].map((g) => {
+            const on = group === g.id;
             return (
-              <button key={s.id} type="button" onClick={() => setStageFilter(s.id)} className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${on ? "bg-slate-900 text-white" : "bg-surface-muted text-slate-600 hover:bg-border"}`}>
-                {s.color && <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />}
-                {s.name}
-                <span className={`tnum text-[11px] ${on ? "text-white/70" : "text-muted"}`}>{n}</span>
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setGroup(g.id)}
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${on ? "text-white" : "bg-surface-muted text-slate-600 hover:bg-border"}`}
+                style={on ? { background: g.color ?? "#0f172a" } : undefined}
+              >
+                {g.name}
+                {g.count !== null && <span className={`tnum text-[11px] ${on ? "text-white/75" : "text-muted"}`}>{g.count}</span>}
               </button>
             );
           })}
@@ -368,51 +494,39 @@ export default function LeadsPage() {
           </div>
         ) : isDesktop ? (
           <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left">
+            <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-                  <th className="px-4 py-3">Lead</th>
-                  <th className="px-3 py-3">Source</th>
-                  <th className="px-3 py-3">Property</th>
-                  <th className="px-3 py-3">Received</th>
-                  <th className="px-3 py-3">Stage</th>
-                  {canManage && <th className="px-3 py-3">Agent</th>}
-                  <th className="px-4 py-3 text-right">Contact</th>
+                  <th className="w-10 py-3 pl-4">
+                    <input type="checkbox" aria-label="Select all leads" checked={allPicked} onChange={() => setSelected(allPicked ? new Set() : new Set(visible.map((l) => l.id)))} />
+                  </th>
+                  <th className="px-2.5 py-3">Name</th>
+                  <th className="px-2.5 py-3">Phone</th>
+                  <th className="px-2.5 py-3">Source</th>
+                  {canManage && <th className="px-2.5 py-3">Assigned agent</th>}
+                  <th className="px-2.5 py-3">Stage</th>
                 </tr>
               </thead>
               <tbody>
                 {visible.map((l) => (
-                  <tr key={l.id} className="border-b border-border last:border-b-0 transition-colors hover:bg-accent-light/40">
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <Initial name={l.name} />
-                        <div className="min-w-0">
-                          <Link href={`/leads/${l.id}`} className="block truncate text-[14px] font-semibold hover:text-primary">{l.name}</Link>
-                          <div className="truncate text-[12.5px] text-muted">{l.phone ?? l.email ?? "No contact details"}</div>
-                        </div>
-                      </div>
+                  <tr key={l.id} className={`border-b border-border last:border-b-0 transition-colors ${selected.has(l.id) ? "bg-accent-light/60" : "hover:bg-accent-light/40"}`}>
+                    <td className="w-10 py-3.5 pl-4">
+                      <input type="checkbox" aria-label={`Select ${l.name}`} checked={selected.has(l.id)} onChange={() => toggle(l.id)} />
                     </td>
-                    <td className="px-3 py-3.5">
+                    <td className="px-2.5 py-3">
+                      <Link href={`/leads/${l.id}`} className="block max-w-[190px] truncate text-[14px] font-medium hover:text-primary">{l.name}</Link>
+                    </td>
+                    <td className="whitespace-nowrap px-2.5 py-3 text-[13.5px]">{l.phone ?? <span className="text-muted">{l.email ?? "—"}</span>}</td>
+                    <td className="px-2.5 py-3">
                       <SourceBadge lead={l} />
                     </td>
-                    <td className="max-w-[240px] px-3 py-3.5">
-                      <PropertyCell lead={l} />
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <ReceivedAt iso={l.receivedAt} />
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <StageSelect lead={l} stages={stages} onChange={(sid) => moveLead(l.id, sid)} />
-                    </td>
                     {canManage && (
-                      <td className="px-3 py-3.5">
+                      <td className="px-2.5 py-3">
                         <AgentCell lead={l} />
                       </td>
                     )}
-                    <td className="px-4 py-3.5">
-                      <div className="flex justify-end">
-                        <ContactButtons lead={l} />
-                      </div>
+                    <td className="px-2.5 py-3">
+                      <StageSelect lead={l} stages={stages} onChange={(sid) => moveLead(l.id, sid)} />
                     </td>
                   </tr>
                 ))}
@@ -448,8 +562,49 @@ export default function LeadsPage() {
             ))}
           </div>
         )}
-        {data && data.total > all.length && <p className="mt-4 text-center text-[12.5px] text-muted">Showing the latest {all.length} of {data.total} leads. Use search or the agent tabs to narrow down.</p>}
+        {isDesktop && view === "table" && picked.length > 0 && (
+          <BulkBar
+            selected={picked}
+            onClear={() => setSelected(new Set())}
+            onDone={(m) => {
+              setFlash(m);
+              setSelected(new Set());
+              load();
+            }}
+            canManage={canManage}
+            isAdmin={isAdmin}
+            stages={stages}
+            agents={data?.agents ?? []}
+            groups={groups}
+          />
+        )}
+        {data && data.total > all.length && <p className="mt-4 text-center text-[12.5px] text-muted">Showing the latest {all.length} of {data.total} leads. Use search or the filters to narrow down.</p>}
       </div>
+      {intake === "add" && (
+        <AddLeadModal
+          onClose={() => setIntake(null)}
+          canManage={canManage}
+          agents={data?.agents ?? []}
+          onDone={(m) => {
+            setIntake(null);
+            setFlash(m);
+            load();
+          }}
+        />
+      )}
+      {intake === "import" && (
+        <ImportLeadsModal
+          onClose={() => setIntake(null)}
+          canManage={canManage}
+          agents={data?.agents ?? []}
+          stages={stages}
+          onDone={(m) => {
+            setIntake(null);
+            setFlash(m);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

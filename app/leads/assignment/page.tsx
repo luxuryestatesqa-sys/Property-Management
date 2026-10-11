@@ -27,18 +27,9 @@ interface Unassigned {
   listingReference: string | null;
   receivedAt: string;
 }
-interface Rule {
-  id: string;
-  name: string;
-  kind: "REGION" | "ROUND_ROBIN";
-  matchText: string | null;
-  agentIds: string[];
-  active: boolean;
-}
 interface Data {
   unassigned: Unassigned[];
   workload: Agent[];
-  rules: Rule[];
   audit: { id: string; text: string | null; createdAt: string; by: string | null; lead: { id: string; name: string } }[];
 }
 
@@ -46,19 +37,13 @@ const card = "rounded-2xl border border-border bg-surface shadow-sm";
 
 export default function AssignmentPage() {
   const { data: session, status } = useSession();
-  const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
-  const isManager = isAdmin || session?.user?.role === "MANAGER";
+  const isManager = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
   const [data, setData] = useState<Data | null>(null);
   const [denied, setDenied] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [agentId, setAgentId] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  // new rule form
-  const [kind, setKind] = useState<"REGION" | "ROUND_ROBIN">("REGION");
-  const [matchText, setMatchText] = useState("");
-  const [ruleAgents, setRuleAgents] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/leads/assignment");
@@ -94,32 +79,6 @@ export default function AssignmentPage() {
       await load();
     }
   }
-  async function applyRules() {
-    const d = await post("/api/leads/assignment", { action: "apply-rules" });
-    if (d) {
-      setMsg({ ok: true, text: d.assigned === 0 ? "No rule matched the leads waiting in the inbox." : `Rules assigned ${d.assigned} of ${d.checked} waiting leads.` });
-      await load();
-    }
-  }
-  async function addRule() {
-    const d = await post("/api/leads/rules", { kind, matchText, agentIds: ruleAgents });
-    if (d) {
-      setMatchText("");
-      setRuleAgents([]);
-      await load();
-    }
-  }
-  async function ruleAction(id: string, body: Record<string, unknown>) {
-    await post(`/api/leads/rules/${id}`, body, "PATCH");
-    await load();
-  }
-  async function removeRule(id: string) {
-    setBusy(true);
-    await fetch(`/api/leads/rules/${id}`, { method: "DELETE" });
-    setBusy(false);
-    await load();
-  }
-
   if (status === "loading") return null;
   if (denied || (status === "authenticated" && !isManager))
     return (
@@ -132,7 +91,6 @@ export default function AssignmentPage() {
     );
 
   const agents = data?.workload ?? [];
-  const nameOf = (id: string) => agents.find((a) => a.id === id)?.name ?? "Former agent";
   const allPicked = data && data.unassigned.length > 0 && picked.size === data.unassigned.length;
   const maxOpen = Math.max(1, ...agents.map((a) => a.open));
 
@@ -150,11 +108,11 @@ export default function AssignmentPage() {
         <div className="flex flex-wrap items-end justify-between gap-4 pb-6">
           <div>
             <h1 className="text-xl font-bold lg:text-[28px] lg:font-semibold lg:leading-none lg:tracking-[-0.025em]">Lead assignment</h1>
-            <p className="mt-1 text-[13px] text-muted lg:mt-2.5 lg:text-[15px]">Give waiting leads an owner, set routing rules and keep the workload fair.</p>
+            <p className="mt-1 text-[13px] text-muted lg:mt-2.5 lg:text-[15px]">Hand waiting leads to an agent. Property Finder leads go to the listing&apos;s owner on their own.</p>
           </div>
-          <button type="button" onClick={applyRules} disabled={busy || !data?.rules.length} className="rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-semibold shadow-sm transition-colors hover:bg-surface-muted disabled:opacity-50">
-            Apply rules to waiting leads
-          </button>
+          <Link href="/leads/rules" className="rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-semibold shadow-sm transition-colors hover:bg-surface-muted">
+            Assignment rules
+          </Link>
         </div>
       </div>
 
@@ -282,83 +240,6 @@ export default function AssignmentPage() {
           </ul>
         </section>
       </div>
-
-      {/* Rules */}
-      <section className={`${card} mt-6 p-5 lg:p-6`}>
-        <h2 className="text-[16px] font-semibold">Routing rules</h2>
-        <p className="mt-0.5 max-w-3xl text-[13px] text-muted">
-          Rules run top to bottom as each new lead arrives; the first match wins. Leads no rule matches go to the agent linked to the Property Finder profile, then the listing&apos;s owner, otherwise they wait in the inbox. With several agents on a rule, the one with the fewest open leads gets the next lead.
-        </p>
-
-        <ol className="mt-4 flex flex-col gap-2">
-          {(data?.rules ?? []).map((r, i, arr) => (
-            <li key={r.id} className={`flex flex-wrap items-center gap-3 rounded-xl border border-border px-4 py-3 ${r.active ? "bg-surface" : "bg-surface-muted/60 opacity-70"}`}>
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-light text-[12px] font-semibold text-primary">{i + 1}</span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[14px] font-semibold">{r.name}</div>
-                <div className="text-[12.5px] text-muted">
-                  {r.kind === "REGION" ? `Region contains “${r.matchText}”` : "Every lead"} → {r.agentIds.map(nameOf).join(", ")}
-                  {r.agentIds.length > 1 ? " (least busy first)" : ""}
-                </div>
-              </div>
-              {isAdmin && (
-                <div className="flex items-center gap-1.5">
-                  <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => ruleAction(r.id, { direction: "up" })} className="rounded-lg px-2 py-1 text-[13px] text-slate-500 hover:bg-slate-100 disabled:opacity-30">
-                    ↑
-                  </button>
-                  <button type="button" aria-label="Move down" disabled={i === arr.length - 1} onClick={() => ruleAction(r.id, { direction: "down" })} className="rounded-lg px-2 py-1 text-[13px] text-slate-500 hover:bg-slate-100 disabled:opacity-30">
-                    ↓
-                  </button>
-                  <button type="button" onClick={() => ruleAction(r.id, { active: !r.active })} className="rounded-lg bg-surface-muted px-3 py-1.5 text-[12.5px] font-semibold hover:bg-border">
-                    {r.active ? "Turn off" : "Turn on"}
-                  </button>
-                  <button type="button" onClick={() => removeRule(r.id)} className="rounded-lg px-3 py-1.5 text-[12.5px] font-semibold text-danger hover:bg-danger-bg">
-                    Delete
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-          {data && data.rules.length === 0 && <li className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted">No rules yet. Leads are routed by Property Finder profile and listing owner.</li>}
-        </ol>
-
-        {isAdmin && data && (
-          <div className="mt-5 rounded-xl bg-slate-50 p-4">
-            <div className="text-[13.5px] font-semibold">Add a rule</div>
-            <div className="mt-3 flex flex-wrap items-end gap-3">
-              <div>
-                <label className="mb-1 block text-[12px] text-muted">Type</label>
-                <select value={kind} onChange={(e) => setKind(e.target.value as "REGION" | "ROUND_ROBIN")} className="rounded-lg border border-border bg-surface px-3 py-2 text-[13.5px] outline-none">
-                  <option value="REGION">By region</option>
-                  <option value="ROUND_ROBIN">Share evenly</option>
-                </select>
-              </div>
-              {kind === "REGION" && (
-                <div>
-                  <label className="mb-1 block text-[12px] text-muted">Region contains</label>
-                  <input value={matchText} onChange={(e) => setMatchText(e.target.value)} placeholder="e.g. Lusail" className="w-48 rounded-lg border border-border bg-surface px-3 py-2 text-[13.5px] outline-none" />
-                </div>
-              )}
-              <div className="min-w-[220px] flex-1">
-                <label className="mb-1 block text-[12px] text-muted">Agents</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {agents.map((a) => {
-                    const on = ruleAgents.includes(a.id);
-                    return (
-                      <button key={a.id} type="button" onClick={() => setRuleAgents((p) => (on ? p.filter((x) => x !== a.id) : [...p, a.id]))} className={`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${on ? "border-primary bg-accent-light text-primary" : "border-border bg-surface text-slate-600 hover:bg-slate-50"}`}>
-                        {a.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <button type="button" onClick={addRule} disabled={busy || ruleAgents.length === 0 || (kind === "REGION" && !matchText.trim())} className="rounded-lg px-5 py-2.5 text-[13.5px] font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-                Add rule
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
 
       {/* Audit */}
       <section className={`${card} mt-6 p-5 lg:p-6`}>

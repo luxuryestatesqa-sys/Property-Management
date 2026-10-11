@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, parseJsonBody } from "@/lib/api-helpers";
+import { shareOf } from "@/lib/leads/rules";
 
 // Create a routing rule (admins and owners). Added at the end of the list; rules
 // run top to bottom and the first match wins.
 export async function POST(req: NextRequest) {
   const { db, orgId, error } = await requireAdmin();
   if (error) return error;
-  const { value: body, error: bodyError } = await parseJsonBody<{ name?: string; kind?: string; matchText?: string; agentIds?: string[] }>(req);
+  const { value: body, error: bodyError } = await parseJsonBody<{ name?: string; kind?: string; matchText?: string; agentIds?: string[]; shares?: Record<string, number> }>(req);
   if (bodyError) return bodyError;
 
   const kind = body?.kind === "ROUND_ROBIN" ? "ROUND_ROBIN" : body?.kind === "REGION" ? "REGION" : null;
@@ -19,10 +20,14 @@ export async function POST(req: NextRequest) {
   const valid = await db!.user.findMany({ where: { id: { in: agentIds }, status: "ACTIVE" }, select: { id: true } });
   if (valid.length !== agentIds.length) return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
 
+  // Keep only a whole-number share between 1 and 10 for the chosen agents.
+  const shares: Record<string, number> = {};
+  for (const id of agentIds) shares[id] = shareOf(body?.shares, id);
+
   const last = await db!.assignmentRule.findFirst({ orderBy: { position: "desc" } });
   const name = (body?.name ?? "").trim().slice(0, 60) || (kind === "REGION" ? `${matchText} leads` : "Share leads evenly");
   const rule = await db!.assignmentRule.create({
-    data: { organizationId: orgId!, name, kind, matchText: kind === "REGION" ? matchText : null, agentIds, position: (last?.position ?? -1) + 1 },
+    data: { organizationId: orgId!, name, kind, matchText: kind === "REGION" ? matchText : null, agentIds, shares, position: (last?.position ?? -1) + 1 },
   });
   return NextResponse.json({ rule }, { status: 201 });
 }

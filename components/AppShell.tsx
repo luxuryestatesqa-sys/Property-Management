@@ -15,7 +15,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const isPublicShare = pathname.startsWith("/listing/");
   // The public share link (/listing/[id]) is opened by clients with no CRM
   // account - the internal nav bar would just send them to a login wall.
-  const hideNav = pathname === "/login" || pathname === "/signup" || isPublicShare;
+  const hideNav = pathname === "/login" || pathname === "/signup" || pathname === "/data-deletion" || isPublicShare;
 
   return (
     <ConfirmProvider>

@@ -64,6 +64,11 @@ export interface ListingDTO {
   rentPrice: number | null;
   salePrice: number | null;
   rentalValue: number | null;
+  // Property Finder's mandatory sale details (null for rentals).
+  projectStatus: "RESALE_READY" | "RESALE_OFF_PLAN" | "PRIMARY_READY" | "PRIMARY_OFF_PLAN" | null;
+  paymentMethods: "CASH" | "INSTALLMENTS" | "CASH_AND_INSTALLMENTS" | null;
+  downPayment: number | null;
+  mortgageYears: number | null;
   furnished: Furnished;
   // Only meaningful for RENT listings; always null for SALE.
   billsStatus: BillsStatus | null;

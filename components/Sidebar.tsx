@@ -6,11 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import Avatar from "./Avatar";
 import { useEffect, useState } from "react";
 import { useOrg } from "./OrgProvider";
-import { isAdminRole, ROLE_LABELS } from "@/lib/roles";
-import { OPEN_PALETTE_EVENT } from "./CommandPalette";
-import { IconSearch } from "./desktop/icons";
-
-const MOD = typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform) ? "⌘" : "Ctrl";
+import { isAdminRole, isManagerRole, ROLE_LABELS } from "@/lib/roles";
 
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
@@ -56,32 +52,50 @@ const icons = {
   ),
 };
 
-function NavLink({ href, label, icon, active, badge }: { href: string; label: string; icon: React.ReactNode; active: boolean; badge?: number }) {
+function NavLink({ href, label, icon, active, badge, children }: { href: string; label: string; icon: React.ReactNode; active: boolean; badge?: number; children?: React.ReactNode }) {
   return (
-    <Link
-      href={href}
-      title={label}
-      aria-current={active ? "page" : undefined}
-      className={`group relative flex items-center justify-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] transition-colors duration-150 xl:justify-start ${
-        active ? "bg-accent-light font-semibold text-primary" : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-      }`}
-    >
-      {active && <span className="absolute -left-4 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-primary max-xl:-left-3" />}
-      <span className={`relative shrink-0 transition-colors ${active ? "text-primary" : "text-slate-400 group-hover:text-slate-700"}`}>
-        {icon}
-        {badge ? <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white xl:hidden" /> : null}
-      </span>
-      <span className="hidden xl:inline">{label}</span>
-      {badge ? <span className="tnum ml-auto hidden rounded-full bg-rose-500 px-1.5 py-0.5 text-[10.5px] font-bold leading-none text-white xl:inline">{badge > 99 ? "99+" : badge}</span> : null}
-    </Link>
+    <div>
+      <Link
+        href={href}
+        title={label}
+        aria-current={active ? "page" : undefined}
+        className={`group relative flex h-10 items-center justify-center gap-3 rounded-xl px-3 text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary/40 xl:justify-start ${
+          active ? "bg-accent-light font-medium text-primary" : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+        }`}
+      >
+        {active && <span className="absolute -left-4 top-2 bottom-2 w-[3px] rounded-r-full bg-primary max-xl:-left-3" />}
+        <span className={`relative shrink-0 transition-colors ${active ? "text-primary" : "text-slate-400 group-hover:text-slate-700"}`}>
+          {icon}
+          {badge ? <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white xl:hidden" /> : null}
+        </span>
+        <span className="hidden xl:inline">{label}</span>
+        {badge ? <span className="tnum ml-auto hidden rounded-full bg-rose-500 px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-white xl:inline">{badge > 99 ? "99+" : badge}</span> : null}
+      </Link>
+      {children}
+    </div>
+  );
+}
+
+// The pages under Leads. They show only while you are inside Leads, and only on the wide sidebar.
+function SubNav({ items }: { items: { href: string; label: string; active: boolean }[] }) {
+  return (
+    <ul className="ml-[21px] mt-1 hidden flex-col gap-0.5 border-l border-slate-200 pl-3 xl:flex" aria-label="Leads pages">
+      {items.map((i) => (
+        <li key={i.href}>
+          <Link href={i.href} aria-current={i.active ? "page" : undefined} className={`block rounded-lg px-3 py-1.5 text-[13px] transition-colors ${i.active ? "bg-slate-100 font-medium text-slate-900" : "text-slate-500 hover:bg-slate-100/70 hover:text-slate-800"}`}>
+            {i.label}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 function Section({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <div className="mx-3 mb-2 mt-5 border-t border-slate-200/80 xl:hidden" />
-      <div className="hidden px-3 pb-2 pt-6 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 xl:block">{children}</div>
+      <div className="mx-3 my-3 border-t border-slate-200/80 xl:hidden" />
+      <div className="hidden px-3 pb-1.5 pt-5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-400 xl:block">{children}</div>
     </>
   );
 }
@@ -95,6 +109,7 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const org = useOrg();
   const isAdmin = isAdminRole(session?.user?.role);
+  const isManager = isManagerRole(session?.user?.role);
   const [newLeads, setNewLeads] = useState(0);
   useEffect(() => {
     if (!session?.user) return;
@@ -102,7 +117,7 @@ export default function Sidebar() {
     const load = () =>
       fetch("/api/leads/summary")
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => !cancelled && d && setNewLeads(d.newCount ?? 0))
+        .then((d) => !cancelled && d && setNewLeads((d.newCount ?? 0) + (d.overdueCount ?? 0)))
         .catch(() => {});
     load();
     const t = setInterval(load, 60_000);
@@ -112,6 +127,12 @@ export default function Sidebar() {
     };
   }, [session?.user, pathname]);
   const onProperties = pathname === "/" || pathname.startsWith("/property") || pathname.startsWith("/add");
+  const onLeads = pathname.startsWith("/leads");
+  const leadPages = [
+    { href: "/leads", label: "All leads", active: pathname === "/leads" || /^\/leads\/(?!assignment|rules|stages)/.test(pathname) },
+    ...(isManager ? [{ href: "/leads/assignment", label: "Assignment", active: pathname.startsWith("/leads/assignment") }, { href: "/leads/rules", label: "Assignment rules", active: pathname.startsWith("/leads/rules") }] : []),
+    ...(isAdmin ? [{ href: "/leads/stages", label: "Stages", active: pathname.startsWith("/leads/stages") }] : []),
+  ];
   const initial = org.name.trim().charAt(0).toUpperCase() || "•";
 
   return (
@@ -125,30 +146,17 @@ export default function Sidebar() {
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-[18px] font-semibold text-white shadow-sm">{initial}</span>
           )}
           <div className="hidden leading-tight xl:block">
-            <div className="max-w-[150px] truncate text-[15.5px] font-semibold tracking-tight text-slate-900">{org.name}</div>
-            <div className="mt-0.5 text-[12px] text-slate-500">Listings Portal</div>
+            <div className="max-w-[150px] truncate text-[15.5px] font-medium tracking-tight text-slate-900">{org.name}</div>
+            <div className="mt-0.5 text-[12px] text-slate-500">Real Estate CRM</div>
           </div>
         </Link>
-      </div>
-
-      <div className="px-4 pb-3 max-xl:px-3">
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
-          title={`Search (${MOD}+K)`}
-          className="flex h-10 w-full items-center gap-2.5 rounded-[10px] bg-slate-100 px-3 text-[13px] text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-700 max-xl:justify-center max-xl:px-0"
-        >
-          <IconSearch size={15} />
-          <span className="hidden flex-1 text-left xl:inline">Search…</span>
-          <kbd className="hidden rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10.5px] font-semibold text-slate-500 xl:inline">{MOD} K</kbd>
-        </button>
       </div>
 
       <div className="px-4 max-xl:px-3">
         <Link
           href="/add"
           title="Add Property"
-          className="flex h-10 items-center justify-center gap-2 rounded-[10px] bg-primary text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(30,27,75,0.3),0_8px_18px_-8px_rgba(79,70,229,0.7)] transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
+          className="flex h-10 items-center justify-center gap-2 rounded-[10px] bg-primary text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(30,27,75,0.3),0_8px_18px_-8px_rgba(79,70,229,0.7)] transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 5v14M5 12h14" />
@@ -157,26 +165,31 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <nav className="no-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto px-4 pt-1 max-xl:px-3">
-        <Section>Workspace</Section>
+      <nav className="no-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto px-4 pb-2 pt-1 max-xl:px-3">
+        <Section>Listings</Section>
         <NavLink href="/" label="Properties" icon={icons.properties} active={onProperties} />
         <NavLink href="/my-listings" label="My Listings" icon={icons.listings} active={pathname.startsWith("/my-listings")} />
-        <NavLink href="/leads" label="Leads" icon={icons.leads} active={pathname.startsWith("/leads")} badge={newLeads} />
+        <Section>Leads</Section>
+        <NavLink href="/leads" label="Leads" icon={icons.leads} active={onLeads} badge={newLeads}>
+          {onLeads && leadPages.length > 1 && <SubNav items={leadPages} />}
+        </NavLink>
         {isAdmin && (
           <>
-            <Section>Administration</Section>
+            <Section>Team</Section>
             <NavLink href="/admin/users" label="Users" icon={icons.users} active={pathname.startsWith("/admin/users")} />
           </>
         )}
-        <Section>Account</Section>
-        <NavLink href="/profile" label="Settings" icon={icons.settings} active={pathname.startsWith("/profile")} />
       </nav>
 
+      <div className="px-4 pb-1 max-xl:px-3">
+        <NavLink href="/profile" label="Settings" icon={icons.settings} active={pathname.startsWith("/profile")} />
+      </div>
+
       {session?.user && (
-        <div className="m-3 flex flex-col items-center gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 p-3 xl:flex-row">
+        <div className="m-3 mt-2 flex flex-col items-center gap-3 rounded-2xl bg-slate-50 p-3 xl:flex-row">
           <Avatar name={session.user.name ?? "?"} size={36} neutral />
           <div className="hidden min-w-0 flex-1 leading-tight xl:block">
-            <div className="truncate text-[13px] font-semibold text-slate-900">{session.user.name}</div>
+            <div className="truncate text-[13px] font-medium text-slate-900">{session.user.name}</div>
             <div className="mt-0.5 text-[11.5px] text-slate-500">{session.user.role ? ROLE_LABELS[session.user.role] : "Agent"}</div>
           </div>
           <button

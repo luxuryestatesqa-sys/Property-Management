@@ -8,6 +8,7 @@ import { extractErrorMessage } from "@/lib/errors";
 import Avatar from "@/components/Avatar";
 import ProfileSkeleton from "@/components/ProfileSkeleton";
 import PropertyFinderSettingsCard from "@/components/PropertyFinderSettingsCard";
+import MetaLeadsSettingsCard from "@/components/MetaLeadsSettingsCard";
 import PortalFeedCard from "@/components/PortalFeedCard";
 import MasterFeedCard from "@/components/MasterFeedCard";
 import OpenAiSettingsCard from "@/components/OpenAiSettingsCard";
@@ -19,7 +20,7 @@ import { IconUsers, IconBuilding, IconGlobe, IconLock, IconSettings } from "@/co
 
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024; // 10MB raw upload cap, before client-side resize
 
-type SettingsTab = "profile" | "security" | "agency" | "integrations" | "ai";
+type SettingsTab = "profile" | "security" | "agency" | "integrations" | "lead-sources" | "ai";
 
 const inputCls = "w-full rounded-xl border border-border bg-surface px-4 py-3 text-[15px] outline-none";
 
@@ -37,6 +38,11 @@ export default function ProfilePage() {
   const isDesktop = useIsDesktop();
   const [tab, setTab] = useState<SettingsTab>("profile");
   const [profile, setProfile] = useState<UserDTO | null>(null);
+  // Coming back from Facebook lands on ?tab=lead-sources.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "lead-sources" || t === "integrations" || t === "agency" || t === "security" || t === "ai") setTab(t);
+  }, []);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -174,6 +180,7 @@ export default function ProfilePage() {
       { key: "security", label: "Security", hint: "Password and sign out", icon: <IconLock size={18} /> },
       { key: "agency", label: "Agency", hint: "Name and logo", icon: <IconBuilding size={18} />, admin: true },
       { key: "integrations", label: "Portals & feeds", hint: "Property Finder and more", icon: <IconGlobe size={18} />, admin: true },
+      { key: "lead-sources", label: "Lead sources", hint: "Facebook & Instagram ads", icon: <IconUsers size={18} />, admin: true },
       { key: "ai", label: "AI writing", hint: "OpenAI key", icon: <IconSettings size={18} />, admin: true },
     ];
     const visible = nav.filter((n) => !n.admin || isAdmin);
@@ -368,6 +375,13 @@ export default function ProfilePage() {
               </>
             )}
 
+            {tab === "lead-sources" && isAdmin && (
+              <>
+                <TabIntro title="Lead sources" text="Bring leads in from your ads automatically." />
+                <MetaLeadsSettingsCard />
+              </>
+            )}
+
             {tab === "ai" && isAdmin && (
               <>
                 <TabIntro title="AI writing" text="Powers the Write with AI buttons for listing titles and descriptions. Your key is stored securely on the server." />
@@ -503,6 +517,10 @@ export default function ProfilePage() {
           <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Agency</h2>
           <div className="flex flex-col gap-3 mb-5">
             <AgencyBrandingCard />
+          </div>
+          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Lead sources</h2>
+          <div className="flex flex-col gap-3 mb-5">
+            <MetaLeadsSettingsCard />
           </div>
           <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Portal Integrations</h2>
           <div className="flex flex-col gap-3">

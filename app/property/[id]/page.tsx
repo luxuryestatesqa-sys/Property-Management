@@ -47,6 +47,7 @@ import PublishToPortalsCard from "@/components/PublishToPortalsCard";
 import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
 import { bathroomsToInputValue, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
 import { isAdminRole } from "@/lib/roles";
+import SaleDetailsFields, { SaleDetailsSummary, saleDetailsPayload, saleDetailsProblem, type SaleDetailsValue } from "@/components/SaleDetailsFields";
 
 const PROPERTY_TYPE_EDIT_OPTIONS = PROPERTY_CATEGORY_OPTIONS.map((c) => ({ label: PROPERTY_CATEGORY_LABELS[c], value: c }));
 
@@ -103,6 +104,10 @@ export default function PropertyDetailPage() {
         rentPrice: data.listing.rentPrice ? String(data.listing.rentPrice) : "",
         salePrice: data.listing.salePrice ? String(data.listing.salePrice) : "",
         rentalValue: data.listing.rentalValue ? String(data.listing.rentalValue) : "",
+        projectStatus: data.listing.projectStatus ?? "",
+        paymentMethods: data.listing.paymentMethods ?? "",
+        downPayment: data.listing.downPayment !== null && data.listing.downPayment !== undefined ? String(data.listing.downPayment) : "0",
+        mortgageYears: data.listing.mortgageYears ? String(data.listing.mortgageYears) : "",
         furnished: data.listing.furnished,
         billsStatus: data.listing.billsStatus ?? "INCLUDED",
         availabilityStatus: data.listing.availabilityStatus,
@@ -218,6 +223,16 @@ export default function PropertyDetailPage() {
       } else {
         body.salePrice = Number(form.salePrice);
         body.rentalValue = form.rentalValue ? Number(form.rentalValue) : null;
+        // Property Finder's mandatory sale details. An older sale that never had them may be saved
+        // without; once any are chosen, they must be complete.
+        if (form.projectStatus || form.paymentMethods) {
+          const problem = saleDetailsProblem(form as unknown as SaleDetailsValue);
+          if (problem) {
+            setError(problem);
+            return;
+          }
+        }
+        Object.assign(body, saleDetailsPayload(form as unknown as SaleDetailsValue));
       }
       const res = await fetch(`/api/listings/${id}`, {
         method: "PATCH",
@@ -343,6 +358,7 @@ export default function PropertyDetailPage() {
             {!isRent && listing.rentalValue && (
               <div className="text-[13px] text-muted mt-0.5">Rental Value: {formatQAR(listing.rentalValue)}/month</div>
             )}
+            <SaleDetailsSummary listing={listing} className="mt-3" />
 
             <div className="flex items-start gap-1.5 mt-3 text-[13px] text-muted">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
@@ -817,6 +833,7 @@ export default function PropertyDetailPage() {
           {isRent && <span className="ml-1.5 text-[16px] font-medium text-muted">/ month</span>}
         </div>
         {!isRent && listing.rentalValue && <div className="mt-2 text-[13.5px] text-muted">Rental value {formatQAR(listing.rentalValue)} / month</div>}
+        <SaleDetailsSummary listing={listing} className="mt-4 border-t border-slate-100 pt-4" />
       </div>
 
       <div className="border-t border-slate-100 p-5">
@@ -1086,6 +1103,9 @@ export default function PropertyDetailPage() {
                     className="flex-1 min-w-0 py-3.5 outline-none bg-transparent text-base"
                   />
                 </div>
+              </section>
+              <section>
+                <SaleDetailsFields value={form as unknown as SaleDetailsValue} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} showErrors={Boolean(error)} />
               </section>
             </>
           )}

@@ -212,6 +212,12 @@ export async function POST(req: NextRequest) {
       rentPrice: data.listingType === "RENT" ? data.rentPrice : null,
       salePrice: data.listingType === "SALE" ? data.salePrice : null,
       rentalValue: data.listingType === "SALE" ? data.rentalValue ?? null : null,
+      // Property Finder's mandatory sale details; a rental never has them. A down payment and the
+      // number of years only apply when the buyer can pay in installments.
+      projectStatus: data.listingType === "SALE" ? data.projectStatus ?? null : null,
+      paymentMethods: data.listingType === "SALE" ? data.paymentMethods ?? null : null,
+      downPayment: data.listingType === "SALE" && data.paymentMethods && data.paymentMethods !== "CASH" ? data.downPayment ?? null : null,
+      mortgageYears: data.listingType === "SALE" && data.paymentMethods && data.paymentMethods !== "CASH" ? data.mortgageYears ?? null : null,
       furnished: data.furnished,
       // Bills included/excluded only makes sense for a rental; enforced here
       // regardless of what the client sends, not just hidden in the UI.
