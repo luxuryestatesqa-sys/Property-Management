@@ -25,7 +25,11 @@ export interface FeedListing {
   furnished: "FURNISHED" | "UNFURNISHED";
   availabilityStatus: string;
   amenities: string[]; // readable labels (e.g. "Balcony"), already filtered to the property type
+  amenityKeys?: string[]; // the same amenities as their Property Finder values (e.g. "balcony")
+  titleAr?: string;
+  descriptionAr?: string;
   images: string[];
+  imageDates?: Date[]; // when each photo was added, same order as images
   updatedAt: Date;
   // The listing's own agent, as the public contact - the only staff details
   // that ever reach a feed.

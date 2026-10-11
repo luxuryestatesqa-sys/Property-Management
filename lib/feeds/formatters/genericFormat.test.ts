@@ -68,7 +68,7 @@ describe("buildGenericListingsXml", () => {
 
 describe("per-portal formatters", () => {
   it("each uses its own root tag but the same generic listing shape", () => {
-    expect(formatPropertyOryxFeed([SAMPLE])).toContain("<propertyoryx_listings");
+    expect(formatPropertyOryxFeed([SAMPLE])).toContain("<list last_update=");
     expect(formatPropertyFinderFeed([SAMPLE])).toContain("<propertyfinder_listings");
   });
 });

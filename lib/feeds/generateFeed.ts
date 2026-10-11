@@ -62,6 +62,8 @@ export const FEED_LISTING_SELECT = {
   sizeSqm: true,
   title: true,
   description: true,
+  titleAr: true,
+  descriptionAr: true,
   amenities: true,
   area: true,
   community: true,
@@ -136,6 +138,10 @@ async function loadFeedListings(orgId: string, portal: Portal, filters: FeedFilt
       priceType: listing.listingType === "RENT" ? "monthly" : "sale",
       furnished: listing.furnished,
       availabilityStatus: listing.availabilityStatus,
+      amenityKeys: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
+      titleAr: listing.titleAr?.trim() || undefined,
+      descriptionAr: listing.descriptionAr?.trim() || undefined,
+      imageDates: listing.images.map((img) => img.createdAt),
       amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities)
         .map((a) => AMENITY_LABELS[a])
         .filter((a): a is string => Boolean(a)),
@@ -160,7 +166,9 @@ const FEED_FORMAT_VERSION = 2;
 
 function computeEtag(portal: Portal, listings: FeedListing[]): string {
   const fingerprint = listings.map((l) => `${l.id}:${l.updatedAt.getTime()}`).join(",");
-  const hash = createHash("sha1").update(`v${FEED_FORMAT_VERSION}|${portal}|${fingerprint}`).digest("hex");
+  // The Property Oryx feed was rebuilt to its real specification, so it has its own version.
+  const version = portal === "PROPERTY_ORYX" ? `${FEED_FORMAT_VERSION}.oryx1` : String(FEED_FORMAT_VERSION);
+  const hash = createHash("sha1").update(`v${version}|${portal}|${fingerprint}`).digest("hex");
   return `"${hash}"`;
 }
 

@@ -135,7 +135,14 @@ describe("feed privacy", () => {
   });
 
   it("every feed shows the Property Finder location with coordinates, not the listing's own area/community", async () => {
-    for (const slug of ["all.xml", "oryx.xml", "pf.xml"]) {
+    // Property Oryx has its own specification (city / community / geopoints, longitude first).
+    const oryx = (await generateFeed("org_1", "oryx.xml", {}, "https://crm.example.com"))!.body;
+    expect(oryx).toContain("<city><![CDATA[Lusail]]></city>");
+    expect(oryx).toContain("<community><![CDATA[Al Erkyah City]]></community>");
+    expect(oryx).toContain("<geopoints>51.48995,25.427049</geopoints>");
+    expect(oryx).not.toContain("Old Area");
+    expect(oryx).not.toContain("Old Community");
+    for (const slug of ["all.xml", "pf.xml"]) {
       const xml = (await generateFeed("org_1", slug, {}, "https://crm.example.com"))!.body;
       expect(xml).toContain("<area>Lusail</area>");
       expect(xml).toContain("<community>Al Erkyah City</community>");
