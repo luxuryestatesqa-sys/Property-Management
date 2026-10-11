@@ -39,11 +39,31 @@ export default function ProfilePage() {
   const isDesktop = useIsDesktop();
   const [tab, setTab] = useState<SettingsTab>("profile");
   const [profile, setProfile] = useState<UserDTO | null>(null);
+  // Phone: which settings screen is open (null = the menu). The phone's back button returns to the menu.
+  const [section, setSection] = useState<SettingsTab | null>(null);
   // Coming back from Facebook lands on ?tab=lead-sources.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    if (t === "lead-sources" || t === "integrations" || t === "agency" || t === "security" || t === "ai") setTab(t);
+    if (t === "lead-sources" || t === "integrations" || t === "agency" || t === "security" || t === "ai") {
+      setTab(t);
+      setSection(t);
+    }
   }, []);
+
+  useEffect(() => {
+    const onPop = () => setSection(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  function openSection(key: SettingsTab) {
+    window.history.pushState({ settings: key }, "");
+    setSection(key);
+    window.scrollTo({ top: 0 });
+  }
+  function closeSection() {
+    if (window.history.state?.settings) window.history.back();
+    else setSection(null);
+  }
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -402,229 +422,226 @@ export default function ProfilePage() {
     );
   }
 
-  return (
-    <div className="px-4 pb-10 lg:px-0">
-      <div className="safe-top pt-4 pb-3 lg:pt-8 lg:pb-5">
-        <h1 className="text-xl font-bold lg:text-3xl lg:tracking-tight">Settings</h1>
-        <p className="hidden lg:block text-[14px] text-muted mt-1">Your account{isAdmin ? ", portal integrations and feeds" : ""}.</p>
-      </div>
+  // ---- Phone: a settings menu; each row opens its own screen with a back arrow.
+  const phoneInput = "w-full rounded-xl border border-border bg-surface px-4 py-3 text-base outline-none focus:border-primary";
+  const phoneRows: { key: SettingsTab; label: string; hint: string; icon: React.ReactNode; tint: string }[] = [
+    { key: "profile", label: "My profile", hint: "Name, email and WhatsApp", icon: <IconUsers size={20} />, tint: "bg-indigo-50 text-indigo-600" },
+    { key: "security", label: "Password & security", hint: "Change your password", icon: <IconLock size={20} />, tint: "bg-slate-100 text-slate-600" },
+  ];
+  const phoneAdminRows: { key: SettingsTab; label: string; hint: string; icon: React.ReactNode; tint: string }[] = [
+    { key: "agency", label: "Agency", hint: "Name and logo", icon: <IconBuilding size={20} />, tint: "bg-violet-50 text-violet-600" },
+    { key: "lead-sources", label: "Lead sources", hint: "Facebook & Instagram ads", icon: <IconUsers size={20} />, tint: "bg-sky-50 text-sky-600" },
+    { key: "integrations", label: "Portals & feeds", hint: "Property Finder, Oryx, website", icon: <IconGlobe size={20} />, tint: "bg-emerald-50 text-emerald-600" },
+    { key: "ai", label: "AI writing", hint: "OpenAI key", icon: <IconSettings size={20} />, tint: "bg-amber-50 text-amber-600" },
+  ];
+  const chevron = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a3abb8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+  const phoneRow = (r: { key: SettingsTab; label: string; hint: string; icon: React.ReactNode; tint: string }) => (
+    <button key={r.key} type="button" onClick={() => openSection(r.key)} className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left active:bg-surface-muted">
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${r.tint}`}>{r.icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-medium">{r.label}</span>
+        <span className="block truncate text-[12.5px] text-muted">{r.hint}</span>
+      </span>
+      {chevron}
+    </button>
+  );
+  const sectionTitle = [...phoneRows, ...phoneAdminRows].find((r) => r.key === section)?.label ?? "";
 
-      <div
-        className={`lg:grid lg:gap-x-8 lg:items-start ${
-          isAdmin ? "lg:grid-cols-[400px_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr]" : "lg:max-w-xl"
-        }`}
-      >
-      <div className="flex flex-col items-center py-6 lg:col-start-1">
-        <div className="relative mb-3">
-          <Avatar name={user.name ?? "?"} avatarUrl={profile?.avatarUrl} size={80} className="text-2xl" />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={avatarUploading}
-            aria-label="Change profile photo"
-            className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-2 border-background active:opacity-80 disabled:opacity-60"
-            style={{ background: "var(--accent)" }}
-          >
-            {avatarUploading ? (
-              <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-            ) : (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            )}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleAvatarSelected}
-            className="hidden"
-          />
-        </div>
-        {avatarError && <div className="rounded-xl bg-danger-bg text-danger text-[12px] px-3 py-2 mb-2">{avatarError}</div>}
-        <h2 className="text-lg font-bold">{user.name}</h2>
-        <span
-          className="text-[11px] font-semibold px-2.5 py-1 rounded-lg mt-1.5"
-          style={{ background: "var(--accent-light)", color: "var(--primary)" }}
-        >
-          {ROLE_LABELS[user.role]}
-        </span>
-      </div>
+  const avatarPicker = (
+    <>
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarSelected} className="hidden" />
+    </>
+  );
 
-      <div className="rounded-2xl border border-border bg-surface p-4 flex flex-col gap-3 lg:col-start-1 lg:p-5">
-        <div className="flex justify-between text-[14px]">
-          <span className="text-muted">Agent Name</span>
-          <span className="font-medium">{user.name}</span>
+  if (!section || (section !== "profile" && section !== "security" && !isAdmin)) {
+    return (
+      <div className="page-in px-4 pb-10">
+        <div className="safe-top pb-3 pt-4">
+          <h1 className="text-xl font-bold">Settings</h1>
         </div>
 
-        {!editingWhatsapp ? (
-          <div className="flex justify-between items-center text-[14px]">
-            <span className="text-muted">WhatsApp Number</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{profile?.whatsapp ?? "—"}</span>
-              <button
-                onClick={() => {
-                  setWhatsappInput(profile?.whatsapp ?? "");
-                  setWhatsappError("");
-                  setEditingWhatsapp(true);
-                }}
-                className="text-[12px] font-semibold"
-                style={{ color: "var(--primary)" }}
-              >
-                Edit
-              </button>
-            </div>
+        <div className="surface-card flex items-center gap-4 p-4">
+          <div className="relative shrink-0">
+            <Avatar name={user.name ?? "?"} avatarUrl={profile?.avatarUrl} size={64} className="text-xl" />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+              aria-label="Change profile photo"
+              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-800 active:opacity-80 disabled:opacity-60"
+            >
+              {avatarUploading ? (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              )}
+            </button>
           </div>
-        ) : (
-          <form onSubmit={submitWhatsappChange} className="flex flex-col gap-2 border-t border-border pt-3">
-            <label className="text-sm font-medium block">WhatsApp Number</label>
-            <input
-              type="tel"
-              required
-              value={whatsappInput}
-              onChange={(e) => setWhatsappInput(e.target.value)}
-              placeholder="+974 5000 0000"
-              className="w-full rounded-xl border border-border px-4 py-3 text-base outline-none focus:border-primary"
-            />
-            {whatsappError && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{whatsappError}</div>}
-            <div className="flex gap-2 mt-1">
-              <button
-                type="button"
-                onClick={() => setEditingWhatsapp(false)}
-                className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold bg-surface-muted active:opacity-70"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={whatsappSaving}
-                className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold text-white active:opacity-80 disabled:opacity-60"
-                style={{ background: "var(--primary)" }}
-              >
-                {whatsappSaving ? "Saving..." : "Save"}
-              </button>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-[17px] font-semibold">{user.name}</h2>
+            <p className="truncate text-[13px] text-muted">{user.email}</p>
+            <span className="mt-1.5 inline-block rounded-full bg-accent-light px-2.5 py-0.5 text-[11px] font-medium text-primary">{ROLE_LABELS[user.role]}</span>
+          </div>
+        </div>
+        {avatarError && <div className="mt-2 rounded-xl bg-danger-bg px-3 py-2 text-[12.5px] text-danger">{avatarError}</div>}
+        {avatarPicker}
+
+        <p className="mb-2 mt-6 px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Account</p>
+        <div className="surface-card divide-y divide-slate-100 overflow-hidden">{phoneRows.map(phoneRow)}</div>
+
+        {isAdmin && (
+          <>
+            <p className="mb-2 mt-6 px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Team</p>
+            <div className="surface-card overflow-hidden">
+              <Link href="/admin/users" className="flex items-center gap-3.5 px-4 py-3.5 active:bg-surface-muted">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                  <IconUsers size={20} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-medium">Users</span>
+                  <span className="block truncate text-[12.5px] text-muted">Add agents, reset passwords, link Property Finder</span>
+                </span>
+                {chevron}
+              </Link>
             </div>
-          </form>
+
+            <p className="mb-2 mt-6 px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Agency settings</p>
+            <div className="surface-card divide-y divide-slate-100 overflow-hidden">{phoneAdminRows.map(phoneRow)}</div>
+          </>
         )}
 
-        <div className="flex justify-between text-[14px]">
-          <span className="text-muted">Email</span>
-          <span className="font-medium">{user.email}</span>
-        </div>
-        <div className="flex justify-between text-[14px]">
-          <span className="text-muted">Account Status</span>
-          <span className="font-semibold" style={{ color: "var(--success)" }}>
-            {user.status === "ACTIVE" ? "Active" : "Inactive"}
-          </span>
-        </div>
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="mt-6 w-full rounded-2xl bg-danger-bg py-3.5 text-[14.5px] font-semibold text-danger active:opacity-70"
+        >
+          Log out
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-in px-4 pb-10">
+      <div className="safe-top sticky top-0 z-10 -mx-4 mb-3 flex items-center gap-1 border-b border-slate-100 bg-background/95 px-2 py-2.5 backdrop-blur">
+        <button type="button" onClick={closeSection} aria-label="Back to settings" className="flex h-10 w-10 items-center justify-center rounded-full active:bg-surface-muted">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 6-6 6 6 6" />
+          </svg>
+        </button>
+        <h1 className="text-[17px] font-semibold">{sectionTitle}</h1>
       </div>
 
-      {isAdmin && (
-        <div className="mt-5 lg:mt-0 lg:col-start-2 lg:row-start-1 lg:row-span-3">
-          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Team</h2>
-          <Link href="/admin/users" className="mb-5 flex items-center gap-3.5 rounded-2xl border border-border bg-surface p-4 active:opacity-70">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-light text-primary">
-              <IconUsers size={22} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-medium">Users</span>
-              <span className="block text-[12.5px] text-muted">Add agents, reset passwords, link Property Finder</span>
-            </span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a93a3" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m9 6 6 6-6 6" />
-            </svg>
-          </Link>
-          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Agency</h2>
-          <div className="flex flex-col gap-3 mb-5">
-            <AgencyBrandingCard />
+      <div className="flex flex-col gap-4">
+        {section === "profile" && (
+          <div className="surface-card divide-y divide-slate-100 px-4">
+            <div className="flex items-center justify-between gap-4 py-3.5 text-[14px]">
+              <span className="text-muted">Name</span>
+              <span className="min-w-0 truncate font-medium">{user.name}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3.5 text-[14px]">
+              <span className="text-muted">Email</span>
+              <span className="min-w-0 truncate font-medium">{user.email}</span>
+            </div>
+            {!editingWhatsapp ? (
+              <div className="flex items-center justify-between gap-4 py-3.5 text-[14px]">
+                <span className="text-muted">WhatsApp</span>
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="truncate font-medium">{profile?.whatsapp ?? "—"}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWhatsappInput(profile?.whatsapp ?? "");
+                      setWhatsappError("");
+                      setEditingWhatsapp(true);
+                    }}
+                    className="text-[13px] font-semibold text-primary"
+                  >
+                    Edit
+                  </button>
+                </span>
+              </div>
+            ) : (
+              <form onSubmit={submitWhatsappChange} className="flex flex-col gap-2 py-3.5">
+                <label className="block text-sm font-medium">WhatsApp number</label>
+                <input type="tel" required value={whatsappInput} onChange={(e) => setWhatsappInput(e.target.value)} placeholder="+974 5000 0000" className={phoneInput} />
+                {whatsappError && <div className="rounded-xl bg-danger-bg px-4 py-3 text-sm text-danger">{whatsappError}</div>}
+                <div className="mt-1 flex gap-2">
+                  <button type="button" onClick={() => setEditingWhatsapp(false)} className="flex-1 rounded-xl bg-surface-muted py-3 text-[14px] font-semibold active:opacity-70">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={whatsappSaving} className="flex-1 rounded-xl py-3 text-[14px] font-semibold text-white active:opacity-80 disabled:opacity-60" style={{ background: "var(--primary)" }}>
+                    {whatsappSaving ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </form>
+            )}
+            <div className="flex items-center justify-between gap-4 py-3.5 text-[14px]">
+              <span className="text-muted">Status</span>
+              <span className="font-semibold" style={{ color: user.status === "ACTIVE" ? "var(--success)" : "var(--danger)" }}>
+                {user.status === "ACTIVE" ? "Active" : "Inactive"}
+              </span>
+            </div>
           </div>
-          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Lead sources</h2>
-          <div className="flex flex-col gap-3 mb-5">
-            <MetaLeadsSettingsCard />
+        )}
+
+        {section === "security" && (
+          <div className="surface-card p-4">
+            <h3 className="text-[15px] font-semibold">Password</h3>
+            <p className="mt-0.5 text-[13px] text-muted">Use at least 6 characters.</p>
+            {!changingPassword ? (
+              <button type="button" onClick={() => setChangingPassword(true)} className="mt-4 w-full rounded-xl bg-surface-muted py-3.5 text-[14px] font-semibold active:opacity-70">
+                Change password
+              </button>
+            ) : (
+              <form onSubmit={submitPasswordChange} className="mt-4 flex flex-col gap-3">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Current password</label>
+                  <input type="password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={phoneInput} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">New password</label>
+                  <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={phoneInput} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Confirm new password</label>
+                  <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={phoneInput} />
+                </div>
+                {error && <div className="rounded-xl bg-danger-bg px-4 py-3 text-sm text-danger">{error}</div>}
+                {success && <div className="rounded-xl bg-success-bg px-4 py-3 text-sm" style={{ color: "var(--success)" }}>Password updated.</div>}
+                <div className="mt-1 flex gap-3">
+                  <button type="button" onClick={() => setChangingPassword(false)} className="flex-1 rounded-xl bg-surface-muted py-3 text-[14px] font-semibold active:opacity-70">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={submitting} className="flex-1 rounded-xl py-3 text-[14px] font-semibold text-white active:opacity-80 disabled:opacity-60" style={{ background: "var(--primary)" }}>
+                    {submitting ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-          <h2 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2 px-1">Portal Integrations</h2>
-          <div className="flex flex-col gap-3">
+        )}
+
+        {section === "agency" && isAdmin && <AgencyBrandingCard />}
+        {section === "lead-sources" && isAdmin && <MetaLeadsSettingsCard />}
+        {section === "integrations" && isAdmin && (
+          <>
             <PropertyFinderSettingsCard />
             <PortalFeedCard portal="WEBSITE" slug="website.json" label="Website" />
             <PortalFeedCard portal="PROPERTY_FINDER" slug="pf.xml" label="Property Finder" />
             <QatarLivingApiCard />
             <PortalFeedCard portal="PROPERTY_ORYX" slug="oryx.xml" label="Property Oryx" />
             <MasterFeedCard />
-            <OpenAiSettingsCard />
-          </div>
-        </div>
-      )}
-
-      {!changingPassword ? (
-        <div className="flex flex-col gap-3 mt-5 lg:col-start-1">
-          <button
-            onClick={() => setChangingPassword(true)}
-            className="w-full rounded-xl py-3.5 text-[14px] font-semibold text-foreground bg-surface-muted active:opacity-70"
-          >
-            Change Password
-          </button>
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="w-full rounded-xl py-3.5 text-[14px] font-semibold bg-danger-bg text-danger active:opacity-70"
-          >
-            Log Out
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={submitPasswordChange} className="flex flex-col gap-3 mt-5 rounded-2xl border border-border bg-surface p-4 lg:col-start-1 lg:p-5">
-          <h3 className="font-semibold text-[15px]">Change Password</h3>
-          <div>
-            <label className="text-sm font-medium block mb-1.5">Current Password</label>
-            <input
-              type="password"
-              required
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full rounded-xl border border-border px-4 py-3 text-base outline-none focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium block mb-1.5">New Password</label>
-            <input
-              type="password"
-              required
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-xl border border-border px-4 py-3 text-base outline-none focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium block mb-1.5">Confirm New Password</label>
-            <input
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-xl border border-border px-4 py-3 text-base outline-none focus:border-primary"
-            />
-          </div>
-          {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
-          {success && <div className="rounded-xl bg-success-bg text-sm px-4 py-3" style={{ color: "var(--success)" }}>Password updated.</div>}
-          <div className="flex gap-3 mt-1">
-            <button
-              type="button"
-              onClick={() => setChangingPassword(false)}
-              className="flex-1 rounded-xl py-3 text-[14px] font-semibold bg-surface-muted active:opacity-70"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 rounded-xl py-3 text-[14px] font-semibold text-white active:opacity-80 disabled:opacity-60"
-              style={{ background: "var(--primary)" }}
-            >
-              {submitting ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
-      )}
+          </>
+        )}
+        {section === "ai" && isAdmin && <OpenAiSettingsCard />}
       </div>
     </div>
   );
