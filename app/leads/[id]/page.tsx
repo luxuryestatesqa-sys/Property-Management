@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Avatar from "@/components/Avatar";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useOrg } from "@/components/OrgProvider";
 import { buildWhatsAppLeadMessage } from "@/lib/whatsapp";
 import { timeAgo, fullDateTime } from "@/lib/timeAgo";
@@ -128,6 +131,13 @@ export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const org = useOrg();
+  const isDesktop = useIsDesktop();
+  const { data: session } = useSession();
+  const confirm = useConfirm();
+  const [mtab, setMtab] = useState<"overview" | "details" | "timeline">("overview");
+  const [options, setOptions] = useState(false);
+  const [addSheet, setAddSheet] = useState(false);
+  const [followOpen, setFollowOpen] = useState(false);
   const [data, setData] = useState<Detail | null>(null);
   const [missing, setMissing] = useState(false);
   const [note, setNote] = useState("");
@@ -763,6 +773,290 @@ export default function LeadDetailPage() {
       </div>
     </div>
   );
+
+  // ------------------------------------------------------------------------------------------
+  // Phone layout: a title block, quick actions, then three tabs (Overview, Details, Timeline).
+  if (!isDesktop) {
+    const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
+    const next = openTasks[0];
+    const dayDiff = (iso: string) => {
+      const a = new Date(now);
+      a.setHours(0, 0, 0, 0);
+      const b = new Date(iso);
+      b.setHours(0, 0, 0, 0);
+      return Math.round((b.getTime() - a.getTime()) / 86400000);
+    };
+    const followLabel = (iso: string) => {
+      if (new Date(iso).getTime() < now) return "Follow-up overdue";
+      const d = dayDiff(iso);
+      return d === 0 ? "Follow-up today" : d === 1 ? "Follow-up tomorrow" : `Follow-up in ${d} days`;
+    };
+    const last = lead.activities[0];
+    const lastLabel = last ? (TIMELINE[last.type]?.label ?? last.type) : null;
+    const ic = (d: string, size = 20) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d={d} />
+      </svg>
+    );
+    const deleteLead = async () => {
+      setOptions(false);
+      const ok = await confirm({ title: "Delete this lead?", message: "Its notes, voice notes, files and follow-ups are deleted too. This can't be undone.", confirmLabel: "Delete", danger: true });
+      if (!ok) return;
+      const res = await fetch("/api/leads/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete", leadIds: [id] }) });
+      if (res.ok) router.replace("/leads");
+      else setError((await res.json().catch(() => null))?.error ?? "Couldn't delete the lead");
+    };
+    const tabs: [typeof mtab, string][] = [["overview", "Overview"], ["details", "Details"], ["timeline", "Timeline"]];
+    const rowCard = "flex w-full items-center gap-3.5 rounded-2xl bg-surface p-4 text-left shadow-sm active:opacity-80";
+    const sheetBtn = "flex w-full items-center gap-3.5 rounded-xl px-1 py-3 text-left active:bg-surface-muted";
+
+    return (
+      <div className="pb-36 page-in">
+        {/* top bar */}
+        <div className="sticky top-0 z-30 flex items-center justify-between bg-background px-3 py-2.5">
+          <button type="button" onClick={() => router.back()} aria-label="Back" className="flex h-10 w-10 items-center justify-center rounded-full active:bg-surface-muted">
+            {ic("M19 12H5M12 19l-7-7 7-7", 22)}
+          </button>
+          <button type="button" onClick={() => setOptions(true)} className="rounded-full px-3 py-2 text-[15px] font-medium active:bg-surface-muted">
+            Options
+          </button>
+        </div>
+
+        <div className="px-4 pt-1">
+          {error && <div className="mb-3 rounded-xl bg-danger-bg px-4 py-3 text-[13.5px] text-danger">{error}</div>}
+          <div className="flex items-center gap-1.5 text-[14px] text-slate-600">
+            {ic("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6", 15)}
+            {lead.assignedTo ? <span>Assigned to {lead.assignedTo.name}</span> : <span className="font-medium text-amber-700">Unassigned</span>}
+          </div>
+          <h1 className="mt-1 break-words text-[30px] font-medium leading-tight tracking-[-0.02em]">{lead.name}</h1>
+          <p className="mt-1 text-[14px] text-muted">
+            {SOURCE_LABELS[lead.source]} · {CHANNEL_LABELS[lead.channel]} · received {timeAgo(lead.receivedAt)}
+          </p>
+          <div className="mt-3">
+            {responseMs !== null ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-success-bg px-3 py-1 text-[12.5px]" style={{ color: "var(--success)" }}>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Replied in {duration(responseMs)}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-[12.5px] text-amber-900">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                Not contacted yet · waiting {duration(now - new Date(lead.receivedAt).getTime())}
+              </span>
+            )}
+          </div>
+
+          {/* quick actions */}
+          <div className="no-scrollbar -mx-4 mt-4 flex gap-2.5 overflow-x-auto px-4">
+            {wa && (
+              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => log("WHATSAPP_LOGGED")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full px-5 text-[15px] font-medium active:opacity-80" style={{ background: "#e7f9ee", color: "#1a7f3c" }}>
+                {ic("M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z", 19)}
+                WhatsApp
+              </a>
+            )}
+            {lead.phone && (
+              <a href={`tel:${lead.phone}`} onClick={() => log("CALL_LOGGED")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full px-5 text-[15px] font-medium text-white active:opacity-80" style={{ background: "var(--primary)" }}>
+                {ic("M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z", 19)}
+                Call
+              </a>
+            )}
+            <button type="button" onClick={() => openAdd("followup")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-surface px-5 text-[15px] font-medium text-slate-700 shadow-sm ring-1 ring-border active:opacity-80">
+              {ic("M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z", 19)}
+              Follow-up
+            </button>
+            <button type="button" onClick={() => openAdd("note")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-surface px-5 text-[15px] font-medium text-slate-700 shadow-sm ring-1 ring-border active:opacity-80">
+              {ic("M4 4h16v12H8l-4 4zM8 9h8M8 12.5h5", 19)}
+              Note
+            </button>
+          </div>
+        </div>
+
+        {/* tabs */}
+        <div className="sticky top-[58px] z-20 mt-4 flex border-b border-border bg-background px-2">
+          {tabs.map(([v, l]) => (
+            <button key={v} type="button" onClick={() => setMtab(v)} aria-current={mtab === v} className={`-mb-px flex-1 border-b-2 px-2 pb-3 pt-2 text-[15px] transition-colors ${mtab === v ? "border-primary font-medium text-primary" : "border-transparent text-slate-500"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-4 pt-4">
+          {mtab === "overview" && (
+            <div className="flex flex-col gap-3">
+              {/* next follow-up */}
+              <div className="overflow-hidden rounded-2xl bg-surface shadow-sm">
+                <button type="button" onClick={() => (next ? setFollowOpen((o) => !o) : openAdd("followup"))} className="flex w-full items-center gap-3.5 p-4 text-left active:opacity-80">
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${next && new Date(next.dueAt).getTime() < now ? "bg-rose-50 text-rose-600" : "bg-accent-light text-primary"}`}>{ic("M3 10h18M7 3v4M17 3v4M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z")}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[12.5px] font-medium uppercase tracking-wide text-slate-500">{next ? followLabel(next.dueAt) : "No follow-up planned"}</span>
+                    <span className="mt-0.5 block truncate text-[15px]">{next ? new Date(next.dueAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "Tap to add one"}</span>
+                  </span>
+                  <span className={`text-muted transition-transform ${followOpen ? "rotate-180" : ""}`}>{ic(next ? "m6 9 6 6 6-6" : "M12 5v14M5 12h14", 18)}</span>
+                </button>
+                {followOpen && openTasks.length > 0 && <ul className="border-t border-border px-2 py-1.5">{openTasks.map(taskRow)}</ul>}
+              </div>
+
+              {/* last activity */}
+              <button type="button" onClick={() => setMtab("timeline")} className={rowCard}>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">{ic("M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z")}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12.5px] font-medium uppercase tracking-wide text-slate-500">{last ? `Last activity ${timeAgo(last.createdAt)}` : "No activity yet"}</span>
+                  <span className="mt-0.5 block truncate text-[15px]">{lastLabel ?? "Add a note or follow-up"}</span>
+                </span>
+                <span className="text-muted">{ic("m9 6 6 6-6 6", 18)}</span>
+              </button>
+
+              {/* stage */}
+              <div className="rounded-2xl bg-surface p-4 shadow-sm">
+                <div className="mb-2 text-[12.5px] font-medium uppercase tracking-wide text-slate-500">Lead stage</div>
+                <span className="relative block">
+                  <select value={lead.stageId} onChange={(e) => e.target.value !== lead.stageId && patch({ stageId: e.target.value })} aria-label="Lead stage" className="h-12 w-full appearance-none rounded-xl pl-4 pr-10 text-[15.5px] font-medium outline-none" style={{ background: `color-mix(in srgb, ${stageColor} 14%, white)`, color: `color-mix(in srgb, ${stageColor} 72%, black)` }}>
+                    {stages.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name}
+                      </option>
+                    ))}
+                  </select>
+                  <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={stageColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
+              </div>
+
+              {/* groups */}
+              <div className="rounded-2xl bg-surface p-4 shadow-sm">
+                <div className="mb-2.5 text-[12.5px] font-medium uppercase tracking-wide text-slate-500">Groups</div>
+                <div className="flex flex-wrap gap-2">
+                  {groups.map((g) => {
+                    const on = inGroup.has(g.id);
+                    return (
+                      <button key={g.id} type="button" onClick={() => toggleGroup(g.id)} className={`rounded-full px-3.5 py-2 text-[13.5px] font-medium ${on ? "text-white" : "bg-surface-muted text-slate-600"}`} style={on ? { background: g.color ?? "#6366f1" } : undefined}>
+                        {g.name}
+                      </button>
+                    );
+                  })}
+                  {groups.length === 0 && !canManage && <span className="text-[14px] text-muted">No groups yet.</span>}
+                </div>
+                {canManage && (
+                  <div className="mt-3 flex gap-2">
+                    <input value={newGroup} onChange={(e) => setNewGroup(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createGroup()} placeholder="New group, e.g. Investors" maxLength={40} className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3.5 text-[15px] outline-none focus:border-primary" />
+                    <button type="button" disabled={!newGroup.trim()} onClick={createGroup} className="rounded-xl bg-surface-muted px-4 text-[14px] font-medium disabled:opacity-50">
+                      Create
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* handled by */}
+              {canManage && (
+                <div className="rounded-2xl bg-surface p-4 shadow-sm">
+                  <div className="mb-2 text-[12.5px] font-medium uppercase tracking-wide text-slate-500">Handled by</div>
+                  <span className="relative block">
+                    <select value={lead.assignedTo?.id ?? ""} onChange={(e) => patch({ assignedToId: e.target.value || null })} className="h-12 w-full appearance-none rounded-xl border border-border bg-surface pl-4 pr-10 text-[15.5px] outline-none">
+                      <option value="">Unassigned</option>
+                      {agents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
+                </div>
+              )}
+
+              {/* contact */}
+              <div className="divide-y divide-border rounded-2xl bg-surface px-4 shadow-sm">
+                {[
+                  ["Phone", lead.phone, lead.phone ? `tel:${lead.phone}` : null],
+                  ["Email", lead.email, lead.email ? `mailto:${lead.email}` : null],
+                  ["Area", lead.region, null],
+                ].map(([k, v, href]) =>
+                  v ? (
+                    <div key={k as string} className="flex items-center justify-between gap-4 py-3.5">
+                      <span className="text-[13.5px] text-muted">{k}</span>
+                      {href ? (
+                        <a href={href as string} className="min-w-0 truncate text-[15px] font-medium" style={{ color: "var(--primary)" }}>
+                          {v}
+                        </a>
+                      ) : (
+                        <span className="min-w-0 truncate text-[15px]">{v}</span>
+                      )}
+                    </div>
+                  ) : null
+                )}
+              </div>
+            </div>
+          )}
+
+          {mtab === "details" && detailsColumn}
+          {mtab === "timeline" && activityColumn}
+        </div>
+
+        {/* add activity */}
+        <button type="button" onClick={() => setAddSheet(true)} aria-label="Add activity" className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl active:scale-95" style={{ background: "var(--primary)" }}>
+          {ic("M12 5v14M5 12h14", 26)}
+        </button>
+
+        {(addSheet || options) && (
+          <div className="fixed inset-0 z-50 flex items-end bg-slate-900/45" onMouseDown={(e) => e.target === e.currentTarget && (setAddSheet(false), setOptions(false))}>
+            <div role="dialog" className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-surface px-5 pb-8 pt-3 shadow-2xl">
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
+              {addSheet ? (
+                <>
+                  <h2 className="mb-1 text-[19px] font-medium">Add activity</h2>
+                  <ul>
+                    {addOptions.map(([v, l, hint, icon]) => (
+                      <li key={v}>
+                        <button type="button" onClick={() => { setAddSheet(false); openAdd(v); }} className={sheetBtn}>
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-light text-primary">{ic(icon, 20)}</span>
+                          <span>
+                            <span className="block text-[15.5px] font-medium">{l}</span>
+                            <span className="block text-[12.5px] text-muted">{hint}</span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <h2 className="mb-1 text-[19px] font-medium">Options</h2>
+                  <ul>
+                    {listing && (
+                      <li>
+                        <Link href={`/property/${listing.id}`} className={sheetBtn}>
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">{ic("M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5", 20)}</span>
+                          <span className="text-[15.5px] font-medium">Open the property</span>
+                        </Link>
+                      </li>
+                    )}
+                    <li>
+                      <button type="button" onClick={() => { setOptions(false); setMtab("timeline"); }} className={sheetBtn}>
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">{ic("M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z", 20)}</span>
+                        <span className="text-[15.5px] font-medium">Full timeline</span>
+                      </button>
+                    </li>
+                    {isAdmin && (
+                      <li>
+                        <button type="button" onClick={deleteLead} className={sheetBtn}>
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">{ic("M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3", 20)}</span>
+                          <span className="text-[15.5px] font-medium text-rose-600">Delete lead</span>
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        {addModal}
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 pb-24 lg:px-0 lg:pb-12 page-in">
