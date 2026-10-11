@@ -150,13 +150,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
     "sec-photos": form.images.length === 0 ? "Add at least one photo" : null,
     "sec-where": !form.area.trim() || !form.community.trim()
       ? "Choose the location"
-      : !form.buildingName.trim()
-        ? "Enter the building name"
-        : unit?.showFloor && !form.floor.trim()
-          ? "Enter the floor"
-          : !form.apartmentNumber.trim()
-            ? `Enter the ${unit?.unitLabel.toLowerCase() ?? "unit number"}`
-            : null,
+      : null, // building name, floor and unit number are optional
   };
   const order = ["sec-type", "sec-price", "sec-photos", "sec-where"];
   const firstMissing = order.find((k) => problems[k]);
@@ -304,16 +298,18 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 label={form.pfLocationLabel}
                 onChange={(v) => setForm((prev) => ({ ...prev, area: v.area, community: v.community, pfLocationId: v.pfLocationId, pfLocationLabel: v.label }))}
               />
-              <LocationAutocomplete label="Building name" placeholder="e.g. Marina Tower 5" area={form.area} community={form.community} value={form.buildingName} onChange={(v) => update("buildingName", v)} />
+              <LocationAutocomplete label={<>Building name <span className="font-normal text-muted">(optional)</span></>} placeholder="e.g. Marina Tower 5" area={form.area} community={form.community} value={form.buildingName} onChange={(v) => update("buildingName", v)} />
               <div className="grid grid-cols-2 gap-5">
                 {unit?.showFloor && (
                   <div>
-                    <label className={fieldLabel}>Floor</label>
+                    <label className={fieldLabel}>Floor <span className="font-normal text-muted">(optional)</span></label>
                     <input type="text" inputMode="numeric" value={form.floor} onChange={(e) => update("floor", e.target.value)} placeholder="12" className={input} />
                   </div>
                 )}
                 <div className={unit?.showFloor ? "" : "col-span-2"}>
-                  <label className={fieldLabel}>{unit?.unitLabel ?? "Apartment No."}</label>
+                  <label className={fieldLabel}>
+                    {unit?.unitLabel ?? "Apartment No."} <span className="font-normal text-muted">(optional)</span>
+                  </label>
                   <input type="text" value={form.apartmentNumber} onChange={(e) => update("apartmentNumber", e.target.value)} placeholder={unit?.unitPlaceholder ?? "1204"} className={input} />
                 </div>
               </div>

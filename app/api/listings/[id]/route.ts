@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingUpdateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
-import { isResidentialCategory, bedroomOptionsFor } from "@/lib/propertyCategory";
+import { isResidentialCategory, bedroomOptionsFor, normalizeBuildingName, normalizeUnitValue } from "@/lib/propertyCategory";
 import { canViewListing, visibleListingsWhere, canViewPrivateDetails, redactPrivateFields, redactPrivateFieldsList, PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { unpublishListingFromPropertyFinder } from "@/lib/propertyFinder/sync";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
@@ -146,9 +146,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   trackChange("sizeSqm", listing.sizeSqm, data.sizeSqm, "SIZE");
   trackChange("area", listing.area, data.area, "AREA");
   trackChange("community", listing.community, data.community, "COMMUNITY");
-  trackChange("buildingName", listing.buildingName, data.buildingName, "BUILDING");
-  trackChange("floor", listing.floor, data.floor, "FLOOR");
-  trackChange("apartmentNumber", listing.apartmentNumber, data.apartmentNumber, "APARTMENT");
+  // Optional fields: a blank means "none", stored as the community name / "-".
+  trackChange("buildingName", listing.buildingName, data.buildingName === undefined ? undefined : normalizeBuildingName(data.buildingName, data.community ?? listing.community), "BUILDING");
+  trackChange("floor", listing.floor, data.floor === undefined ? undefined : normalizeUnitValue(data.floor), "FLOOR");
+  trackChange("apartmentNumber", listing.apartmentNumber, data.apartmentNumber === undefined ? undefined : normalizeUnitValue(data.apartmentNumber), "APARTMENT");
   trackChange("furnished", listing.furnished, data.furnished, "FURNISHED");
   trackChange("bathrooms", listing.bathrooms, data.bathrooms, "BATHROOMS");
   trackChange("title", listing.title, data.title, "TITLE");
@@ -215,9 +216,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Recompute dupKey if location fields changed
   const newArea = (data.area ?? listing.area) as string;
   const newCommunity = (data.community ?? listing.community) as string;
-  const newBuilding = (data.buildingName ?? listing.buildingName) as string;
-  const newFloor = (data.floor ?? listing.floor) as string;
-  const newApt = (data.apartmentNumber ?? listing.apartmentNumber) as string;
+  const newBuilding = (data.buildingName === undefined ? listing.buildingName : normalizeBuildingName(data.buildingName, newCommunity)) as string;
+  const newFloor = (data.floor === undefined ? listing.floor : normalizeUnitValue(data.floor)) as string;
+  const newApt = (data.apartmentNumber === undefined ? listing.apartmentNumber : normalizeUnitValue(data.apartmentNumber)) as string;
   updateData.dupKey = buildDupKey(newArea, newCommunity, newBuilding, newFloor, newApt);
 
   if (data.images !== undefined) {

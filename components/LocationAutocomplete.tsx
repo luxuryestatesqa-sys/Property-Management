@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 interface LocationAutocompleteProps {
-  label: string;
+  label: React.ReactNode;
   placeholder: string;
   value: string;
   onChange: (value: string) => void;

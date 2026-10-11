@@ -180,10 +180,6 @@ export default function AddPropertyPage() {
     if (form.images.length === 0) return "At least one photo is required";
     if (!form.area.trim()) return "Location is required";
     if (!form.community.trim()) return "Area / Community is required";
-    if (!form.buildingName.trim()) return "Building name is required";
-    const unit = unitLabelFor(form.propertyCategory);
-    if (unit.showFloor && !form.floor.trim()) return "Floor is required";
-    if (!form.apartmentNumber.trim()) return `${unit.unitLabel} is required`;
     if (form.listingType === "RENT" && !form.rentPrice) return "Rent price is required";
     if (form.listingType === "SALE" && !form.salePrice) return "Sale price is required";
     if (form.listingType === "SALE") return saleDetailsProblem(form);
@@ -311,8 +307,6 @@ export default function AddPropertyPage() {
       { label: form.listingType === "RENT" ? "Rent price" : "Sale price", done: Boolean(form.listingType === "RENT" ? form.rentPrice : form.salePrice), target: "sec-price" },
       { label: "At least one photo", done: form.images.length > 0, target: "sec-photos" },
       { label: "Location & area", done: Boolean(form.area.trim() && form.community.trim()), target: "sec-where" },
-      { label: "Building name", done: Boolean(form.buildingName.trim()), target: "sec-where" },
-      { label: unitInfo ? `${unitInfo.showFloor ? "Floor & " : ""}${unitInfo.unitLabel}` : "Unit details", done: Boolean(unitInfo && form.apartmentNumber.trim() && (!unitInfo.showFloor || form.floor.trim())), target: "sec-where" },
     ],
   };
 
@@ -543,7 +537,7 @@ export default function AddPropertyPage() {
               onChange={(area, community) => setForm((prev) => ({ ...prev, area, community }))}
             />
             <LocationAutocomplete
-              label="Building Name"
+              label={<>Building name <span className="font-normal text-muted">(optional)</span></>}
               placeholder="e.g. Marina Tower 5"
               area={form.area}
               community={form.community}
@@ -553,7 +547,7 @@ export default function AddPropertyPage() {
             <div className="flex gap-3">
               {form.propertyCategory && unitLabelFor(form.propertyCategory).showFloor && (
                 <div className="flex-1">
-                  <label className="text-sm font-medium text-foreground block mb-1.5">Floor</label>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">Floor <span className="font-normal text-muted">(optional)</span></label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -566,7 +560,7 @@ export default function AddPropertyPage() {
               )}
               <div className="flex-1">
                 <label className="text-sm font-medium text-foreground block mb-1.5">
-                  {form.propertyCategory ? unitLabelFor(form.propertyCategory).unitLabel : "Apartment No."}
+                  {form.propertyCategory ? unitLabelFor(form.propertyCategory).unitLabel : "Apartment No."} <span className="font-normal text-muted">(optional)</span>
                 </label>
                 <input
                   type="text"

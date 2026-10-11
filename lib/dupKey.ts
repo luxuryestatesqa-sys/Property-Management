@@ -9,5 +9,7 @@ export function buildDupKey(
   floor: string,
   apartmentNumber: string
 ): string {
+  // Without a unit number there is nothing to match on, so such a listing is never reported as a duplicate.
+  if (!apartmentNumber.trim() || apartmentNumber.trim() === "-") return `no-unit|${globalThis.crypto.randomUUID()}`;
   return [area, community, buildingName, floor, apartmentNumber].map(norm).join("|");
 }

@@ -65,7 +65,7 @@ describe("getChannelEligibility", () => {
 
   it("flags missing area/community/buildingName individually", () => {
     const result = getChannelEligibility({ ...BASE_LISTING, area: "", community: "", buildingName: "" }, ONE_IMAGE);
-    expect(result.reasons).toEqual(expect.arrayContaining(["Set the area", "Set the community", "Set the building name"]));
+    expect(result.reasons).toEqual(expect.arrayContaining(["Set the area", "Set the community"]));
   });
 
   it("accumulates missing-field reasons at once", () => {

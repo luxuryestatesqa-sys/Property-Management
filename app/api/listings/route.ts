@@ -3,6 +3,7 @@ import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { withImageLinks } from "@/lib/listingImages";
 import { listingCreateSchema } from "@/lib/validation";
 import { buildDupKey } from "@/lib/dupKey";
+import { normalizeBuildingName, normalizeUnitValue } from "@/lib/propertyCategory";
 import { redactPrivateFieldsList, unitDetailsSearchableWhere, visibleListingsWhere } from "@/lib/listingPrivacy";
 import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
@@ -164,7 +165,11 @@ export async function POST(req: NextRequest) {
   }
   const data = parsed.data;
 
-  const dupKey = buildDupKey(data.area, data.community, data.buildingName, data.floor, data.apartmentNumber);
+  // Building name, floor and unit number are optional: blanks become the community name and "-".
+  const buildingName = normalizeBuildingName(data.buildingName, data.community);
+  const floor = normalizeUnitValue(data.floor);
+  const apartmentNumber = normalizeUnitValue(data.apartmentNumber);
+  const dupKey = buildDupKey(data.area, data.community, buildingName, floor, apartmentNumber);
 
   if (!data.confirmDuplicate) {
     const existing = await db!.listing.findMany({
@@ -204,9 +209,9 @@ export async function POST(req: NextRequest) {
       sizeSqm: data.sizeSqm ?? null,
       area: data.area,
       community: data.community,
-      buildingName: data.buildingName,
-      floor: data.floor,
-      apartmentNumber: data.apartmentNumber,
+      buildingName,
+      floor,
+      apartmentNumber,
       dupKey,
       visibility: data.visibility ?? "SHARED",
       unitDetailsPrivate: data.unitDetailsPrivate ?? false,

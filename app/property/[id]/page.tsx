@@ -19,6 +19,8 @@ import {
   unitLabelFor,
   unitSummary,
   NO_FLOOR_VALUE,
+  buildingNameForForm,
+  unitValueForForm,
 } from "@/lib/propertyCategory";
 import SegmentedControl from "@/components/SegmentedControl";
 import VisibilityField from "@/components/VisibilityField";
@@ -101,9 +103,9 @@ export default function PropertyDetailPage() {
         description: data.listing.description ?? "",
         area: data.listing.area,
         community: data.listing.community,
-        buildingName: data.listing.buildingName,
-        floor: data.listing.floor,
-        apartmentNumber: data.listing.apartmentNumber,
+        buildingName: buildingNameForForm(data.listing.buildingName, data.listing.community),
+        floor: unitValueForForm(data.listing.floor),
+        apartmentNumber: unitValueForForm(data.listing.apartmentNumber),
         rentPrice: data.listing.rentPrice ? String(data.listing.rentPrice) : "",
         salePrice: data.listing.salePrice ? String(data.listing.salePrice) : "",
         rentalValue: data.listing.rentalValue ? String(data.listing.rentalValue) : "",
@@ -453,24 +455,25 @@ export default function PropertyDetailPage() {
           {canManage && (
             <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
               <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Availability</h3>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
-                {availabilityOptionsFor(listing.listingType).map((opt) => {
-                  const active = opt === listing.availabilityStatus;
-                  const color = AVAILABILITY_COLORS[opt];
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={availabilityBusy}
-                      onClick={() => changeAvailability(opt)}
-                      className="shrink-0 text-[13px] font-semibold px-4 py-2.5 rounded-xl active:opacity-70 disabled:opacity-60"
-                      style={active ? { background: color.bg, color: color.text } : { background: "var(--surface-muted)", color: "var(--muted)" }}
-                    >
+              <span className="relative block">
+                <select
+                  value={listing.availabilityStatus}
+                  disabled={availabilityBusy}
+                  onChange={(e) => e.target.value !== listing.availabilityStatus && changeAvailability(e.target.value as AvailabilityStatus)}
+                  aria-label="Availability"
+                  className="h-12 w-full cursor-pointer appearance-none rounded-xl pl-4 pr-11 text-[15px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+                  style={{ background: AVAILABILITY_COLORS[listing.availabilityStatus].bg, color: AVAILABILITY_COLORS[listing.availabilityStatus].text }}
+                >
+                  {availabilityOptionsFor(listing.listingType).map((opt) => (
+                    <option key={opt} value={opt}>
                       {AVAILABILITY_LABELS[opt]}
-                    </button>
-                  );
-                })}
-              </div>
+                    </option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={AVAILABILITY_COLORS[listing.availabilityStatus].text} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
             </section>
           )}
     </>
@@ -1190,7 +1193,7 @@ export default function PropertyDetailPage() {
                 onChange={(area, community) => setForm((f) => ({ ...f, area, community }))}
               />
               <LocationAutocomplete
-                label="Building Name"
+                label={<>Building name <span className="font-normal text-muted">(optional)</span></>}
                 placeholder="e.g. Marina Tower 5"
                 area={form.area}
                 community={form.community}
@@ -1200,7 +1203,7 @@ export default function PropertyDetailPage() {
               <div className="flex gap-3">
                 {unitLabelFor(form.propertyCategory as PropertyCategory).showFloor && (
                   <div className="flex-1">
-                    <label className="text-sm font-medium text-foreground block mb-1.5">Floor</label>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Floor <span className="font-normal text-muted">(optional)</span></label>
                     <input
                       type="text"
                       value={form.floor}
@@ -1211,7 +1214,7 @@ export default function PropertyDetailPage() {
                 )}
                 <div className="flex-1">
                   <label className="text-sm font-medium text-foreground block mb-1.5">
-                    {unitLabelFor(form.propertyCategory as PropertyCategory).unitLabel}
+                    {unitLabelFor(form.propertyCategory as PropertyCategory).unitLabel} <span className="font-normal text-muted">(optional)</span>
                   </label>
                   <input
                     type="text"

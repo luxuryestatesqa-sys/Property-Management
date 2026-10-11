@@ -137,13 +137,30 @@ export function unitSummary(
   listing: { propertyCategory: PropertyCategory; apartmentNumber: string; floor: string },
   short = true
 ): string | null {
-  if (!listing.apartmentNumber) return null;
+  // Building, floor and unit number are optional (Property Finder doesn't need them): a blank or "-" means none.
+  if (!listing.apartmentNumber || listing.apartmentNumber.trim() === "-") return null;
   const unit = unitLabelFor(listing.propertyCategory);
   const base = `${short ? unit.unitShortLabel : unit.unitLabel} ${listing.apartmentNumber}`;
-  if (!unit.showFloor || !listing.floor) return base;
+  if (!unit.showFloor || !listing.floor || listing.floor.trim() === "-") return base;
   return `${base}, ${short ? "Fl" : "Floor"} ${listing.floor}`;
 }
 
 // The value stored for "Floor" when a category doesn't use one, so the
 // (still required) database field always has something meaningful in it.
 export const NO_FLOOR_VALUE = "-";
+
+// Building name, floor and unit number are optional. The database fields always hold something, so a
+// blank unit number or floor is stored as "-", and a blank building name as the community's name.
+export function normalizeUnitValue(value: string | null | undefined): string {
+  return value?.trim() || NO_FLOOR_VALUE;
+}
+export function normalizeBuildingName(building: string | null | undefined, community: string): string {
+  return building?.trim() || community.trim();
+}
+// What to show in a form for a stored value: the "nothing entered" placeholders show as an empty box.
+export function unitValueForForm(stored: string | null | undefined): string {
+  return !stored || stored.trim() === NO_FLOOR_VALUE ? "" : stored;
+}
+export function buildingNameForForm(stored: string | null | undefined, community: string): string {
+  return !stored || stored.trim().toLowerCase() === community.trim().toLowerCase() ? "" : stored;
+}

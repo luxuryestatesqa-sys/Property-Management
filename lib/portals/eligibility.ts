@@ -25,7 +25,6 @@ export function getChannelEligibility(
   if (images.length === 0) reasons.push("Add at least one photo");
   if (!listing.area) reasons.push("Set the area");
   if (!listing.community) reasons.push("Set the community");
-  if (!listing.buildingName) reasons.push("Set the building name");
 
   return { eligible: reasons.length === 0, reasons };
 }
