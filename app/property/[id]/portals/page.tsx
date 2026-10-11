@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -867,6 +868,11 @@ export default function MultiPortalPublishingPage() {
                       >
                         <span>✓ Already Published</span>
                       </button>
+                      {ch.key === "PROPERTY_ORYX" && (
+                        <Link href={`/property/${listing.id}/oryx`} className="rounded-xl px-4 py-3 text-[13px] font-semibold bg-accent-light text-primary active:opacity-70 shrink-0">
+                          Review &amp; edit
+                        </Link>
+                      )}
                       <button
                         type="button"
                         disabled={isBusy}
@@ -877,6 +883,11 @@ export default function MultiPortalPublishingPage() {
                       </button>
                     </>
                   ) : (
+                    ch.key === "PROPERTY_ORYX" ? (
+                      <Link href={`/property/${listing.id}/oryx`} className="flex-1 rounded-xl py-3 text-center text-[14px] font-bold text-white transition-all active:opacity-80" style={{ background: "var(--primary)" }}>
+                        Review &amp; publish to Property Oryx
+                      </Link>
+                    ) : (
                     <button
                       type="button"
                       disabled={isBusy}
@@ -886,6 +897,7 @@ export default function MultiPortalPublishingPage() {
                     >
                       {isBusy ? "Updating..." : `Publish to ${ch.label}`}
                     </button>
+                    )
                   )}
 
                   {ch.slug && cred?.agencyId && cred?.token && (

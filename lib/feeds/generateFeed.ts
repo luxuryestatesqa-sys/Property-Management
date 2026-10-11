@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { Portal } from "@prisma/client";
+import { Portal, Prisma } from "@prisma/client";
 import { tenantDb } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
@@ -78,6 +78,68 @@ export const FEED_LISTING_SELECT = {
   createdBy: { select: { name: true, whatsapp: true, email: true } },
 };
 
+type FeedRow = Prisma.ListingGetPayload<{ select: typeof FEED_LISTING_SELECT }>;
+
+// One listing as the feeds see it. Shared by the feeds and by the per-portal review pages, so what a
+// person reviews is exactly what goes out. Returns null when there is no price.
+export function toFeedListing(listing: FeedRow, ctx: { baseUrl: string; agencyName: string }): FeedListing | null {
+  const { baseUrl, agencyName } = ctx;
+  const price = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
+  if (!price) return null;
+
+  const categoryLabel = PROPERTY_CATEGORY_LABELS[listing.propertyCategory] || listing.propertyCategory;
+  const bedroomsLabel = listing.bedrooms ? BEDROOM_LABELS[listing.bedrooms] : null;
+  // The Property Finder location when one was chosen, else area/community.
+  const location = feedLocationFor(listing);
+  const purpose = listing.listingType === "RENT" ? "Rent" : "Sale";
+  // Fallback copy for a listing with no title/description yet. It never
+  // names the building - that stays internal - only the area and community.
+  const defaultTitle = `${bedroomsLabel ? bedroomsLabel + " " : ""}${categoryLabel} for ${purpose} in ${location.area}`;
+  const defaultDescription = `${bedroomsLabel ? bedroomsLabel + " " : ""}${categoryLabel} available for ${purpose.toLowerCase()} in ${[location.subcommunity, location.community, location.area].filter(Boolean).join(", ")}. Contact ${agencyName} for details and viewings.`;
+  // Stored as Property Finder's enum shape: "none", "1".."20".
+  const bathroomCount = listing.bathrooms === "none" ? 0 : listing.bathrooms ? parseInt(listing.bathrooms, 10) : NaN;
+
+  return {
+    id: listing.id,
+    reference: `LE-${listing.id}`,
+    listingType: listing.listingType,
+    propertyCategory: listing.propertyCategory,
+    propertyCategoryLabel: categoryLabel,
+    bedrooms: listing.bedrooms ? BEDROOM_NUMBERS[listing.bedrooms] : null,
+    bathrooms: Number.isFinite(bathroomCount) ? bathroomCount : null,
+    sizeSqm: listing.sizeSqm,
+    title: listing.title?.trim() || defaultTitle,
+    description: listing.description?.trim() || defaultDescription,
+    area: location.area,
+    community: location.community,
+    subcommunity: location.subcommunity,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    buildingName: listing.buildingName,
+    price,
+    priceType: listing.listingType === "RENT" ? "monthly" : "sale",
+    furnished: listing.furnished,
+    availabilityStatus: listing.availabilityStatus,
+    amenityKeys: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
+    titleAr: listing.titleAr?.trim() || undefined,
+    descriptionAr: listing.descriptionAr?.trim() || undefined,
+    imageDates: listing.images.map((img) => img.createdAt),
+    amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities)
+      .map((a) => AMENITY_LABELS[a])
+      .filter((a): a is string => Boolean(a)),
+    // Cache-busted with each image's own createdAt (stable across repeat
+    // feed fetches, unlike a request-time timestamp - a photo's id/createdAt
+    // only changes when that photo is actually replaced, so this URL
+    // doesn't change - and the feed's ETag doesn't either - between polls
+    // that see no real change.
+    images: listing.images.map((img) => `${baseUrl}/api/listings/${listing.id}/images/${img.id}.jpg?v=${img.createdAt.getTime()}`),
+    updatedAt: listing.updatedAt,
+    agentName: listing.createdBy.name,
+    agentPhone: listing.createdBy.whatsapp,
+    agentEmail: listing.createdBy.email,
+  };
+}
+
 async function loadFeedListings(orgId: string, portal: Portal, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedListing[]> {
   const baseUrl = getAppBaseUrl(requestOrigin);
   const agencyName = (await prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } }))?.name ?? "us";
@@ -102,60 +164,9 @@ async function loadFeedListings(orgId: string, portal: Portal, filters: FeedFilt
     const eligibility = getChannelEligibility(listing, listing.images);
     if (!eligibility.eligible) continue;
 
-    const price = listing.listingType === "RENT" ? listing.rentPrice : listing.salePrice;
-    if (!price) continue;
-
-    const categoryLabel = PROPERTY_CATEGORY_LABELS[listing.propertyCategory] || listing.propertyCategory;
-    const bedroomsLabel = listing.bedrooms ? BEDROOM_LABELS[listing.bedrooms] : null;
-    // The Property Finder location when one was chosen, else area/community.
-    const location = feedLocationFor(listing);
-    const purpose = listing.listingType === "RENT" ? "Rent" : "Sale";
-    // Fallback copy for a listing with no title/description yet. It never
-    // names the building - that stays internal - only the area and community.
-    const defaultTitle = `${bedroomsLabel ? bedroomsLabel + " " : ""}${categoryLabel} for ${purpose} in ${location.area}`;
-    const defaultDescription = `${bedroomsLabel ? bedroomsLabel + " " : ""}${categoryLabel} available for ${purpose.toLowerCase()} in ${[location.subcommunity, location.community, location.area].filter(Boolean).join(", ")}. Contact ${agencyName} for details and viewings.`;
-    // Stored as Property Finder's enum shape: "none", "1".."20".
-    const bathroomCount = listing.bathrooms === "none" ? 0 : listing.bathrooms ? parseInt(listing.bathrooms, 10) : NaN;
-
-    feedListings.push({
-      id: listing.id,
-      reference: `LE-${listing.id}`,
-      listingType: listing.listingType,
-      propertyCategory: listing.propertyCategory,
-      propertyCategoryLabel: categoryLabel,
-      bedrooms: listing.bedrooms ? BEDROOM_NUMBERS[listing.bedrooms] : null,
-      bathrooms: Number.isFinite(bathroomCount) ? bathroomCount : null,
-      sizeSqm: listing.sizeSqm,
-      title: listing.title?.trim() || defaultTitle,
-      description: listing.description?.trim() || defaultDescription,
-      area: location.area,
-      community: location.community,
-      subcommunity: location.subcommunity,
-      latitude: location.latitude,
-      longitude: location.longitude,
-      buildingName: listing.buildingName,
-      price,
-      priceType: listing.listingType === "RENT" ? "monthly" : "sale",
-      furnished: listing.furnished,
-      availabilityStatus: listing.availabilityStatus,
-      amenityKeys: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
-      titleAr: listing.titleAr?.trim() || undefined,
-      descriptionAr: listing.descriptionAr?.trim() || undefined,
-      imageDates: listing.images.map((img) => img.createdAt),
-      amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities)
-        .map((a) => AMENITY_LABELS[a])
-        .filter((a): a is string => Boolean(a)),
-      // Cache-busted with each image's own createdAt (stable across repeat
-      // feed fetches, unlike a request-time timestamp - a photo's id/createdAt
-      // only changes when that photo is actually replaced, so this URL
-      // doesn't change - and the feed's ETag doesn't either - between polls
-      // that see no real change.
-      images: listing.images.map((img) => `${baseUrl}/api/listings/${listing.id}/images/${img.id}.jpg?v=${img.createdAt.getTime()}`),
-      updatedAt: listing.updatedAt,
-      agentName: listing.createdBy.name,
-      agentPhone: listing.createdBy.whatsapp,
-      agentEmail: listing.createdBy.email,
-    });
+    const feed = toFeedListing(listing, { baseUrl, agencyName });
+    if (!feed) continue;
+    feedListings.push(feed);
   }
   return feedListings;
 }

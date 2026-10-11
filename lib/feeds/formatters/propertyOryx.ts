@@ -1,64 +1,23 @@
 import { FeedListing } from "../types";
 import { cdataTag, escapeXml, joinTags, xmlTag } from "../xml";
+import { ORYX_AMENITY_CODES, ORYX_MAX_PHOTOS, ORYX_PROPERTY_TYPE, ORYX_RESIDENTIAL } from "../oryxCodes";
+
+// Re-exported so existing imports of these keep working.
+export { ORYX_AMENITY_CODES, ORYX_MAX_PHOTOS, ORYX_PROPERTY_TYPE, ORYX_RESIDENTIAL };
 
 // Property Oryx pulls this feed. It follows the "myCRM private site" XML specification (Qatar) and its
 // sample file: <list last_update=".." listing_count=".."> holding one <property last_update=".."> per
 // listing. Property Finder's own integration (lib/propertyFinder/) is separate and not touched here.
 
-// Our property categories -> the specification's property_type codes.
-export const ORYX_PROPERTY_TYPE: Record<string, string> = {
-  APARTMENT: "AP",
-  VILLA: "VH",
-  TOWNHOUSE: "TH",
-  PENTHOUSE: "PH",
-  DUPLEX: "DX",
-  COMPOUND_VILLA: "CD",
-  WHOLE_BUILDING: "WB",
-  OFFICE: "OF",
-  RETAIL: "RE",
-  LAND: "LP",
-};
-
-// Only these are residential in the specification (offering_type RS/RR; the rest are CS/CR) and only
-// these carry bedroom and bathroom counts.
-const RESIDENTIAL = new Set(["APARTMENT", "VILLA", "TOWNHOUSE", "PENTHOUSE", "DUPLEX", "COMPOUND_VILLA"]);
-
-// Our amenity values (Property Finder's names) -> the "Private Amenities" codes of the specification.
-// An amenity the list has no equivalent for is left out rather than guessed.
-export const ORYX_AMENITY_CODES: Record<string, string> = {
-  "central-ac": "AC",
-  "built-in-wardrobes": "BW",
-  "kitchen-appliances": "BK",
-  security: "SE",
-  concierge: "CS",
-  "maid-service": "MS",
-  balcony: "BA",
-  "private-gym": "PY",
-  "shared-gym": "SY",
-  "private-jacuzzi": "PJ",
-  "shared-spa": "SS",
-  "covered-parking": "CP",
-  "maids-room": "MR",
-  study: "ST",
-  "pets-allowed": "PA",
-  "barbecue-area": "BB",
-  "shared-pool": "SP",
-  "private-garden": "PG",
-  "private-pool": "PP",
-  "view-of-water": "VW",
-  "walk-in-closet": "WC",
-  "conference-room": "CR",
-};
-
-const MAX_PHOTOS = 10;
-const MAX_TEXT_BYTES = 64 * 1024 - 1024; // the specification allows 64 KB; leave room for the markup
+const MAX_PHOTOS = ORYX_MAX_PHOTOS;
+export const MAX_TEXT_BYTES = 64 * 1024 - 1024; // the specification allows 64 KB; leave room for the markup
 
 // "2025-01-12 12:05:13" (UTC), the timestamp shape the specification uses everywhere.
 export function oryxTimestamp(d: Date): string {
   return d.toISOString().slice(0, 19).replace("T", " ");
 }
 
-function truncateBytes(text: string, max: number): string {
+export function truncateBytes(text: string, max: number): string {
   if (Buffer.byteLength(text, "utf8") <= max) return text;
   let out = text;
   while (Buffer.byteLength(out, "utf8") > max) out = out.slice(0, Math.floor(out.length * 0.95));
@@ -66,7 +25,7 @@ function truncateBytes(text: string, max: number): string {
 }
 
 // "Keep it short and descriptive, don't use all UPPERCASE letters."
-function sentenceCaseIfShouting(title: string): string {
+export function sentenceCaseIfShouting(title: string): string {
   const letters = title.replace(/[^A-Za-z]/g, "");
   if (letters.length < 4 || title !== title.toUpperCase()) return title;
   const lower = title.toLowerCase();
@@ -90,9 +49,9 @@ function bedrooms(n: number | null): string | undefined {
   return n >= 10 ? "10+" : String(n);
 }
 
-function propertyXml(l: FeedListing): string {
+export function oryxPropertyXml(l: FeedListing): string {
   const rent = l.listingType === "RENT";
-  const residential = RESIDENTIAL.has(l.propertyCategory);
+  const residential = ORYX_RESIDENTIAL.has(l.propertyCategory);
   const offering = `${residential ? "R" : "C"}${rent ? "R" : "S"}`; // RR, RS, CR, CS
   const amenityCodes = (l.amenityKeys ?? []).map((k) => ORYX_AMENITY_CODES[k]).filter((c): c is string => Boolean(c));
   const phone = oryxPhone(l.agentPhone);
@@ -135,5 +94,5 @@ export function formatPropertyOryxFeed(listings: FeedListing[]): string {
   // The feed's own timestamp is the newest change in it, so it only moves when something does.
   const newest = listings.reduce((max, l) => (l.updatedAt > max ? l.updatedAt : max), new Date(0));
   const stamp = listings.length ? newest : new Date();
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<list last_update="${oryxTimestamp(stamp)}" listing_count="${listings.length}">\n${listings.map(propertyXml).join("\n")}\n</list>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<list last_update="${oryxTimestamp(stamp)}" listing_count="${listings.length}">\n${listings.map(oryxPropertyXml).join("\n")}\n</list>`;
 }

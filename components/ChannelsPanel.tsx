@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ListingDTO, PullChannel } from "@/lib/types";
 import { extractErrorMessage } from "@/lib/errors";
 
@@ -62,7 +63,14 @@ export default function ChannelsPanel({ listing, readOnly, onChanged }: Channels
           return (
             <div key={portal} className="flex flex-col gap-1 py-1 border-t border-border first:border-t-0">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[14px] font-medium">{PULL_CHANNEL_LABELS[portal]}</span>
+                <span className="text-[14px] font-medium">
+                  {PULL_CHANNEL_LABELS[portal]}
+                  {portal === "PROPERTY_ORYX" && !readOnly && (
+                    <Link href={`/property/${listing.id}/oryx`} className="ml-2 text-[12px] font-semibold" style={{ color: "var(--primary)" }}>
+                      Review &amp; edit
+                    </Link>
+                  )}
+                </span>
                 {readOnly ? (
                   <span
                     className="shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
