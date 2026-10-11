@@ -79,6 +79,8 @@ function Switch({ on, onClick, disabled, label }: { on: boolean; onClick: () => 
 function FormsPanel({ page, busy, run }: { page: MetaPageRow; busy: string | null; run: (key: string, fn: () => Promise<Response>, ok: (d: Record<string, unknown>) => string, then?: () => void) => void }) {
   const [forms, setForms] = useState<FormRow[] | null>(null);
   const [error, setError] = useState("");
+  const [q, setQ] = useState("");
+  const [hideArchived, setHideArchived] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -96,9 +98,46 @@ function FormsPanel({ page, busy, run }: { page: MetaPageRow; busy: string | nul
   if (!forms) return <p className="px-4 pb-4 text-[13px] text-muted">Loading forms…</p>;
   if (forms.length === 0) return <p className="px-4 pb-4 text-[13px] text-muted">This page has no lead forms yet. Create one in Meta Ads Manager (Instant forms) and it will show up here.</p>;
 
+  const shown = forms.filter((f) => (!hideArchived || f.status !== "ARCHIVED") && f.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const importing = forms.filter((f) => f.enabled).length;
+  const setMany = (enabled: boolean) => {
+    const ids = shown.filter((f) => f.enabled !== enabled).map((f) => f.id);
+    if (ids.length === 0) return;
+    run(
+      `${page.id}:formsbulk`,
+      () => fetch(`/api/meta/pages/${page.id}/forms`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formIds: ids, enabled }) }),
+      () => (enabled ? `${ids.length} form${ids.length === 1 ? "" : "s"} will import leads.` : `${ids.length} form${ids.length === 1 ? "" : "s"} switched off.`),
+      () => setForms((prev) => prev && prev.map((x) => (ids.includes(x.id) ? { ...x, enabled } : x)))
+    );
+  };
+  const hasArchived = forms.some((f) => f.status === "ARCHIVED");
+
   return (
-    <ul className="mx-4 mb-4 divide-y divide-border rounded-xl border border-border bg-slate-50/60">
-      {forms.map((f) => (
+    <div className="mx-4 mb-4">
+      <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-[12.5px] font-medium text-slate-600">
+          {importing} of {forms.length} form{forms.length === 1 ? "" : "s"} importing
+        </span>
+        <div className="flex gap-1.5">
+          <button type="button" disabled={busy !== null || shown.every((f) => f.enabled)} onClick={() => setMany(true)} className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium shadow-sm ring-1 ring-border hover:bg-surface-muted disabled:opacity-50">
+            Select all
+          </button>
+          <button type="button" disabled={busy !== null || shown.every((f) => !f.enabled)} onClick={() => setMany(false)} className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium shadow-sm ring-1 ring-border hover:bg-surface-muted disabled:opacity-50">
+            Deselect all
+          </button>
+        </div>
+        {forms.length > 5 && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search forms" className="ml-auto w-44 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12.5px] outline-none focus:border-primary" />}
+        {hasArchived && (
+          <label className={`flex cursor-pointer items-center gap-1.5 text-[12.5px] text-slate-600 ${forms.length > 5 ? "" : "ml-auto"}`}>
+            <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
+            Hide archived
+          </label>
+        )}
+      </div>
+      {(q.trim() || hideArchived) && shown.length !== forms.length && <p className="mb-2 text-[12px] text-muted">Select all and Deselect all apply to the {shown.length} form{shown.length === 1 ? "" : "s"} shown.</p>}
+      {shown.length === 0 && <p className="rounded-xl border border-dashed border-border px-4 py-5 text-center text-[13px] text-muted">No forms match.</p>}
+    <ul className="divide-y divide-border rounded-xl border border-border bg-slate-50/60">
+      {shown.map((f) => (
         <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3">
           <Switch
             on={f.enabled}
@@ -131,6 +170,7 @@ function FormsPanel({ page, busy, run }: { page: MetaPageRow; busy: string | nul
         </li>
       ))}
     </ul>
+    </div>
   );
 }
 

@@ -297,6 +297,13 @@ describe.skipIf(!run)("Facebook / Instagram leads (real database)", () => {
     expect((await list()).find((f) => f.id === "F2")!.enabled).toBe(false);
     expect((await patch({ formId: "F2", enabled: true })).status).toBe(200);
     expect((await db.metaPage.findFirstOrThrow({ where: { id: p1.id } })).disabledForms).toEqual([]);
+    // many at once: deselect all, then select all
+    expect((await patch({ formIds: ["F1", "F2"], enabled: false })).status).toBe(200);
+    expect((await db.metaPage.findFirstOrThrow({ where: { id: p1.id } })).disabledForms.sort()).toEqual(["F1", "F2"]);
+    expect((await list()).every((f) => !f.enabled)).toBe(true);
+    expect((await patch({ formIds: ["F1", "F2"], enabled: true })).status).toBe(200);
+    expect((await db.metaPage.findFirstOrThrow({ where: { id: p1.id } })).disabledForms).toEqual([]);
+    expect((await patch({ formIds: [], enabled: true })).status).toBe(400);
     expect((await patch({ enabled: true })).status).toBe(400);
     as(agent, "AGENT");
     expect((await patch({ formId: "F1", enabled: false })).status).toBe(403);

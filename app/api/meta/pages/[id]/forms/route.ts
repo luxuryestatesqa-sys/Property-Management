@@ -25,21 +25,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-// { formId, enabled } - choose which forms' leads come in. A form is on until you switch it off, so a
-// new form someone creates later is picked up automatically.
+// { formId, enabled } or { formIds: [...], enabled } - choose which forms' leads come in. A form is on
+// until you switch it off, so a new form someone creates later is picked up automatically.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { db, error } = await requireAdmin();
   if (error) return error;
   const { id } = await params;
-  const { value: body, error: bodyError } = await parseJsonBody<{ formId?: string; enabled?: boolean }>(req);
+  const { value: body, error: bodyError } = await parseJsonBody<{ formId?: string; formIds?: string[]; enabled?: boolean }>(req);
   if (bodyError) return bodyError;
-  if (!body?.formId || typeof body.formId !== "string" || typeof body.enabled !== "boolean") return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  const ids = Array.isArray(body?.formIds) ? body!.formIds.filter((x) => typeof x === "string" && x) : typeof body?.formId === "string" && body.formId ? [body.formId] : [];
+  if (ids.length === 0 || ids.length > 500 || typeof body?.enabled !== "boolean") return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
   const page = await db!.metaPage.findFirst({ where: { id } });
   if (!page) return NextResponse.json({ error: "Page not found" }, { status: 404 });
   const off = new Set(page.disabledForms);
-  if (body.enabled) off.delete(body.formId);
-  else off.add(body.formId);
+  for (const formId of ids) {
+    if (body.enabled) off.delete(formId);
+    else off.add(formId);
+  }
   await db!.metaPage.update({ where: { id }, data: { disabledForms: [...off].slice(0, 500) } });
   return NextResponse.json({ ok: true });
 }
