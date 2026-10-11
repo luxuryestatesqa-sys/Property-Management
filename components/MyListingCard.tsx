@@ -1,186 +1,171 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { memo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS, availabilityOptionsFor } from "@/lib/availability";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
 import { useListingActions } from "@/components/useListingActions";
 
+// Same card as the Properties list; the three dots at the bottom right open the owner's actions.
 function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onStatusChange: () => void }) {
-  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const isRent = listing.listingType === "RENT";
   const availabilityColor = AVAILABILITY_COLORS[listing.availabilityStatus];
-  const { busy, deleteError, toggleStatus, deleteListing: runDelete, changeAvailability } = useListingActions(listing, onStatusChange);
-
-  function deleteListing() {
-    setMenuOpen(false);
-    return runDelete();
-  }
+  const { busy, deleteError, toggleStatus, deleteListing, changeAvailability } = useListingActions(listing, onStatusChange);
 
   const cover = listing.images[0];
-
   const detailParts = [
     PROPERTY_CATEGORY_LABELS[listing.propertyCategory],
     listing.bedrooms ? BEDROOM_SHORT_LABELS[listing.bedrooms] : null,
     listing.sizeSqm ? formatSqm(listing.sizeSqm) : null,
   ].filter(Boolean);
-
   const unitText = unitSummary(listing);
   const unitLine = unitText ? `${listing.buildingName} · ${unitText}` : listing.buildingName;
+  const active = listing.status === "ACTIVE";
 
-  return (
-    <div className="relative card-cv-compact rounded-xl bg-surface border border-border shadow-sm p-2.5">
-      <div className="absolute top-2 right-2 z-10">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((o) => !o)}
-          disabled={busy}
-          aria-label="Listing options"
-          className="w-7 h-7 rounded-full flex items-center justify-center active:opacity-70 disabled:opacity-60 bg-surface/90 text-muted shadow-sm"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="5" cy="12" r="1.8" />
-            <circle cx="12" cy="12" r="1.8" />
-            <circle cx="19" cy="12" r="1.8" />
-          </svg>
-        </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-border bg-surface shadow-lg overflow-hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  router.push(`/property/${listing.id}?edit=1`);
-                }}
-                className="w-full text-left px-4 py-3 text-[13px] font-medium active:bg-surface-muted"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  router.push(`/property/${listing.id}/portals`);
-                }}
-                className="w-full text-left px-4 py-3 text-[13px] font-medium active:bg-surface-muted border-t border-border"
-              >
-                Publish to Portals
-              </button>
-              <button
-                type="button"
-                onClick={deleteListing}
-                className="w-full text-left px-4 py-3 text-[13px] font-medium text-danger active:bg-surface-muted border-t border-border"
-              >
-                Delete
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+  const item = "flex w-full items-center gap-3.5 px-5 py-3.5 text-left text-[15px] font-medium active:bg-surface-muted";
+  const icon = (d: string) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-500">
+      <path d={d} />
+    </svg>
+  );
 
-      <Link href={`/property/${listing.id}`} className="flex gap-3">
-        <div className="relative shrink-0 w-[95px] h-[85px] sm:w-[136px] sm:h-[108px] rounded-lg overflow-hidden bg-surface-muted">
-          {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover.url} alt={listing.buildingName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl text-border">🏠</div>
-          )}
-          {listing.status === "INACTIVE" && (
-            <span className="absolute bottom-1 left-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-black/60 text-white">
-              Inactive
-            </span>
-          )}
+  const sheet = (
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-900/45" onClick={() => setMenuOpen(false)}>
+      <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-surface pb-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200" />
+        <div className="px-5 pb-2 pt-4">
+          <div className="text-[12px] font-semibold text-muted">{listingCode(listing.id)}</div>
+          <div className="truncate text-[17px] font-semibold">{unitLine}</div>
         </div>
 
-        <div className="min-w-0 flex-1 flex flex-col justify-between">
-          <div className="flex items-start justify-between gap-1.5 pr-7">
-            <span className="text-[11px] font-semibold text-muted shrink-0">{listingCode(listing.id)}</span>
-            <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-              <span
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap"
-                style={{
-                  background: isRent ? "var(--rent-bg)" : "var(--sale-bg)",
-                  color: isRent ? "var(--rent-text)" : "var(--sale-text)",
-                }}
-              >
+        <div className="px-5 pb-3 pt-2">
+          <div className="mb-2 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Availability</div>
+          <div className="flex flex-wrap gap-2">
+            {availabilityOptionsFor(listing.listingType).map((opt) => {
+              const on = opt === listing.availabilityStatus;
+              const color = AVAILABILITY_COLORS[opt];
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    await changeAvailability(opt);
+                  }}
+                  className="rounded-full px-4 py-2 text-[13.5px] font-medium disabled:opacity-60"
+                  style={on ? { background: color.bg, color: color.text } : { background: "var(--surface-muted)", color: "var(--muted)" }}
+                >
+                  {AVAILABILITY_LABELS[opt]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100">
+          <Link href={`/property/${listing.id}?edit=1`} className={item}>
+            {icon("M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z")}
+            Edit listing
+          </Link>
+          <Link href={`/property/${listing.id}/portals`} className={item}>
+            {icon("M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18")}
+            Publish to portals
+          </Link>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setMenuOpen(false);
+              await toggleStatus();
+            }}
+            className={`${item} ${active ? "" : ""}`}
+            style={active ? undefined : { color: "var(--success)" }}
+          >
+            {icon(active ? "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM5.6 5.6l12.8 12.8" : "M5 12.5l4.5 4.5L19 7.5")}
+            {active ? "Deactivate" : "Reactivate"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setMenuOpen(false);
+              await deleteListing();
+            }}
+            className={`${item} text-danger`}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" />
+            </svg>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="relative">
+      <Link
+        href={`/property/${listing.id}`}
+        className="card-cv-compact flex gap-3 rounded-xl border border-border bg-surface p-2.5 shadow-sm transition-opacity active:opacity-80"
+      >
+        <div className="relative h-[85px] w-[95px] shrink-0 overflow-hidden rounded-lg bg-surface-muted sm:h-[108px] sm:w-[136px]">
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cover.url} alt={listing.buildingName} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-2xl text-border">🏠</div>
+          )}
+          {!active && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white">Inactive</span>}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
+          <div className="flex items-start justify-between gap-1.5">
+            <span className="shrink-0 text-[11px] font-semibold text-muted">{listingCode(listing.id)}</span>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+              <span className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ background: isRent ? "var(--rent-bg)" : "var(--sale-bg)", color: isRent ? "var(--rent-text)" : "var(--sale-text)" }}>
                 {isRent ? "FOR RENT" : "FOR SALE"}
               </span>
-              <span
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap"
-                style={{ background: availabilityColor.bg, color: availabilityColor.text }}
-              >
+              <span className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ background: availabilityColor.bg, color: availabilityColor.text }}>
                 {AVAILABILITY_LABELS[listing.availabilityStatus]}
               </span>
-            {listing.visibility === "PRIVATE" && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap bg-surface-muted text-muted">🔒 PRIVATE</span>
-            )}
+              {listing.visibility === "PRIVATE" && <span className="whitespace-nowrap rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-muted">🔒 PRIVATE</span>}
             </div>
           </div>
-
-          <p className="text-[12px] text-muted truncate leading-tight">
+          <p className="truncate text-[12px] leading-tight text-muted">
             📍 {listing.area} → {listing.community}
           </p>
-
-          <p className="text-[12px] text-muted truncate leading-tight">{detailParts.join(" • ")}</p>
-
-          <p className="text-[13px] font-semibold text-foreground truncate leading-tight">{unitLine}</p>
-
-          <span className="text-[14px] font-bold text-foreground truncate">
-            {isRent ? `${formatQAR(listing.rentPrice)}/mo` : formatQAR(listing.salePrice)}
-          </span>
+          <p className="truncate text-[12px] leading-tight text-muted">{detailParts.join(" • ")}</p>
+          <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{unitLine}</p>
+          <span className="truncate pr-9 text-[14px] font-bold text-foreground">{isRent ? `${formatQAR(listing.rentPrice)}/mo` : formatQAR(listing.salePrice)}</span>
         </div>
       </Link>
 
-      {deleteError && <p className="text-[12px] text-danger mt-2">{deleteError}</p>}
+      <button
+        type="button"
+        onClick={() => setMenuOpen(true)}
+        disabled={busy}
+        aria-label="Manage listing"
+        className="absolute bottom-1.5 right-1.5 flex h-9 w-9 items-center justify-center rounded-full text-muted active:bg-surface-muted disabled:opacity-60"
+      >
+        {busy ? (
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-transparent" />
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.9" />
+            <circle cx="12" cy="12" r="1.9" />
+            <circle cx="12" cy="19" r="1.9" />
+          </svg>
+        )}
+      </button>
 
-      <div className="mt-2.5 pt-2.5 border-t border-border">
-        <div className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-1.5">Availability</div>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
-          {availabilityOptionsFor(listing.listingType).map((opt) => {
-            const active = opt === listing.availabilityStatus;
-            const color = AVAILABILITY_COLORS[opt];
-            return (
-              <button
-                key={opt}
-                type="button"
-                disabled={busy}
-                onClick={() => changeAvailability(opt)}
-                className="shrink-0 text-[12px] font-medium px-2.5 py-1.5 rounded-lg disabled:opacity-60"
-                style={active ? { background: color.bg, color: color.text } : { background: "var(--surface-muted)", color: "var(--muted)" }}
-              >
-                {AVAILABILITY_LABELS[opt]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-2.5 pt-2.5 border-t border-border">
-        <Link
-          href={`/property/${listing.id}?edit=1`}
-          className="flex-1 text-center rounded-lg py-2 text-[13px] font-semibold text-white active:opacity-80"
-          style={{ background: "var(--primary)" }}
-        >
-          Edit
-        </Link>
-        <button
-          onClick={toggleStatus}
-          disabled={busy}
-          className={`flex-1 rounded-lg py-2 text-[13px] font-semibold active:opacity-70 disabled:opacity-60 ${
-            listing.status === "ACTIVE" ? "bg-danger-bg text-danger" : "bg-success-bg"
-          }`}
-          style={listing.status === "INACTIVE" ? { color: "var(--success)" } : undefined}
-        >
-          {busy ? "..." : listing.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-        </button>
-      </div>
+      {deleteError && <p className="mt-1.5 px-1 text-[12px] text-danger">{deleteError}</p>}
+      {menuOpen && typeof document !== "undefined" && createPortal(sheet, document.body)}
     </div>
   );
 }
