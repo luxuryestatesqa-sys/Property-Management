@@ -127,6 +127,14 @@ function duration(ms: number): string {
 const card = "rounded-2xl border border-border bg-surface shadow-sm p-5";
 const label = "text-[12px] font-medium text-muted";
 
+// Some imports store the name twice ("Ali Khan Ali Khan"); show it once.
+function displayName(name: string) {
+  const words = name.trim().split(/\s+/);
+  const half = words.length / 2;
+  if (words.length >= 2 && Number.isInteger(half) && words.slice(0, half).join(" ").toLowerCase() === words.slice(half).join(" ").toLowerCase()) return words.slice(0, half).join(" ");
+  return name;
+}
+
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -811,7 +819,7 @@ export default function LeadDetailPage() {
     const sheetBtn = "flex w-full items-center gap-3.5 rounded-xl px-1 py-3 text-left active:bg-surface-muted";
 
     return (
-      <div className="pb-36 page-in">
+      <div className="pb-28 page-in">
         {/* top bar */}
         <div className="sticky top-0 z-30 flex items-center justify-between bg-background px-3 py-2.5">
           <button type="button" onClick={() => router.back()} aria-label="Back" className="flex h-10 w-10 items-center justify-center rounded-full active:bg-surface-muted">
@@ -824,15 +832,19 @@ export default function LeadDetailPage() {
 
         <div className="px-4 pt-1">
           {error && <div className="mb-3 rounded-xl bg-danger-bg px-4 py-3 text-[13.5px] text-danger">{error}</div>}
-          <div className="flex items-center gap-1.5 text-[14px] text-slate-600">
-            {ic("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6", 15)}
-            {lead.assignedTo ? <span>Assigned to {lead.assignedTo.name}</span> : <span className="font-medium text-amber-700">Unassigned</span>}
-          </div>
-          <h1 className="mt-1 break-words text-[30px] font-medium leading-tight tracking-[-0.02em]">{lead.name}</h1>
-          <p className="mt-1 text-[14px] text-muted">
+          <h1 className="break-words text-[26px] font-semibold leading-tight tracking-[-0.02em]">{displayName(lead.name)}</h1>
+          <p className="mt-1 text-[13.5px] text-muted">
             {SOURCE_LABELS[lead.source]} · {CHANNEL_LABELS[lead.channel]} · received {timeAgo(lead.receivedAt)}
           </p>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {lead.assignedTo ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-[12.5px] text-slate-600 ring-1 ring-border">
+                {ic("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01", 13)}
+                {lead.assignedTo.name}
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[12.5px] font-medium text-amber-900">Unassigned</span>
+            )}
             {responseMs !== null ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-success-bg px-3 py-1 text-[12.5px]" style={{ color: "var(--success)" }}>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -841,32 +853,32 @@ export default function LeadDetailPage() {
             ) : (
               <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-[12.5px] text-amber-900">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-                Not contacted yet · waiting {duration(now - new Date(lead.receivedAt).getTime())}
+                Waiting {duration(now - new Date(lead.receivedAt).getTime())}
               </span>
             )}
           </div>
 
           {/* quick actions */}
-          <div className="no-scrollbar -mx-4 mt-4 flex gap-2.5 overflow-x-auto px-4">
+          <div className="mt-4 flex gap-2.5">
             {wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => log("WHATSAPP_LOGGED")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full px-5 text-[15px] font-medium active:opacity-80" style={{ background: "#e7f9ee", color: "#1a7f3c" }}>
-                {ic("M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z", 19)}
+              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => log("WHATSAPP_LOGGED")} className="flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[12.5px] font-medium active:opacity-80" style={{ background: "#e7f9ee", color: "#1a7f3c" }}>
+                {ic("M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z", 21)}
                 WhatsApp
               </a>
             )}
             {lead.phone && (
-              <a href={`tel:${lead.phone}`} onClick={() => log("CALL_LOGGED")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full px-5 text-[15px] font-medium text-white active:opacity-80" style={{ background: "var(--primary)" }}>
-                {ic("M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z", 19)}
+              <a href={`tel:${lead.phone}`} onClick={() => log("CALL_LOGGED")} className="flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[12.5px] font-medium active:opacity-80 text-white" style={{ background: "var(--primary)" }}>
+                {ic("M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z", 21)}
                 Call
               </a>
             )}
-            <button type="button" onClick={() => openAdd("followup")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-surface px-5 text-[15px] font-medium text-slate-700 shadow-sm ring-1 ring-border active:opacity-80">
-              {ic("M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z", 19)}
+            <button type="button" onClick={() => openAdd("followup")} className="flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[12.5px] font-medium active:opacity-80 bg-surface text-slate-700 shadow-sm ring-1 ring-border">
+              {ic("M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z", 21)}
               Follow-up
             </button>
-            <button type="button" onClick={() => openAdd("note")} className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-surface px-5 text-[15px] font-medium text-slate-700 shadow-sm ring-1 ring-border active:opacity-80">
-              {ic("M4 4h16v12H8l-4 4zM8 9h8M8 12.5h5", 19)}
-              Note
+            <button type="button" onClick={() => setAddSheet(true)} className="flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[12.5px] font-medium active:opacity-80 bg-surface text-slate-700 shadow-sm ring-1 ring-border">
+              {ic("M12 5v14M5 12h14", 21)}
+              Add
             </button>
           </div>
         </div>
@@ -906,21 +918,41 @@ export default function LeadDetailPage() {
                 <span className="text-muted">{ic("m9 6 6 6-6 6", 18)}</span>
               </button>
 
-              {/* stage */}
-              <div className="rounded-2xl bg-surface p-4 shadow-sm">
-                <div className="mb-2 text-[12.5px] font-medium uppercase tracking-wide text-slate-500">Lead stage</div>
-                <span className="relative block">
-                  <select value={lead.stageId} onChange={(e) => e.target.value !== lead.stageId && patch({ stageId: e.target.value })} aria-label="Lead stage" className="h-12 w-full appearance-none rounded-xl pl-4 pr-10 text-[15.5px] font-medium outline-none" style={{ background: `color-mix(in srgb, ${stageColor} 14%, white)`, color: `color-mix(in srgb, ${stageColor} 72%, black)` }}>
-                    {stages.map((st) => (
-                      <option key={st.id} value={st.id}>
-                        {st.name}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={stageColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
+              {/* stage and owner */}
+              <div className="flex flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm">
+                <div>
+                  <div className="mb-2 text-[12.5px] font-medium uppercase tracking-wide text-slate-500">Lead stage</div>
+                  <span className="relative block">
+                    <select value={lead.stageId} onChange={(e) => e.target.value !== lead.stageId && patch({ stageId: e.target.value })} aria-label="Lead stage" className="h-12 w-full appearance-none rounded-xl pl-4 pr-10 text-[15.5px] font-medium outline-none" style={{ background: `color-mix(in srgb, ${stageColor} 14%, white)`, color: `color-mix(in srgb, ${stageColor} 72%, black)` }}>
+                      {stages.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name}
+                        </option>
+                      ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={stageColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
+                </div>
+                {canManage && (
+                  <div>
+                    <div className="mb-2 text-[12.5px] font-medium uppercase tracking-wide text-slate-500">Handled by</div>
+                    <span className="relative block">
+                      <select value={lead.assignedTo?.id ?? ""} onChange={(e) => patch({ assignedToId: e.target.value || null })} className="h-12 w-full appearance-none rounded-xl border border-border bg-surface pl-4 pr-10 text-[15.5px] outline-none">
+                        <option value="">Unassigned</option>
+                        {agents.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                      <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* groups */}
@@ -946,26 +978,6 @@ export default function LeadDetailPage() {
                   </div>
                 )}
               </div>
-
-              {/* handled by */}
-              {canManage && (
-                <div className="rounded-2xl bg-surface p-4 shadow-sm">
-                  <div className="mb-2 text-[12.5px] font-medium uppercase tracking-wide text-slate-500">Handled by</div>
-                  <span className="relative block">
-                    <select value={lead.assignedTo?.id ?? ""} onChange={(e) => patch({ assignedToId: e.target.value || null })} className="h-12 w-full appearance-none rounded-xl border border-border bg-surface pl-4 pr-10 text-[15.5px] outline-none">
-                      <option value="">Unassigned</option>
-                      {agents.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                    <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </span>
-                </div>
-              )}
 
               {/* contact */}
               <div className="divide-y divide-border rounded-2xl bg-surface px-4 shadow-sm">
@@ -994,11 +1006,6 @@ export default function LeadDetailPage() {
           {mtab === "details" && detailsColumn}
           {mtab === "timeline" && activityColumn}
         </div>
-
-        {/* add activity */}
-        <button type="button" onClick={() => setAddSheet(true)} aria-label="Add activity" className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl active:scale-95" style={{ background: "var(--primary)" }}>
-          {ic("M12 5v14M5 12h14", 26)}
-        </button>
 
         {(addSheet || options) && (
           <div className="fixed inset-0 z-50 flex items-end bg-slate-900/45" onMouseDown={(e) => e.target === e.currentTarget && (setAddSheet(false), setOptions(false))}>
