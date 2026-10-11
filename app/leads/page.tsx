@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Avatar from "@/components/Avatar";
@@ -8,6 +8,7 @@ import { useIsDesktop } from "@/lib/useIsDesktop";
 import { IconSearch, IconGrid, IconList, IconPin, IconClose } from "@/components/desktop/icons";
 import FilterSelect from "@/components/leads/FilterSelect";
 import BulkBar from "@/components/leads/BulkBar";
+import MobileLeads from "@/components/leads/MobileLeads";
 import { AddLeadModal, ImportLeadsModal } from "@/components/leads/LeadIntake";
 import { ContactButtons, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
 import { LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
@@ -61,7 +62,7 @@ function AgentCell({ lead }: { lead: LeadRow }) {
   );
 }
 
-export default function LeadsPage() {
+function DesktopLeads() {
   const { data: session, status } = useSession();
   const isDesktop = useIsDesktop();
   const [data, setData] = useState<LeadsResponse | null>(null);
@@ -609,4 +610,17 @@ export default function LeadsPage() {
       )}
     </div>
   );
+}
+
+// Phones get their own, simpler list (components/leads/MobileLeads.tsx); laptops keep the table.
+// Nothing renders until the screen size is known, so a laptop never loads the phone list first.
+export default function LeadsPage() {
+  const isDesktop = useIsDesktop();
+  const ready = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+  if (!ready) return null;
+  return isDesktop ? <DesktopLeads /> : <MobileLeads />;
 }

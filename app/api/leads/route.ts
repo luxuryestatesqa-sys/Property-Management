@@ -8,6 +8,8 @@ import type { Prisma } from "@prisma/client";
 
 const MAX_LEADS = 300;
 
+// Pages: ?limit=30 returns that many leads plus `nextCursor` (a lead id); send it back as ?cursor=<id>
+// for the next page. ?sort=oldest reverses the order. Without ?limit the latest 300 come in one go.
 // Leads the signed-in person may see. Agents get only the leads assigned to them;
 // managers, admins and owners get the whole agency and can narrow by agent with
 // ?assignee=<userId> | unassigned. Everything is already scoped to the agency by `db`.
@@ -19,6 +21,9 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
 
   const stages = await ensureStages(orgId!);
+  const limit = Math.min(MAX_LEADS, Math.max(1, Number(sp.get("limit")) || MAX_LEADS));
+  const cursorId = sp.get("cursor") || null;
+  const dir = sp.get("sort") === "oldest" ? "asc" : "desc";
 
   const where: Prisma.LeadWhereInput = {};
   if (!manager) {
@@ -45,11 +50,12 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const [leads, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     db!.lead.findMany({
       where,
-      orderBy: { receivedAt: "desc" },
-      take: MAX_LEADS,
+      orderBy: [{ receivedAt: dir }, { id: dir }],
+      take: limit + 1,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
       include: {
         assignedTo: { select: { id: true, name: true, avatarUrl: true } },
         listing: { select: { id: true, buildingName: true, area: true, community: true } },
@@ -58,7 +64,14 @@ export async function GET(req: NextRequest) {
       },
     }),
     db!.lead.count({ where }),
-  ]);
+  ]).catch((e: unknown) => {
+    // A cursor that points at a lead that has since been deleted just means "no more".
+    if (cursorId) return [[], 0] as const;
+    throw e;
+  });
+  const hasMore = rows.length > limit;
+  const leads = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? leads[leads.length - 1].id : null;
 
   // Per-agent / unassigned counts for the tabs (managers only), ignoring the agent filter itself.
   let agentCounts: { assignedToId: string | null; count: number }[] = [];
@@ -97,6 +110,7 @@ export async function GET(req: NextRequest) {
       nextFollowUp: l.tasks[0]?.dueAt ?? null,
     })),
     total,
+    nextCursor,
     stages: stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, color: s.color, position: s.position })),
     agents,
     agentCounts,

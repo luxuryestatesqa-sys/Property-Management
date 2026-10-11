@@ -39,6 +39,7 @@ export interface LeadGroupDTO {
 export interface LeadsResponse {
   leads: LeadRow[];
   total: number;
+  nextCursor?: string | null;
   stages: LeadStageDTO[];
   agents: { id: string; name: string; avatarUrl: string | null }[];
   agentCounts: { assignedToId: string | null; count: number }[];
