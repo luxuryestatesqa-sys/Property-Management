@@ -10,8 +10,12 @@ import { withImageLinks } from "@/lib/listingImages";
 // building, never the exact unit, whatever the listing's own privacy setting.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const listing = await prisma.listing.findUnique({
-    where: { id: Number(id) },
+  // Links carry the listing's random shareToken. Links sent before tokens existed used the plain
+  // listing number; they keep working until ALLOW_NUMERIC_SHARE_LINKS=false is set.
+  const numeric = /^\d+$/.test(id);
+  if (numeric && process.env.ALLOW_NUMERIC_SHARE_LINKS === "false") return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const listing = await prisma.listing.findFirst({
+    where: numeric ? { id: Number(id) } : { shareToken: id },
     select: {
       id: true,
       organizationId: true,

@@ -70,6 +70,14 @@ Supabase is never modified; the app stays on it until `DATABASE_URL` is changed.
 4. Test locally with `DATABASE_URL` / `DIRECT_URL` pointing at the new database.
 5. To switch for real: freeze edits, re-run the copy with `--wipe-target`, change the two variables in Vercel, redeploy. To go back, change them back.
 
+### Firebase App Hosting + Cloud SQL (branch `firebase-migration`)
+
+- `apphosting.yaml` holds the runtime settings. Secrets live in Secret Manager (`crm-db-password`, `crm-auth-secret`, `crm-app-base-url`; optional ones are commented out in the file).
+- On App Hosting the app reaches the database through the Cloud SQL connector (`lib/prisma.ts`): set `CLOUD_SQL_INSTANCE`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`. The service account needs the *Cloud SQL Client* role; no public IP allow-list is needed. When `CLOUD_SQL_INSTANCE` is not set (local dev, Vercel, tests) `DATABASE_URL` is used as before.
+- Keep `maxInstances` x `DB_POOL_MAX` below the database's connection limit.
+- Share links now use a random `shareToken`. Old numeric links keep working until `ALLOW_NUMERIC_SHARE_LINKS=false` is set.
+- There are no Vercel crons and no Supabase Storage, so nothing to port.
+
 ## Deploying to Vercel
 
 The app is a standard Next.js app — Vercel is a verified deployment target,

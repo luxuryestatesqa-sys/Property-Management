@@ -38,6 +38,7 @@ export interface ListingImageDTO {
 
 export interface ListingDTO {
   id: number;
+  shareToken: string;
   listingType: ListingType;
   propertyCategory: PropertyCategory;
   bedrooms: BedroomCount | null;

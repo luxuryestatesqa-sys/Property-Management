@@ -169,6 +169,8 @@ enum SalePaymentMethod {
 
 model Listing {
   id             Int          @id @default(autoincrement())
+  // Unguessable id used in public share links (/listing/<token>) instead of the sequential number.
+  shareToken     String       @unique @default(dbgenerated("(gen_random_uuid())::text"))
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   listingType    ListingType

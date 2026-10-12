@@ -293,7 +293,7 @@ export default function PropertyDetailPage() {
   async function copyListingLink() {
     if (!listing || !session?.user?.id) return;
     try {
-      await navigator.clipboard.writeText(buildListingShareUrl(listing.id, session.user.id));
+      await navigator.clipboard.writeText(buildListingShareUrl(listing, session.user.id));
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 1500);
     } catch {
@@ -767,7 +767,7 @@ export default function PropertyDetailPage() {
                 {linkCopied ? <IconCheck size={17} className="text-emerald-600" /> : <IconLink size={17} />}
               </button>
               <WhatsAppButton
-                message={buildListingShareMessage(listing, buildListingShareUrl(listing.id, session.user.id), org.name)}
+                message={buildListingShareMessage(listing, buildListingShareUrl(listing, session.user.id), org.name)}
                 ariaLabel="Share this listing on WhatsApp"
                 size={44}
                 className="!rounded-xl shadow-[var(--shadow-card)]"
@@ -919,7 +919,7 @@ export default function PropertyDetailPage() {
               )}
             </button>
             <WhatsAppButton
-              message={buildListingShareMessage(listing, buildListingShareUrl(listing.id, session.user.id), org.name)}
+              message={buildListingShareMessage(listing, buildListingShareUrl(listing, session.user.id), org.name)}
               ariaLabel="Share this listing on WhatsApp"
               size={34}
               className="shrink-0"

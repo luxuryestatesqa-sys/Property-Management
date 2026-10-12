@@ -1,0 +1,49 @@
+# Firebase App Hosting settings. Secret values live in Secret Manager (create them with
+# `firebase apphosting:secrets:set <name>`); only their names appear here.
+runConfig:
+  cpu: 1
+  memoryMiB: 1024 # photos arrive as large base64 JSON bodies (up to 30 MB), so more than the 512 MB default
+  concurrency: 40
+  minInstances: 0 # set to 1 for production: the Property Finder webhook must answer within 5 seconds
+  maxInstances: 10 # x DB_POOL_MAX (5) = 50 database connections at most
+
+env:
+  # --- database, reached through the Cloud SQL connector (see lib/prisma.ts) ---
+  - variable: CLOUD_SQL_INSTANCE
+    value: luxury-estate-crm:me-central1:luxury-crm-pg
+  - variable: DB_USER
+    value: postgres
+  - variable: DB_NAME
+    value: crm
+  - variable: DB_POOL_MAX
+    value: "5"
+  - variable: DB_PASSWORD
+    secret: crm-db-password
+    availability: [RUNTIME]
+
+  # --- login ---
+  - variable: AUTH_SECRET
+    secret: crm-auth-secret
+    availability: [RUNTIME]
+  # Behind Cloud Run's proxy Auth.js must be told to trust the forwarded host.
+  - variable: AUTH_TRUST_HOST
+    value: "true"
+  # Public address of this deployment. Portals and Meta call back to it, and Property Finder fetches
+  # photos from it, so it must be the real public domain.
+  - variable: APP_BASE_URL
+    secret: crm-app-base-url
+    availability: [RUNTIME]
+
+  # --- optional: uncomment each after creating its secret, otherwise the rollout fails ---
+  # - variable: TOKEN_ENCRYPTION_KEY
+  #   secret: crm-token-encryption-key
+  # - variable: META_APP_ID
+  #   secret: crm-meta-app-id
+  # - variable: META_APP_SECRET
+  #   secret: crm-meta-app-secret
+  # - variable: META_WEBHOOK_VERIFY_TOKEN
+  #   secret: crm-meta-webhook-verify-token
+  # - variable: META_LOGIN_CONFIG_ID
+  #   secret: crm-meta-login-config-id
+  # - variable: OPENAI_API_KEY
+  #   secret: crm-openai-api-key

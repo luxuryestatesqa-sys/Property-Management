@@ -42,12 +42,18 @@ export async function POST(req: NextRequest) {
   if (event.entity?.type === "lead") {
     const profileId = event.payload?.publicProfile?.id;
     if (!profileId) return NextResponse.json({ ok: true });
-    const agent = await prisma.user.findFirst({ where: { pfPublicProfileId: profileId }, select: { organizationId: true } });
-    if (!agent) return NextResponse.json({ ok: true });
-    const leadOrgId = agent.organizationId;
-    if (!signatureOk(rawBody, signature, await getWebhookSecret(leadOrgId))) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    // The same Property Finder profile id can be linked in more than one agency, so the lead goes to
+    // the agency whose own webhook secret signed this request - never just the first match.
+    const candidates = await prisma.user.findMany({ where: { pfPublicProfileId: profileId }, select: { organizationId: true } });
+    if (candidates.length === 0) return NextResponse.json({ ok: true });
+    let leadOrgId: string | null = null;
+    for (const orgId of new Set(candidates.map((c) => c.organizationId))) {
+      if (signatureOk(rawBody, signature, await getWebhookSecret(orgId))) {
+        leadOrgId = orgId;
+        break;
+      }
     }
+    if (!leadOrgId) return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     const normalized = normalizePfLead({ ...event.payload, id: event.entity.id } as PfLeadLike);
     if (!normalized.receivedAt && event.timestamp) {
       const t = new Date(event.timestamp);
