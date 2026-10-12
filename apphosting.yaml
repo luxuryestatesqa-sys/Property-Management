@@ -10,7 +10,7 @@ runConfig:
 env:
   # --- database, reached through the Cloud SQL connector (see lib/prisma.ts) ---
   - variable: CLOUD_SQL_INSTANCE
-    value: luxury-estate-crm:me-central1:luxury-crm-pg
+    value: luxury-estate-crm:asia-southeast1:luxury-crm-sg
   - variable: DB_USER
     value: postgres
   - variable: DB_NAME
