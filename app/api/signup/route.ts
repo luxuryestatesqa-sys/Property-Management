@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { parseJsonBody } from "@/lib/api-helpers";
 import { signupSchema } from "@/lib/validation";
 import { slugify } from "@/lib/org";
+import { rateLimited } from "@/lib/rateLimit";
+import { ensureStages } from "@/lib/leads/stages";
 
 // Public: creates a brand-new agency plus its first account (the OWNER).
 // Set ALLOW_SIGNUP=false to close self-service sign-up (e.g. once you only
@@ -11,6 +13,11 @@ import { slugify } from "@/lib/org";
 export async function POST(req: NextRequest) {
   if (process.env.ALLOW_SIGNUP === "false") {
     return NextResponse.json({ error: "Sign-up is closed. Ask the platform owner to create your agency." }, { status: 403 });
+  }
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+  if (rateLimited(`signup:${ip}`, 5, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Too many sign-up attempts. Please try again later." }, { status: 429 });
   }
 
   const { value, error } = await parseJsonBody<Record<string, unknown>>(req);
@@ -41,12 +48,23 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
-  await prisma.$transaction(async (tx) => {
-    const org = await tx.organization.create({ data: { name: data.agencyName, slug } });
-    await tx.user.create({
-      data: { organizationId: org.id, name: data.name, email, whatsapp: data.whatsapp, passwordHash, role: "OWNER" },
+  try {
+    const org = await prisma.$transaction(async (tx) => {
+      const created = await tx.organization.create({ data: { name: data.agencyName, slug } });
+      await tx.user.create({
+        data: { organizationId: created.id, name: data.name, email, whatsapp: data.whatsapp, passwordHash, role: "OWNER" },
+      });
+      return created;
     });
-  });
+    // The standard lead pipeline is ready the first time the owner opens Leads.
+    await ensureStages(org.id);
+  } catch (e) {
+    // Two sign-ups racing for the same email or slug: the unique index decides.
+    if ((e as { code?: string }).code === "P2002") {
+      return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
+    }
+    throw e;
+  }
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

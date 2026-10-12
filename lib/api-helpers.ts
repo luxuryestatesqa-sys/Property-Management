@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { tenantDb } from "@/lib/tenant";
+import { prisma } from "@/lib/prisma";
 import { isAdminRole } from "@/lib/roles";
 
 // Every authenticated route starts here. Besides the session it returns `db`,
@@ -12,10 +13,21 @@ export async function requireSession() {
   if (!session?.user || !session.user.organizationId) {
     return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  if (session.user.status !== "ACTIVE") {
+  // The signed-in token can outlive the account it was issued for, so every request
+  // is checked against the database: a removed or deactivated user, a suspended
+  // agency, or a changed role takes effect immediately, not when the token expires.
+  const live = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { status: true, role: true, organizationId: true, organization: { select: { status: true } } },
+  });
+  if (!live || live.organizationId !== session.user.organizationId) {
+    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  if (live.status !== "ACTIVE" || live.organization.status !== "ACTIVE") {
     return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Account inactive" }, { status: 403 }) };
   }
-  const orgId = session.user.organizationId;
+  session.user.role = live.role as typeof session.user.role;
+  const orgId = live.organizationId;
   return { session, db: tenantDb(orgId), orgId, error: null };
 }
 

@@ -226,7 +226,7 @@ export const signupSchema = z.object({
   name: z.string().trim().min(1, "Your name is required"),
   email: z.string().trim().email("Valid email required"),
   whatsapp: whatsappSchema,
-  password: passwordSchema,
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export const whatsappUpdateSchema = z.object({

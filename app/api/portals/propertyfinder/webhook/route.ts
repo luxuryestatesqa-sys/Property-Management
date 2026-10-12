@@ -6,8 +6,10 @@ import { ingestPropertyFinderLead } from "@/lib/leads/ingest";
 import { normalizePfLead, PfLeadLike } from "@/lib/leads/pfMapping";
 
 function signatureOk(rawBody: string, signature: string | null, secret: string | null): boolean {
-  if (!secret) return true; // no secret configured: nothing to verify against
-  if (!signature) return false;
+  // Lead events create data inside an agency, so an agency with no webhook secret
+  // configured cannot receive them - otherwise anyone who knew an agent's public
+  // Property Finder profile id could plant leads in that agency.
+  if (!secret || !signature) return false;
   const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
   return expected.length === signature.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }

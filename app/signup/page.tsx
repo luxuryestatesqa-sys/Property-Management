@@ -15,6 +15,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot, left empty by real users
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -78,15 +79,20 @@ export default function SignupPage() {
           </div>
           <div>
             <label className="text-sm font-medium block mb-1.5">Email</label>
-            <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={input} autoComplete="username" placeholder="you@company.com" />
+            <input required type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} className={input} autoComplete="username" placeholder="you@company.com" />
           </div>
           <div>
             <label className="text-sm font-medium block mb-1.5">WhatsApp number</label>
-            <input required type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={input} placeholder="+974 5000 0000" />
+            <input required type="tel" autoComplete="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={input} placeholder="+974 5000 0000" />
           </div>
           <div>
             <label className="text-sm font-medium block mb-1.5">Password</label>
-            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={input} autoComplete="new-password" placeholder="At least 6 characters" />
+            <div className="relative">
+              <input required type={showPassword ? "text" : "password"} minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={`${input} pr-16`} autoComplete="new-password" placeholder="At least 8 characters" />
+              <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted">
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
           {/* honeypot */}
           <input tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} className="hidden" aria-hidden="true" name="website" />
