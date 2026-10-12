@@ -35,6 +35,17 @@ function orderedModels() {
 
 const lower = (s: string) => s[0].toLowerCase() + s.slice(1);
 
+// Columns added by newer migrations that the SOURCE may not have yet. They are not read from the
+// source; the target fills them from its own column default (e.g. a fresh random share token).
+const TARGET_ONLY: Record<string, string[]> = { Listing: ["shareToken"] };
+
+function selectFor(name: string) {
+  const skip = TARGET_ONLY[name];
+  if (!skip) return undefined;
+  const m = Prisma.dmmf.datamodel.models.find((x) => x.name === name)!;
+  return Object.fromEntries(m.fields.filter((f) => f.kind !== "object" && !skip.includes(f.name)).map((f) => [f.name, true]));
+}
+
 function keyFields(name: string): string[] {
   const m = Prisma.dmmf.datamodel.models.find((x) => x.name === name)!;
   return m.primaryKey?.fields.length ? [...m.primaryKey.fields] : m.fields.filter((f) => f.isId).map((f) => f.name);
@@ -56,7 +67,7 @@ async function main() {
     let cursor: any;
     // Small pages: listing images are stored as data URLs and can be large.
     while (true) {
-      const rows: any[] = await (src as any)[key].findMany({ take: 100, ...(cursor ? { skip: 1, cursor } : {}), orderBy });
+      const rows: any[] = await (src as any)[key].findMany({ take: 100, select: selectFor(name), ...(cursor ? { skip: 1, cursor } : {}), orderBy });
       if (!rows.length) break;
       await (dst as any)[key].createMany({ data: rows, skipDuplicates: true });
       copied += rows.length;
