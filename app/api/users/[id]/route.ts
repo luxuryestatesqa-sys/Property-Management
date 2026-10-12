@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { requireAdmin } from "@/lib/api-helpers";
 import { whatsappSchema, adminResetPasswordSchema } from "@/lib/validation";
+import { setIdentityPassword, setIdentityDisabled, deleteIdentity } from "@/lib/identity";
 
 // Only the OWNER can touch the OWNER account (deactivate, remove, reset password, change role).
 async function ownerProtected(db: NonNullable<Awaited<ReturnType<typeof requireAdmin>>["db"]>, id: string, callerRole: string) {
@@ -53,6 +54,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
     passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+    try {
+      await setIdentityPassword(id, parsed.data.newPassword);
+    } catch (e) {
+      console.error("reset password:", e instanceof Error ? e.message : e);
+      return NextResponse.json({ error: "Couldn't reset the password right now. Please try again." }, { status: 502 });
+    }
   }
 
   // The agent's Property Finder public profile id, picked by an admin from
@@ -88,6 +95,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   });
 
+  if (status) await setIdentityDisabled(id, status === "INACTIVE");
   return NextResponse.json({ user });
 }
 
@@ -112,6 +120,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       data: { status: "INACTIVE" },
       select: { id: true, name: true, email: true, whatsapp: true, avatarUrl: true, role: true, status: true, createdAt: true },
     });
+    await setIdentityDisabled(id, true);
     return NextResponse.json({
       user,
       note: "User has existing listings and was deactivated instead of removed, to preserve listing history.",
@@ -119,5 +128,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   await db!.user.delete({ where: { id } });
+  await deleteIdentity(id);
   return NextResponse.json({ removed: true });
 }

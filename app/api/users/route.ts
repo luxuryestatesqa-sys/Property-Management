@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-helpers";
 import { userCreateSchema } from "@/lib/validation";
+import { createIdentity } from "@/lib/identity";
 
 export async function GET() {
   const { db, error } = await requireAdmin();
@@ -66,6 +67,13 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true, name: true, email: true, whatsapp: true, avatarUrl: true, role: true, status: true, createdAt: true },
   });
+  try {
+    await createIdentity({ id: user.id, email: user.email, name: user.name, password: data.password });
+  } catch (e) {
+    await db!.user.delete({ where: { id: user.id } });
+    console.error("add user: identity creation failed:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Couldn't create the sign-in account right now. Please try again." }, { status: 502 });
+  }
 
   return NextResponse.json({ user }, { status: 201 });
 }

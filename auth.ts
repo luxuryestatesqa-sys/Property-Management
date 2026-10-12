@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
+import { verifyPassword, IdentityError } from "@/lib/identity";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/types";
 
@@ -27,7 +27,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // A suspended agency cannot sign in at all.
         if (user.organization.status !== "ACTIVE") return null;
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
+        let valid = false;
+        try {
+          valid = await verifyPassword(user, password);
+        } catch (e) {
+          // The sign-in service being unreachable must not read as "wrong password" to the logs.
+          if (e instanceof IdentityError) console.error("login:", e.message);
+          else throw e;
+        }
         if (!valid) return null;
 
         return {

@@ -19,12 +19,21 @@ env:
     value: "5"
   - variable: DB_PASSWORD
     secret: crm-db-password
-    availability: [RUNTIME]
+    availability: [ RUNTIME ]
 
   # --- login ---
+  # Passwords are held by Firebase Authentication (users appear in the Firebase console); the database
+  # row still decides role, agency and status. Remove AUTH_PROVIDER to fall back to database passwords.
+  - variable: AUTH_PROVIDER
+    value: firebase
+  - variable: FIREBASE_PROJECT_ID
+    value: luxury-estate-crm
+  # A Firebase web API key identifies the project and is public by design (not a secret).
+  - variable: FIREBASE_WEB_API_KEY
+    value: AIzaSyC6zOHAYc6mM487fin_F-iTArW_w3PLCvY
   - variable: AUTH_SECRET
     secret: crm-auth-secret
-    availability: [RUNTIME]
+    availability: [ RUNTIME ]
   # Behind Cloud Run's proxy Auth.js must be told to trust the forwarded host.
   - variable: AUTH_TRUST_HOST
     value: "true"
@@ -32,8 +41,13 @@ env:
   # photos from it, so it must be the real public domain.
   - variable: APP_BASE_URL
     secret: crm-app-base-url
-    availability: [RUNTIME]
-
+    availability: [ RUNTIME ]
+  - variable: CRM_DB_PASSWORD
+    secret: crm-db-password
+  - variable: CRM_AUTH_SECRET
+    secret: crm-auth-secret
+  - variable: CRM_APP_BASE_URL
+    secret: crm-app-base-url
   # --- optional: uncomment each after creating its secret, otherwise the rollout fails ---
   # - variable: TOKEN_ENCRYPTION_KEY
   #   secret: crm-token-encryption-key

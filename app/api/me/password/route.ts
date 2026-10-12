@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { requireSession } from "@/lib/api-helpers";
 import { passwordSchema } from "@/lib/validation";
+import { verifyPassword, setIdentityPassword, IdentityError } from "@/lib/identity";
 
 export async function PATCH(req: NextRequest) {
   const { session, db, error } = await requireSession();
@@ -19,12 +20,21 @@ export async function PATCH(req: NextRequest) {
   const user = await db!.user.findUnique({ where: { id: session!.user.id } });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  const valid = await verifyPassword(user, currentPassword).catch((e) => {
+    if (e instanceof IdentityError) return null;
+    throw e;
+  });
+  if (valid === null) return NextResponse.json({ error: "Couldn't check your password right now. Please try again." }, { status: 502 });
   if (!valid) {
     return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
+  try {
+    await setIdentityPassword(user.id, newPassword);
+  } catch {
+    return NextResponse.json({ error: "Couldn't change your password right now. Please try again." }, { status: 502 });
+  }
   await db!.user.update({ where: { id: user.id }, data: { passwordHash } });
 
   return NextResponse.json({ success: true });

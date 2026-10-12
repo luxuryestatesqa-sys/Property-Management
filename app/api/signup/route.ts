@@ -6,6 +6,7 @@ import { signupSchema } from "@/lib/validation";
 import { slugify } from "@/lib/org";
 import { rateLimited } from "@/lib/rateLimit";
 import { ensureStages } from "@/lib/leads/stages";
+import { createIdentity } from "@/lib/identity";
 
 // Public: creates a brand-new agency plus its first account (the OWNER).
 // Set ALLOW_SIGNUP=false to close self-service sign-up (e.g. once you only
@@ -49,13 +50,21 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await bcrypt.hash(data.password, 10);
   try {
-    const org = await prisma.$transaction(async (tx) => {
+    const { org, userId } = await prisma.$transaction(async (tx) => {
       const created = await tx.organization.create({ data: { name: data.agencyName, slug } });
-      await tx.user.create({
+      const user = await tx.user.create({
         data: { organizationId: created.id, name: data.name, email, whatsapp: data.whatsapp, passwordHash, role: "OWNER" },
       });
-      return created;
+      return { org: created, userId: user.id };
     });
+    try {
+      await createIdentity({ id: userId, email, name: data.name, password: data.password });
+    } catch (e) {
+      // No sign-in account means nobody could ever log in: undo the agency so they can retry.
+      await prisma.$transaction([prisma.user.delete({ where: { id: userId } }), prisma.organization.delete({ where: { id: org.id } })]);
+      console.error("signup: identity creation failed:", e instanceof Error ? e.message : e);
+      return NextResponse.json({ error: "Couldn't create your account right now. Please try again." }, { status: 502 });
+    }
     // The standard lead pipeline is ready the first time the owner opens Leads.
     await ensureStages(org.id);
   } catch (e) {
