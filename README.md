@@ -59,6 +59,17 @@ organization). Order matters:
    credential saves from the old version fail in the gap, reads are fine).
 4. Once it is live, run `prisma/manual/drop_organization_defaults.sql` once.
 
+### Trying a second database (Supabase -> Google Cloud SQL), keeping Supabase live
+
+Supabase is never modified; the app stays on it until `DATABASE_URL` is changed.
+
+1. Create a Cloud SQL Postgres instance (needs billing on the Firebase/Google project).
+2. Build the schema on it: set `DIRECT_URL` to the new database in a throwaway shell and run `npx prisma migrate deploy`.
+3. Copy the data (reads Supabase, writes the new database only):
+   `SOURCE_DATABASE_URL=<supabase> TARGET_DATABASE_URL=<new> npx tsx scripts/copy-db.ts` - compare the counts it prints.
+4. Test locally with `DATABASE_URL` / `DIRECT_URL` pointing at the new database.
+5. To switch for real: freeze edits, re-run the copy with `--wipe-target`, change the two variables in Vercel, redeploy. To go back, change them back.
+
 ## Deploying to Vercel
 
 The app is a standard Next.js app — Vercel is a verified deployment target,
