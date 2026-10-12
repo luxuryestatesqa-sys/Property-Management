@@ -1,0 +1,23 @@
+{
+  "apphosting": [
+    {
+      "backendId": "crm-test",
+      "rootDir": "./",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".next",
+        ".vercel",
+        ".env",
+        ".env.*",
+        "**/.env",
+        "**/.env.*",
+        "firebase-debug.log",
+        "*.jpeg",
+        "prisma/dev.db",
+        "supabase",
+        "tsconfig.tsbuildinfo"
+      ]
+    }
+  ]
+}
