@@ -7,6 +7,7 @@ import { normalizePhone, resolveOrigin } from "@/lib/leads/csv";
 import type { Prisma } from "@prisma/client";
 import { agentCount } from "@/lib/leads/counts";
 import { avatarLink } from "@/lib/avatar";
+import { qatarEndOfDay } from "@/lib/qatarTime";
 
 const MAX_LEADS = 300;
 
@@ -39,6 +40,11 @@ export async function GET(req: NextRequest) {
   if (stage && stage !== "all") where.stageId = stage;
   const channel = sp.get("channel");
   if (channel && ["WHATSAPP", "CALL", "EMAIL", "OTHER", "FORM"].includes(channel)) where.channel = channel as Prisma.LeadWhereInput["channel"];
+  // Follow-up tabs: leads with an open follow-up that is overdue, or due later today (Qatar time).
+  const now = new Date();
+  const dueWhere = (kind: string): Prisma.LeadWhereInput => ({ tasks: { some: { doneAt: null, dueAt: kind === "overdue" ? { lt: now } : { gte: now, lte: qatarEndOfDay() } } } });
+  const followup = sp.get("followup");
+  if (followup === "today" || followup === "overdue") Object.assign(where, dueWhere(followup));
   const group = sp.get("group");
   if (group && group !== "all") where.groupLinks = { some: { groupId: group } };
   const q = sp.get("q")?.trim();
@@ -81,6 +87,7 @@ export async function GET(req: NextRequest) {
   const gridWhere: Prisma.LeadWhereInput = { ...where };
   delete gridWhere.assignedToId;
   delete gridWhere.stageId;
+  delete gridWhere.tasks; // the follow-up tabs do not change the overall numbers
   if (!manager) gridWhere.assignedToId = me;
   const grouped = await db!.lead.groupBy({ by: ["assignedToId", "stageId"], where: gridWhere, _count: { _all: true } });
   const countGrid = grouped.map((g) => ({ assignedToId: g.assignedToId, stageId: g.stageId, count: g._count._all }));
@@ -102,6 +109,11 @@ export async function GET(req: NextRequest) {
   const phoneCount = new Map(phoneGroups.map((g) => [g.phone, g._count._all]));
   const emailCount = new Map(emailGroups.map((g) => [(g.email ?? "").toLowerCase(), g._count._all]));
   const dupOf = (l: { phone: string | null; email: string | null }) => Math.max((l.phone ? phoneCount.get(l.phone) ?? 1 : 1) - 1, (l.email ? emailCount.get(l.email.toLowerCase()) ?? 1 : 1) - 1);
+
+  // The numbers on the follow-up tabs: same visibility and filters, whichever tab is open.
+  const tabBase: Prisma.LeadWhereInput = { ...where };
+  delete tabBase.tasks;
+  const [dueToday, overdue] = await Promise.all([db!.lead.count({ where: { ...tabBase, ...dueWhere("today") } }), db!.lead.count({ where: { ...tabBase, ...dueWhere("overdue") } })]);
 
   const newStageId = stages.find((s) => s.kind === "OPEN")?.id;
   const newCount = await db!.lead.count({ where: { ...(manager ? {} : { assignedToId: me }), stageId: newStageId } });
@@ -136,6 +148,7 @@ export async function GET(req: NextRequest) {
     agents,
     agentCounts,
     countGrid,
+    followups: { today: dueToday, overdue },
     newCount,
     canManage: manager,
   });

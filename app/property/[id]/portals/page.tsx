@@ -546,7 +546,7 @@ export default function MultiPortalPublishingPage() {
                     PF listing ID <span className="font-mono text-foreground font-semibold">{listing.propertyFinderState.remoteListingId}</span>
                   </p>
                   {listing.propertyFinderState.lastSyncedAt && (
-                    <p className="text-muted mt-0.5">Checked {new Date(listing.propertyFinderState.lastSyncedAt).toLocaleString()}</p>
+                    <p className="text-muted mt-0.5">Checked {new Date(listing.propertyFinderState.lastSyncedAt).toLocaleString("en-GB", { timeZone: "Asia/Qatar" })}</p>
                   )}
                 </div>
                 <button

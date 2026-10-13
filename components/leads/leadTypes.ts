@@ -45,6 +45,7 @@ export interface LeadsResponse {
   stages: LeadStageDTO[];
   agents: { id: string; name: string; avatarUrl: string | null }[];
   agentCounts: { assignedToId: string | null; count: number }[];
+  followups: { today: number; overdue: number };
   countGrid: { assignedToId: string | null; stageId: string; count: number }[];
   newCount: number;
   canManage: boolean;

@@ -165,7 +165,7 @@ export default function Sidebar() {
           <>
             <Section>Overview</Section>
             <NavLink href="/dashboard" label="Dashboard" icon={icons.dashboard} active={pathname.startsWith("/dashboard")}>
-              {pathname.startsWith("/dashboard") && (
+              {(
                 <SubNav
                   label="Dashboard pages"
                   items={[

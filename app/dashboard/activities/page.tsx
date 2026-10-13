@@ -44,7 +44,7 @@ function presetRange(key: string): { from: string; to: string } {
 // ---------- types ----------
 interface Summary {
   kpis: { total: number; calls: number; whatsapp: number; viewings: number; stages: number; published: number };
-  leaderboard: { agentId: string | null; name: string; calls: number; whatsapp: number; notes: number; viewings: number; stages: number; won: number; total: number; avgFirstResponseMinutes: number | null }[];
+  leaderboard: { agentId: string | null; name: string; calls: number; whatsapp: number; notes: number; viewings: number; stages: number; listings: number; other: number; won: number; total: number; avgFirstResponseMinutes: number | null }[];
   perDay: { day: string; n: number }[];
   meta: { agents: { id: string; name: string; avatarUrl: string | null }[]; stages: string[]; canSeeAll: boolean };
 }
@@ -424,7 +424,7 @@ function ActivitiesInner() {
             <section className="surface-card overflow-hidden">
               <h2 className="label-caps px-5 pt-5">Agent leaderboard</h2>
               <div className="mt-3 overflow-x-auto">
-                <table className="w-full min-w-[640px] text-[13.5px]">
+                <table className="w-full min-w-[760px] text-[13.5px]">
                   <thead>
                     <tr>
                       {th("name", "Agent", "text-left")}
@@ -433,15 +433,17 @@ function ActivitiesInner() {
                       {th("notes", "Notes")}
                       {th("viewings", "Viewings")}
                       {th("stages", "Stages")}
+                      {th("listings", "Listings")}
+                      {th("other", "Other")}
+                      {th("total", "Total")}
                       {th("won", "Won")}
                       {th("avgFirstResponseMinutes", "Avg 1st reply")}
-                      {th("total", "Total")}
                     </tr>
                   </thead>
                   <tbody>
                     {board.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="px-5 py-8 text-center text-muted">
+                        <td colSpan={11} className="px-5 py-8 text-center text-muted">
                           No activity in this range.
                         </td>
                       </tr>
@@ -454,15 +456,17 @@ function ActivitiesInner() {
                         <td className="tnum px-3 py-2.5 text-right">{b.notes}</td>
                         <td className="tnum px-3 py-2.5 text-right">{b.viewings}</td>
                         <td className="tnum px-3 py-2.5 text-right">{b.stages}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.won}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{formatMinutes(b.avgFirstResponseMinutes)}</td>
+                        <td className="tnum px-3 py-2.5 text-right">{b.listings}</td>
+                        <td className="tnum px-3 py-2.5 text-right">{b.other}</td>
                         <td className="tnum px-3 py-2.5 text-right font-semibold text-primary-dark">{b.total}</td>
+                        <td className="tnum px-3 py-2.5 text-right text-muted" title="Won leads are part of Stages">{b.won}</td>
+                        <td className="tnum px-3 py-2.5 text-right">{b.agentId ? formatMinutes(b.avgFirstResponseMinutes) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="px-5 pb-4 pt-2 text-[12px] text-muted">Click an agent to filter the page to them.</p>
+              <p className="px-5 pb-4 pt-2 text-[12px] text-muted">Calls + WhatsApp + Notes + Viewings + Stages + Listings + Other = Total. Won is part of Stages. Click an agent to filter the page to them.</p>
             </section>
           )}
           <section className="surface-card p-5">

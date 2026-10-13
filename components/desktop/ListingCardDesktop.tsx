@@ -11,7 +11,7 @@ import { AvailabilityPill, TypePill, PrivatePill } from "./Badges";
 import { IconBed, IconBuilding, IconPin, IconRuler, IconImage } from "./icons";
 
 function shortDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short" });
 }
 
 function ListingCardDesktop({ listing, compact = false }: { listing: ListingDTO; compact?: boolean }) {

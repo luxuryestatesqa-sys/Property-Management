@@ -10,6 +10,7 @@ import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useOrg } from "@/components/OrgProvider";
 import { buildWhatsAppLeadMessage } from "@/lib/whatsapp";
 import { timeAgo, fullDateTime } from "@/lib/timeAgo";
+import { fromQatarInput, qatarDayDiff, qatarInputValue } from "@/lib/qatarTime";
 import { formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "@/lib/propertyCategory";
 import { CHANNEL_LABELS, LeadGroupDTO, LeadStageDTO, SOURCE_LABELS } from "@/components/leads/leadTypes";
@@ -97,12 +98,8 @@ interface Detail {
 }
 
 // A local "datetime-local" value for the given offset from now.
-function dueInput(offsetHours: number, hour?: number): string {
-  const d = new Date(Date.now() + offsetHours * 3600_000);
-  if (hour !== undefined) d.setHours(hour, 0, 0, 0);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
+// A "datetime-local" value in Qatar time for the given offset from now (see lib/qatarTime.ts).
+const dueInput = qatarInputValue;
 
 const TIMELINE: Record<string, { label: string; color: string; icon: string }> = {
   RECEIVED: { label: "Lead received", color: "var(--text-muted)", icon: "M12 5v14M5 12l7 7 7-7" },
@@ -202,7 +199,19 @@ export default function LeadDetailPage() {
     await load();
   }
 
+  // A request that is already on its way is not sent again (double click, Enter held down).
+  const inflight = useRef(new Set<string>());
   async function send(url: string, method: string, body?: unknown) {
+    const key = `${method} ${url} ${JSON.stringify(body ?? null)}`;
+    if (inflight.current.has(key)) return false;
+    inflight.current.add(key);
+    try {
+      return await sendOnce(url, method, body);
+    } finally {
+      inflight.current.delete(key);
+    }
+  }
+  async function sendOnce(url: string, method: string, body?: unknown) {
     setError("");
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
     if (!res.ok) setError((await res.json().catch(() => null))?.error ?? "Couldn't save");
@@ -219,7 +228,7 @@ export default function LeadDetailPage() {
   async function addTask() {
     if (!taskText.trim()) return;
     const text = tab === "meeting" ? `Meeting: ${taskText.trim()}` : taskText;
-    if (await send(`/api/leads/${id}/tasks`, "POST", { text, dueAt: new Date(taskDue).toISOString() })) {
+    if (await send(`/api/leads/${id}/tasks`, "POST", { text, dueAt: fromQatarInput(taskDue).toISOString() })) {
       setTaskText("");
       setTaskDue(dueInput(24, 10));
       setAdding(false);
@@ -559,7 +568,7 @@ export default function LeadDetailPage() {
         </span>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-medium ${overdue ? "bg-rose-50 text-rose-600" : "text-muted"}`} title={fullDateTime(t.dueAt)}>
           {overdue ? "Overdue · " : ""}
-          {new Date(t.dueAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}
+          {new Date(t.dueAt).toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}
         </span>
         <button type="button" aria-label="Delete" onClick={() => send(`/api/leads/tasks/${t.id}`, "DELETE")} className="shrink-0 text-slate-300 transition-colors hover:text-rose-500 lg:opacity-0 lg:group-hover:opacity-100">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -642,7 +651,7 @@ export default function LeadDetailPage() {
                   </span>
                   <div className="min-w-0 flex-1 pt-0.5">
                     <div className="tnum text-[13px] font-medium tracking-wide text-slate-700" title={fullDateTime(a.createdAt)}>
-                      {when.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} <span className="ml-1 font-medium text-slate-500">{when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                      {when.toLocaleDateString("en-US", { timeZone: "Asia/Qatar", month: "short", day: "numeric", year: "numeric" })} <span className="ml-1 font-medium text-slate-500">{when.toLocaleTimeString("en-US", { timeZone: "Asia/Qatar", hour: "numeric", minute: "2-digit" })}</span>
                     </div>
                     {fromStage && toStage ? (
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -807,13 +816,7 @@ export default function LeadDetailPage() {
   if (!isDesktop) {
     const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
     const next = openTasks[0];
-    const dayDiff = (iso: string) => {
-      const a = new Date(now);
-      a.setHours(0, 0, 0, 0);
-      const b = new Date(iso);
-      b.setHours(0, 0, 0, 0);
-      return Math.round((b.getTime() - a.getTime()) / 86400000);
-    };
+    const dayDiff = (iso: string) => qatarDayDiff(iso, now);
     const followLabel = (iso: string) => {
       if (new Date(iso).getTime() < now) return "Follow-up overdue";
       const d = dayDiff(iso);
@@ -921,7 +924,7 @@ export default function LeadDetailPage() {
                   <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${next && new Date(next.dueAt).getTime() < now ? "bg-rose-50 text-rose-600" : "bg-accent-light text-primary"}`}>{ic("M3 10h18M7 3v4M17 3v4M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z")}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[12.5px] font-medium uppercase tracking-wide text-slate-500">{next ? followLabel(next.dueAt) : "No follow-up planned"}</span>
-                    <span className="mt-0.5 block truncate text-[15px]">{next ? new Date(next.dueAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "Tap to add one"}</span>
+                    <span className="mt-0.5 block truncate text-[15px]">{next ? new Date(next.dueAt).toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "Tap to add one"}</span>
                   </span>
                   <span className={`text-muted transition-transform ${followOpen ? "rotate-180" : ""}`}>{ic(next ? "m6 9 6 6 6-6" : "M12 5v14M5 12h14", 18)}</span>
                 </button>

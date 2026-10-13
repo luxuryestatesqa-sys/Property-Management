@@ -21,7 +21,7 @@ interface Dashboard {
 }
 
 const PORTAL_LABELS = { PROPERTY_FINDER: "Property Finder", QATAR_LIVING: "Qatar Living", PROPERTY_ORYX: "Property Oryx" } as const;
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Qatar", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
 
 // Charts follow one rule: regular bars are the quiet blue-grey, and only the most important one is the accent.
 function Bars({ rows, unit }: { rows: { label: string; value: number }[]; unit?: string }) {
@@ -61,6 +61,11 @@ export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState("");
   const isManager = ["OWNER", "ADMIN", "MANAGER"].includes(session?.user?.role ?? "");
+
+  // The dashboard is for 768px and up; phones use Properties.
+  useEffect(() => {
+    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 768px)").matches) router.replace("/");
+  }, [router]);
 
   useEffect(() => {
     if (status === "unauthenticated") return;

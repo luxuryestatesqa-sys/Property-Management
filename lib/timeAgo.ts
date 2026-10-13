@@ -9,9 +9,9 @@ export function timeAgo(iso: string | Date, now = Date.now()): string {
   if (h < 24) return `${h} h ago`;
   const d = Math.round(h / 24);
   if (d < 7) return `${d} d ago`;
-  return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(t).toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short" });
 }
 
 export function fullDateTime(iso: string | Date): string {
-  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+  return new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 }

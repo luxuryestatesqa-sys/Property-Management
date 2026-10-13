@@ -22,6 +22,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ta
   if (bodyError) return bodyError;
   if (typeof body?.done !== "boolean") return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
+  // Ticking off a follow-up that is already done (or reopening one that is open) changes nothing and logs nothing.
+  if (body.done === Boolean(ctx.task.doneAt)) return NextResponse.json({ ok: true });
   await ctx.db.leadTask.update({ where: { id: taskId }, data: { doneAt: body.done ? new Date() : null } });
   if (body.done) {
     await ctx.db.leadActivity.create({

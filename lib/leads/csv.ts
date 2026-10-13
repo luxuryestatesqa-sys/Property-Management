@@ -112,7 +112,7 @@ export function normalizePhone(raw: unknown): string | null {
 
 // Where a hand-added or imported lead came from. One choice sets both the channel and the label shown.
 export const LEAD_ORIGINS = [
-  { key: "OTHER", label: "Other / not sure", channel: "OTHER", sourceLabel: null },
+  { key: "OTHER", label: "Other / not sure", channel: "OTHER", sourceLabel: "Unknown" },
   { key: "WHATSAPP", label: "WhatsApp", channel: "WHATSAPP", sourceLabel: "WhatsApp" },
   { key: "CALL", label: "Phone call", channel: "CALL", sourceLabel: "Phone call" },
   { key: "EMAIL", label: "Email", channel: "EMAIL", sourceLabel: "Email" },

@@ -42,7 +42,9 @@ export function kpis(cells: CountCell[], stages: StageInfo[], firstOpenStageId: 
   return {
     total: sum(scope),
     fresh: sum(scope.filter((c) => c.stageId === firstOpenStageId)),
-    open: sum(scope.filter((c) => kind.get(c.stageId) === "OPEN")),
+    // In progress = the open stages after the starting one (Contacted + Viewing + Negotiation), so
+    // New + In progress + Won (+ Lost) always add up to the total.
+    open: sum(scope.filter((c) => kind.get(c.stageId) === "OPEN" && c.stageId !== firstOpenStageId)),
     won: sum(scope.filter((c) => kind.get(c.stageId) === "WON")),
     unassigned: sum(scope.filter((c) => c.assignedToId === null)),
   };

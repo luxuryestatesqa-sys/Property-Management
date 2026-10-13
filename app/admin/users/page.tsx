@@ -247,7 +247,7 @@ export default function AdminUsersPage() {
                           {u.pfPublicProfileId ? "Linked" : "Link account"}
                         </button>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-[12.5px] text-muted">{new Date(u.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-[12.5px] text-muted">{new Date(u.createdAt).toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric" })}</td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center justify-end">
                           {/* Only the owner can touch the owner account; nobody manages themselves here. */}

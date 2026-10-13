@@ -22,7 +22,8 @@ describe("lead counts", () => {
   it("KPIs, agent counts and stage counts all add up to the same total", () => {
     const k = kpis(cells, stages, "new");
     expect(k.total).toBe(11);
-    expect(k.fresh + (k.open - k.fresh) + k.won).toBe(k.total);
+    expect(k.fresh + k.open + k.won).toBe(k.total);
+    expect(k.open).toBe(2); // only the leads after New
     expect(agentCount(cells, "all")).toBe(k.total);
     expect(stageCount(cells, "all")).toBe(k.total);
     expect(stages.reduce((n, s) => n + stageCount(cells, s.id), 0)).toBe(k.total);

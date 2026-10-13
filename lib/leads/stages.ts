@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { LeadStageKind } from "@prisma/client";
+import type { tenantDb } from "@/lib/tenant";
 
 export const DEFAULT_STAGES: { name: string; kind: LeadStageKind; color: string }[] = [
   { name: "New", kind: "OPEN", color: "#3b82f6" },
@@ -41,4 +42,26 @@ export function themedStages<T extends { id: string; kind: LeadStageKind }>(stag
 export async function firstStageId(organizationId: string): Promise<string> {
   const stages = await ensureStages(organizationId);
   return (stages.find((s) => s.kind === "OPEN") ?? stages[0]).id;
+}
+
+// The stage a lead moves to on first contact: the one called "Contacted", else the next open stage after
+// the starting one. Null when the agency has no such stage.
+export function contactedStageFor<T extends { id: string; name: string; kind: LeadStageKind; position: number }>(stages: T[]): T | null {
+  const open = stages.filter((s) => s.kind === "OPEN").sort((a, b) => a.position - b.position);
+  return open.find((s) => s.name.trim().toLowerCase() === "contacted") ?? open[1] ?? null;
+}
+
+// The first outbound WhatsApp, call or note on a lead that is still in the starting stage ("New") moves it to
+// "Contacted", records the first response time, and writes the move to the lead's timeline (and so to the
+// activity log). Returns true when it moved the lead. Safe to call on every outbound action.
+export async function advanceOnFirstContact(db: ReturnType<typeof tenantDb>, orgId: string, lead: { id: string; stageId: string; firstContactedAt: Date | null }, userId: string | null, at: Date = new Date()): Promise<boolean> {
+  const stages = await db.leadStage.findMany({ orderBy: { position: "asc" } });
+  const first = stages.find((s) => s.kind === "OPEN");
+  if (!lead.firstContactedAt) await db.lead.update({ where: { id: lead.id }, data: { firstContactedAt: at } });
+  if (!first || lead.stageId !== first.id) return false;
+  const next = contactedStageFor(stages);
+  if (!next || next.id === first.id) return false;
+  await db.lead.update({ where: { id: lead.id }, data: { stageId: next.id } });
+  await db.leadActivity.create({ data: { organizationId: orgId, leadId: lead.id, userId, type: "STAGE_CHANGED", text: `Stage: ${first.name} → ${next.name}`, data: { from: first.id, to: next.id, auto: true }, createdAt: at } });
+  return true;
 }

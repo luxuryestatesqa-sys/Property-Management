@@ -277,7 +277,7 @@ export default function PropertiesPage() {
                 />
               </div>
               <span className="whitespace-nowrap text-[13.5px] text-muted">
-                {loading && listings.length === 0 ? "Searching…" : `Showing ${total} propert${total === 1 ? "y" : "ies"}`}
+                {loading && listings.length === 0 ? "Searching…" : `Showing ${listings.length} of ${total}`}
               </span>
             </div>
             <div className="flex shrink-0 rounded-lg border border-border bg-surface p-0.5 shadow-sm" role="group" aria-label="Layout">
@@ -391,7 +391,7 @@ export default function PropertiesPage() {
 
         <div className="flex items-center justify-between mt-2.5">
           <div className="text-[12px] text-muted">
-            {loading && listings.length === 0 ? "Searching..." : `${total} propert${total === 1 ? "y" : "ies"} found`}
+            {loading && listings.length === 0 ? "Searching..." : `Showing ${listings.length} of ${total}`}
           </div>
           {activeFilterCount > 0 && (
             <button onClick={() => setFilters(DEFAULT_FILTERS)} className="text-[12px] font-semibold" style={{ color: "var(--primary)" }}>

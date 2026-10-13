@@ -1,3 +1,4 @@
+import { qatarStartOfDay } from "@/lib/qatarTime";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
@@ -14,8 +15,7 @@ export async function GET() {
   if (error) return error;
   if (!isManagerRole(session!.user.role)) return forbid();
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = qatarStartOfDay();
   const weekAgo = new Date(Date.now() - 7 * 86400000);
   const [unassigned, agents, rules, audit, openByAgent, totalByAgent, doneByAgent, responded, todayByAgent, weekByAgent, shareable] = await Promise.all([
     db!.lead.findMany({

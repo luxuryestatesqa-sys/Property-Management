@@ -10,7 +10,7 @@ import FilterSelect from "@/components/leads/FilterSelect";
 import BulkBar from "@/components/leads/BulkBar";
 import MobileLeads from "@/components/leads/MobileLeads";
 import { AddLeadModal, ImportLeadsModal } from "@/components/leads/LeadIntake";
-import { ContactButtons, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
+import { ContactButtons, FollowUpTag, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
 import { LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
 import { timeAgo } from "@/lib/timeAgo";
 import { agentCount as gridAgentCount, kpis, stageCount } from "@/lib/leads/counts";
@@ -80,6 +80,7 @@ function DesktopLeads() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [group, setGroup] = useState("all");
+  const [followup, setFollowup] = useState<"all" | "today" | "overdue">("all");
   const [groups, setGroups] = useState<LeadGroupDTO[]>([]);
   const [attention, setAttention] = useState<Attention | null>(null);
   const [attentionOpen, setAttentionOpen] = useState(false);
@@ -111,6 +112,7 @@ function DesktopLeads() {
     if (channel !== "ALL") p.set("channel", channel);
     if (debounced) p.set("q", debounced);
     if (group !== "all") p.set("group", group);
+    if (followup !== "all") p.set("followup", followup);
     p.set("limit", "100");
     try {
       const [res, gRes, aRes] = await Promise.all([fetch(`/api/leads?${p.toString()}`), fetch("/api/leads/groups"), fetch("/api/leads/attention")]);
@@ -120,7 +122,7 @@ function DesktopLeads() {
     } finally {
       setLoading(false);
     }
-  }, [assignee, channel, debounced, group]);
+  }, [assignee, channel, debounced, group, followup]);
 
   useEffect(() => {
     if (status === "authenticated") load();
@@ -135,6 +137,7 @@ function DesktopLeads() {
     if (channel !== "ALL") p.set("channel", channel);
     if (debounced) p.set("q", debounced);
     if (group !== "all") p.set("group", group);
+    if (followup !== "all") p.set("followup", followup);
     p.set("limit", "100");
     p.set("cursor", data.nextCursor);
     try {
@@ -195,7 +198,9 @@ function DesktopLeads() {
   const firstStage = stages.find((s) => s.kind === "OPEN");
   const all = useMemo(() => data?.leads ?? [], [data]);
   const visible = useMemo(() => (stageFilter === "all" ? all : all.filter((l) => l.stageId === stageFilter)), [all, stageFilter]);
-  const canManage = data?.canManage ?? false;
+  // Nothing role-specific is drawn until the signed-in role is known, so an admin never sees the agent wording first.
+  const roleKnown = status === "authenticated" && Boolean(session?.user?.role);
+  const canManage = roleKnown && ["OWNER", "ADMIN", "MANAGER"].includes(session?.user?.role ?? "");
   // Only leads still on screen count as selected, so filtering never acts on hidden ones.
   const picked = useMemo(() => visible.filter((l) => selected.has(l.id)).map((l) => l.id), [visible, selected]);
   const allPicked = visible.length > 0 && picked.length === visible.length;
@@ -217,7 +222,7 @@ function DesktopLeads() {
 
   const empty = !loading && all.length === 0;
 
-  const filtersActive = Boolean(debounced) || channel !== "ALL" || stageFilter !== "all" || assignee !== "all" || group !== "all";
+  const filtersActive = followup !== "all" || Boolean(debounced) || channel !== "ALL" || stageFilter !== "all" || assignee !== "all" || group !== "all";
   const attentionItems = attention ? attention.overdue.length + attention.today.length + attention.waitingCount : 0;
 
   return (
@@ -226,7 +231,11 @@ function DesktopLeads() {
       <div className="pt-4 pb-4 lg:pt-10 lg:pb-7 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold lg:text-[28px] lg:font-semibold lg:leading-none lg:tracking-[-0.025em]">Leads</h1>
-          <p className="mt-1 text-[13px] text-muted lg:mt-2.5 lg:text-[15px]">{canManage ? "Every enquiry from Property Finder, sorted by agent." : "Enquiries sent to you from Property Finder."}</p>
+          {roleKnown ? (
+            <p className="mt-1 text-[13px] text-muted lg:mt-2.5 lg:text-[15px]">{canManage ? "Every enquiry from Property Finder, sorted by agent." : "Enquiries sent to you from Property Finder."}</p>
+          ) : (
+            <div className="mt-2.5 h-4 w-72 max-w-full animate-pulse rounded" />
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
           <button type="button" onClick={() => setIntake("add")} className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13.5px] font-medium text-white shadow-sm" style={{ background: "var(--primary)" }}>
@@ -337,7 +346,7 @@ function DesktopLeads() {
             <ul className="max-h-56 divide-y divide-amber-100 overflow-y-auto border-t border-amber-200 bg-white/60">
               {[
                 ...attention.overdue.map((t) => ({ key: t.id, href: `/leads/${t.lead.id}`, name: t.lead.name, note: t.text, tag: `Overdue · ${timeAgo(t.dueAt)}`, tone: "bg-rose-100 text-rose-700" })),
-                ...attention.today.map((t) => ({ key: t.id, href: `/leads/${t.lead.id}`, name: t.lead.name, note: t.text, tag: `Today ${new Date(t.dueAt).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true })}`, tone: "bg-amber-100 text-amber-800" })),
+                ...attention.today.map((t) => ({ key: t.id, href: `/leads/${t.lead.id}`, name: t.lead.name, note: t.text, tag: `Today ${new Date(t.dueAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Qatar", hour: "numeric", minute: "2-digit", hour12: true })}`, tone: "bg-amber-100 text-amber-800" })),
                 ...attention.waiting.map((l) => ({ key: l.id, href: `/leads/${l.id}`, name: l.name, note: l.assignedTo ? l.assignedTo.name : "Unassigned", tag: timeAgo(l.receivedAt), tone: "bg-amber-100 text-amber-800" })),
               ].map((r) => (
                 <li key={r.key}>
@@ -365,11 +374,21 @@ function DesktopLeads() {
           <div key={t.label} className="rounded-2xl border border-border bg-surface shadow-sm px-4 py-3.5 lg:p-5">
             <div className="flex items-center gap-2 text-[12.5px] font-medium text-muted">
               <span className="h-2 w-2 rounded-full" style={{ background: t.tone }} />
-              {t.label}
+              {roleKnown || t.label !== "Total" ? t.label : <span className="inline-block h-3 w-14 animate-pulse rounded" />}
             </div>
-            <div className="kpi-num tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2 lg:text-[30px]">{loading ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : t.value}</div>
-            <div className="mt-1.5 text-[12px] text-muted lg:mt-2">{t.hint}</div>
+            <div className="kpi-num tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2 lg:text-[30px]">{loading || !roleKnown ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : t.value}</div>
+            <div className="mt-1.5 text-[12px] text-muted lg:mt-2">{roleKnown || t.label !== "Total" ? t.hint : <span className="inline-block h-3 w-24 animate-pulse rounded" />}</div>
           </div>
+        ))}
+      </div>
+
+      {/* Follow-up tabs (list and board) */}
+      <div className="mt-4 flex gap-1.5" role="tablist" aria-label="Follow-ups">
+        {([["all", "All leads", null], ["today", "Due today", data?.followups.today ?? null], ["overdue", "Overdue", data?.followups.overdue ?? null]] as const).map(([key, label, n]) => (
+          <button key={key} type="button" role="tab" aria-selected={followup === key} onClick={() => setFollowup(key)} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-colors ${followup === key ? "bg-primary-soft text-primary" : "bg-surface-muted text-muted hover:text-foreground"}`}>
+            {label}
+            {n !== null && <span className={`tnum rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none ${key === "overdue" && n > 0 ? "bg-danger-soft text-danger" : "bg-white/70"}`}>{n}</span>}
+          </button>
         ))}
       </div>
 
@@ -519,6 +538,7 @@ function DesktopLeads() {
                         </div>
                         <div className="mt-2.5">
                           <PropertyCell lead={l} />
+                          <FollowUpTag iso={l.nextFollowUp} />
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
                           <SourceBadge lead={l} />
@@ -560,6 +580,7 @@ function DesktopLeads() {
                     </td>
                     <td className="px-2.5 py-3">
                       <Link href={`/leads/${l.id}`} className="block max-w-[190px] truncate text-[14px] font-medium hover:text-primary">{l.name}</Link>
+                      <FollowUpTag iso={l.nextFollowUp} />
                       {l.duplicates > 0 && <span title={`${l.duplicates} other lead${l.duplicates === 1 ? "" : "s"} with the same phone or email`} className="mt-0.5 inline-block rounded-full bg-warning-soft px-2 py-0.5 text-[10.5px] font-bold leading-none text-warning">Duplicate</span>}
                     </td>
                     <td className="whitespace-nowrap px-2.5 py-3 text-[13.5px]">{l.phone ?? <span className="text-muted">{l.email ?? "—"}</span>}</td>

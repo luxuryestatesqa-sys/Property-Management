@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { listingCode } from "@/lib/format";
+import { fromQatarInput, qatarInputValue } from "@/lib/qatarTime";
 
 interface Viewing {
   id: string;
@@ -14,7 +15,7 @@ interface Viewing {
   agent: { id: string; name: string } | null;
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Qatar", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
 
 // A "Add to Google Calendar" link: opens Google Calendar with the viewing already filled in (no sign-in
 // needed here; the agent confirms it in their own calendar).
@@ -27,12 +28,8 @@ export function googleCalendarUrl(v: Viewing): string {
   return `https://calendar.google.com/calendar/render?${q.toString()}`;
 }
 
-function localInput(offsetHours: number): string {
-  const d = new Date(Date.now() + offsetHours * 3600_000);
-  d.setMinutes(0, 0, 0);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
+// On the hour, in Qatar time.
+const localInput = (offsetHours: number) => qatarInputValue(offsetHours).slice(0, 13) + ":00";
 
 // Upcoming viewings for a lead (with a booking form) or for a property (read-only list).
 export default function ViewingsCard({ leadId, listingId, defaultListing, agents, onBooked }: { leadId?: string; listingId?: number; defaultListing?: { id: number; label: string } | null; agents?: { id: string; name: string }[]; onBooked?: () => void }) {
@@ -63,7 +60,7 @@ export default function ViewingsCard({ leadId, listingId, defaultListing, agents
     const res = await fetch("/api/viewings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leadId, listingId: property.trim() || defaultListing?.id || null, agentId: agentId || undefined, scheduledAt: new Date(at).toISOString(), notes }),
+      body: JSON.stringify({ leadId, listingId: property.trim() || defaultListing?.id || null, agentId: agentId || undefined, scheduledAt: fromQatarInput(at).toISOString(), notes }),
     });
     setBusy(false);
     if (!res.ok) return setError((await res.json().catch(() => null))?.error ?? "Couldn't book the viewing");

@@ -20,6 +20,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   if (!isManagerRole(session!.user.role) && lead.assignedToId !== session!.user.id) return NextResponse.json({ error: "Not your lead" }, { status: 403 });
 
+  // The same follow-up arriving again within 2 seconds is a double click, not a second follow-up.
+  const repeat = await db!.leadTask.findFirst({ where: { leadId: id, text, dueAt, createdById: session!.user.id, createdAt: { gte: new Date(Date.now() - 2000) } } });
+  if (repeat) return NextResponse.json({ task: repeat }, { status: 201 });
+
   const task = await db!.leadTask.create({
     data: { organizationId: orgId!, leadId: id, assignedToId: lead.assignedToId ?? session!.user.id, text, dueAt, createdById: session!.user.id },
   });
@@ -29,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       leadId: id,
       userId: session!.user.id,
       type: "TASK_CREATED",
-      text: `Follow-up set for ${dueAt.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}: ${text}`,
+      text: `Follow-up set for ${dueAt.toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}: ${text}`,
     },
   });
   return NextResponse.json({ task }, { status: 201 });

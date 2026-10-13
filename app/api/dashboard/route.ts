@@ -25,7 +25,7 @@ export async function GET() {
     db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true } }),
     db!.leadStage.findMany({ select: { id: true, kind: true } }),
     db!.lead.groupBy({ by: ["stageId"], where: { receivedAt: { gte: new Date(now - 90 * DAY) } }, _count: { _all: true } }),
-    db!.lead.findMany({ where: { receivedAt: { gte: monthAgo }, firstContactedAt: { not: null } }, select: { receivedAt: true, firstContactedAt: true }, take: 5000 }),
+    db!.lead.findMany({ where: { receivedAt: { gte: monthAgo }, firstContactedAt: { not: null }, assignedToId: { not: null } }, select: { receivedAt: true, firstContactedAt: true }, take: 5000 }),
     db!.lead.groupBy({ by: ["listingId"], where: { listingId: { not: null } }, _count: { _all: true }, orderBy: { _count: { listingId: "desc" } }, take: 5 }),
     db!.portalListing.findMany({ where: { portal: { in: ["PROPERTY_FINDER", "QATAR_LIVING", "PROPERTY_ORYX"] } }, select: { portal: true, enabled: true, remoteListingId: true, state: true, lastError: true, listing: { select: { status: true } } } }),
     db!.listing.count({ where: { status: "ACTIVE" } }),

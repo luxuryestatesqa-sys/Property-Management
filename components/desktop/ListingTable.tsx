@@ -78,7 +78,7 @@ export const agentOf = (l: ListingDTO) => (
 
 const dateOf = (l: ListingDTO) => (
   <span className="whitespace-nowrap text-[12.5px] text-muted">
-    {new Date(l.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+    {new Date(l.createdAt).toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric" })}
   </span>
 );
 

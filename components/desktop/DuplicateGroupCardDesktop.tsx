@@ -12,7 +12,7 @@ import { useOrg } from "../OrgProvider";
 import { AvailabilityPill, TypePill } from "./Badges";
 import { IconBed, IconBuilding, IconChevronRight, IconClose, IconImage, IconPin, IconRuler } from "./icons";
 
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric" });
 
 // A property that several agents have listed. On the list it looks exactly like
 // any other property card (same cover photo, price and details) with a

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { qatarEndOfDay } from "@/lib/qatarTime";
 
 // What needs the signed-in person's attention right now: follow-ups that are overdue
 // or due today, and new leads nobody has contacted for a while.
@@ -13,8 +14,7 @@ export async function GET() {
   const me = session!.user.id;
   const manager = isManagerRole(session!.user.role);
   const now = new Date();
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
+  const endOfToday = qatarEndOfDay();
 
   const tasks = await db!.leadTask.findMany({
     where: { assignedToId: me, doneAt: null, dueAt: { lte: endOfToday } },

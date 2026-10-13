@@ -27,19 +27,20 @@ export async function GET(req: NextRequest) {
         count(*) FILTER (WHERE a."type" = 'stage_changed')::int AS stages,
         count(*) FILTER (WHERE a."type" = 'listing_published')::int AS published
       FROM ${ACTIVITY_FROM} WHERE ${where}`),
-    prisma.$queryRaw<{ agentId: string | null; name: string | null; calls: number; whatsapp: number; notes: number; viewings: number; stages: number; won: number; total: number }[]>(Prisma.sql`
+    prisma.$queryRaw<{ agentId: string | null; name: string | null; calls: number; whatsapp: number; notes: number; viewings: number; stages: number; listings: number; won: number; total: number }[]>(Prisma.sql`
       SELECT a."agentId", u."name",
         count(*) FILTER (WHERE a."type" = 'call_logged')::int AS calls,
         count(*) FILTER (WHERE a."type" = 'whatsapp_sent')::int AS whatsapp,
         count(*) FILTER (WHERE a."type" = 'note_added')::int AS notes,
         count(*) FILTER (WHERE a."type" IN ('viewing_scheduled', 'viewing_completed'))::int AS viewings,
         count(*) FILTER (WHERE a."type" = 'stage_changed')::int AS stages,
+        count(*) FILTER (WHERE a."type" IN ('listing_created', 'listing_edited', 'listing_status_changed', 'listing_published'))::int AS listings,
         count(*) FILTER (WHERE a."type" = 'stage_changed' AND a."newValue" IN (${wonStages}))::int AS won,
         count(*)::int AS total
       FROM ${ACTIVITY_FROM} WHERE ${where} GROUP BY a."agentId", u."name" ORDER BY total DESC LIMIT 60`),
     prisma.$queryRaw<{ agentId: string | null; minutes: number }[]>(Prisma.sql`
       SELECT l2."assignedToId" AS "agentId", (avg(extract(epoch FROM (l2."firstContactedAt" - l2."receivedAt"))) / 60)::float AS minutes
-      FROM "Lead" l2 WHERE l2."organizationId" = ${orgId!} AND l2."firstContactedAt" IS NOT NULL AND l2."firstContactedAt" >= l2."receivedAt"
+      FROM "Lead" l2 WHERE l2."organizationId" = ${orgId!} AND l2."firstContactedAt" IS NOT NULL AND l2."firstContactedAt" >= l2."receivedAt" AND l2."assignedToId" IS NOT NULL
       ${manager ? Prisma.empty : Prisma.sql`AND l2."assignedToId" = ${session!.user.id}`}
       ${range.length ? Prisma.sql`AND ${Prisma.join(range, " AND ")}` : Prisma.empty}
       GROUP BY l2."assignedToId"`),
@@ -53,7 +54,8 @@ export async function GET(req: NextRequest) {
   const avg = new Map(response.map((r) => [r.agentId, Math.round(r.minutes)]));
   return NextResponse.json({
     kpis: kpiRows[0],
-    leaderboard: board.map((b) => ({ ...b, name: b.agentId ? b.name ?? "Former team member" : "System", avgFirstResponseMinutes: avg.get(b.agentId) ?? null })),
+    // Other = everything not in a column, so a row's columns add up to its Total (Won is part of Stages).
+    leaderboard: board.map((b) => ({ ...b, name: b.agentId ? b.name ?? "Former team member" : "System", other: Math.max(0, b.total - b.calls - b.whatsapp - b.notes - b.viewings - b.stages - b.listings), avgFirstResponseMinutes: b.agentId ? avg.get(b.agentId) ?? null : null })),
     perDay,
     meta: { agents: users.map((u) => avatarLink(u)!), stages: stages.map((s) => s.name), canSeeAll: manager },
   });

@@ -71,7 +71,7 @@ function Row({ lead, stage, canManage, now }: { lead: LeadRow; stage?: LeadStage
             <span className="shrink-0 text-[11.5px] text-muted">{timeAgo(lead.receivedAt)}</span>
           </div>
           <div className="mt-0.5 truncate text-[13px] text-muted">
-            {SOURCE_SHORT[lead.source]} · {CHANNEL_LABELS[lead.channel]}
+            {lead.sourceLabel && lead.sourceLabel !== "Import" ? lead.sourceLabel : lead.source === "IMPORT" ? "Unknown" : SOURCE_SHORT[lead.source]}{lead.channel !== "OTHER" ? ` · ${CHANNEL_LABELS[lead.channel]}` : ""}
             {property ? ` · ${property}` : ""}
           </div>
           {canManage && (
@@ -93,7 +93,7 @@ function Row({ lead, stage, canManage, now }: { lead: LeadRow; stage?: LeadStage
             ))}
             {due && (
               <Chip bg={overdue ? "var(--danger-soft)" : "var(--warning-soft)"} fg={overdue ? "var(--danger)" : "var(--warning)"}>
-                {overdue ? "Follow-up overdue" : `Follow-up ${due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
+                {overdue ? "Follow-up overdue" : `Follow-up ${due.toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short" })}`}
               </Chip>
             )}
           </div>
@@ -129,7 +129,7 @@ export default function MobileLeads() {
   const [now] = useState(() => Date.now());
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [tab, setTab] = useState<"all" | "new" | "unassigned">("all");
+  const [tab, setTab] = useState<"all" | "new" | "unassigned" | "today" | "overdue">("all");
   const [assignee, setAssignee] = useState("all");
   const [stageId, setStageId] = useState("all");
   const [channel, setChannel] = useState("ALL");
@@ -142,7 +142,7 @@ export default function MobileLeads() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [meta, setMeta] = useState<{ stages: LeadStageDTO[]; agents: LeadsResponse["agents"]; canManage: boolean; unassigned: number } | null>(null);
+  const [meta, setMeta] = useState<{ stages: LeadStageDTO[]; agents: LeadsResponse["agents"]; canManage: boolean; unassigned: number; followups: { today: number; overdue: number } } | null>(null);
   const [groups, setGroups] = useState<LeadGroupDTO[]>([]);
   const [attention, setAttention] = useState<Attention | null>(null);
 
@@ -166,8 +166,9 @@ export default function MobileLeads() {
     if (channel !== "ALL") p.set("channel", channel);
     if (group !== "all") p.set("group", group);
     if (debounced) p.set("q", debounced);
+    if (tab === "today" || tab === "overdue") p.set("followup", tab);
     return p.toString();
-  }, [effAssignee, effStage, channel, group, debounced, sort]);
+  }, [effAssignee, effStage, channel, group, debounced, sort, tab]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 250);
@@ -188,7 +189,7 @@ export default function MobileLeads() {
       setItems(d.leads);
       setNext(d.nextCursor ?? null);
       setTotal(d.total);
-      setMeta({ stages: d.stages, agents: d.agents, canManage: d.canManage, unassigned: d.agentCounts.find((c) => c.assignedToId === null)?.count ?? 0 });
+      setMeta({ stages: d.stages, agents: d.agents, canManage: d.canManage, unassigned: d.agentCounts.find((c) => c.assignedToId === null)?.count ?? 0, followups: d.followups });
     } catch {
       if (mine === ticket.current) setError("Couldn't load leads. Pull down to try again.");
     } finally {
@@ -252,7 +253,7 @@ export default function MobileLeads() {
 
   const activeFilters = [assignee !== "all", stageId !== "all", channel !== "ALL", group !== "all"].filter(Boolean).length;
   const attentionCount = attention ? attention.overdue.length + attention.today.length + attention.waitingCount : 0;
-  const tabs: [typeof tab, string][] = [["all", "All"], ["new", "New"], ...(canManage ? ([["unassigned", "Unassigned"]] as [typeof tab, string][]) : [])];
+  const tabs: [typeof tab, string][] = [["all", "All"], ["new", "New"], ["today", `Due today${meta ? ` (${meta.followups.today})` : ""}`], ["overdue", `Overdue${meta ? ` (${meta.followups.overdue})` : ""}`], ...(canManage ? ([["unassigned", "Unassigned"]] as [typeof tab, string][]) : [])];
   const clearAll = () => {
     setTab("all");
     setAssignee("all");

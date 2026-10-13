@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
+import { advanceOnFirstContact } from "@/lib/leads/stages";
 
 const TYPES = new Set(["NOTE", "CALL_LOGGED", "WHATSAPP_LOGGED", "VIEWING_BOOKED"]);
 
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     data: { organizationId: orgId!, leadId: id, userId: session!.user.id, type, text: text || defaults[type] },
     include: { user: { select: { id: true, name: true, avatarUrl: true } } },
   });
-  if (type !== "NOTE" && !lead.firstContactedAt) await db!.lead.update({ where: { id }, data: { firstContactedAt: new Date() } });
+  // A first outbound call, WhatsApp or note takes a lead out of "New" (and stamps the first response time).
+  if (type === "NOTE" || type === "CALL_LOGGED" || type === "WHATSAPP_LOGGED") await advanceOnFirstContact(db!, orgId!, lead, session!.user.id);
+  else if (!lead.firstContactedAt) await db!.lead.update({ where: { id }, data: { firstContactedAt: new Date() } });
   return NextResponse.json({ activity }, { status: 201 });
 }

@@ -63,6 +63,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // The same booking arriving again within 2 seconds is a double click, not a second viewing.
+  const repeat = await db!.viewing.findFirst({ where: { leadId: lead.id, listingId: listing?.id ?? null, scheduledAt: when, createdAt: { gte: new Date(Date.now() - 2000) } }, select: SELECT });
+  if (repeat) return NextResponse.json({ viewing: repeat }, { status: 201 });
+
   const viewing = await db!.viewing.create({
     data: { organizationId: orgId!, leadId: lead.id, listingId: listing?.id ?? null, agentId, scheduledAt: when, notes: body?.notes?.trim().slice(0, 500) || null, createdById: me },
     select: SELECT,
@@ -73,8 +77,8 @@ export async function POST(req: NextRequest) {
       leadId: lead.id,
       userId: me,
       type: "VIEWING_BOOKED",
-      text: `Viewing booked for ${when.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}${listing ? ` · ${listingCode(listing.id)} ${listing.buildingName}` : ""}`,
-      data: { viewingId: viewing.id },
+      text: `Viewing booked for ${when.toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}${listing ? ` · ${listingCode(listing.id)} ${listing.buildingName}` : ""}`,
+      data: { viewingId: viewing.id, listingId: listing?.id ?? null },
     },
   });
   if (!lead.firstContactedAt) await db!.lead.update({ where: { id: lead.id }, data: { firstContactedAt: new Date() } });

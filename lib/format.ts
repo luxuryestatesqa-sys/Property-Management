@@ -20,17 +20,17 @@ export function listingCode(id: number): string {
 
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return d.toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "long", year: "numeric" });
 }
 
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  const datePart = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const timePart = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  const datePart = d.toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "long", year: "numeric" });
+  const timePart = d.toLocaleTimeString("en-US", { timeZone: "Asia/Qatar", hour: "numeric", minute: "2-digit", hour12: true });
   return `${datePart}, ${timePart}`;
 }
 
 export function formatTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return d.toLocaleTimeString("en-US", { timeZone: "Asia/Qatar", hour: "numeric", minute: "2-digit", hour12: true });
 }

@@ -53,6 +53,8 @@ export default function BottomNav() {
   const leadBadge = useLeadBadge(!!session?.user, pathname);
 
   const addActive = pathname.startsWith("/add");
+  // On a property's own page the sticky WhatsApp / Call bar sits above the nav, so the centre "+" is hidden there.
+  const hideAdd = /^\/property\/[^/]+$/.test(pathname);
 
   const leftItems = [
     { href: "/", label: "Properties", icon: icons.properties },
@@ -82,6 +84,7 @@ export default function BottomNav() {
           ))}
         </div>
 
+        {!hideAdd && (
         <Link
           href="/add"
           aria-label="Add property"
@@ -98,6 +101,7 @@ export default function BottomNav() {
             Add
           </span>
         </Link>
+        )}
       </div>
     </nav>
   );
