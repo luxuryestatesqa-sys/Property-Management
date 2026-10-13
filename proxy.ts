@@ -7,7 +7,7 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
 
-  const isAuthPage = nextUrl.pathname === "/login" || nextUrl.pathname === "/signup";
+  const isAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password"].includes(nextUrl.pathname);
   const isAdminPage = nextUrl.pathname.startsWith("/admin");
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
   // The public share link (/listing/[id]) and its API are opened by clients
@@ -33,7 +33,7 @@ export default auth((req) => {
   // sends a person to after a deletion request. The connect / callback / pages routes need a login.
   const isMetaPublic = ["/api/meta/webhook", "/api/meta/deauthorize", "/api/meta/data-deletion", "/data-deletion", "/privacy", "/terms"].includes(nextUrl.pathname);
 
-  const isSignupApi = nextUrl.pathname === "/api/signup";
+  const isSignupApi = nextUrl.pathname === "/api/signup" || nextUrl.pathname.startsWith("/api/password-reset/");
 
   if (isApiAuth || isSignupApi || isMetaPublic || isPublicShare || isPortalImageFetch || isPortalWebhook || isQatarLivingFeed) return NextResponse.next();
 

@@ -14,6 +14,8 @@ import { formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS } from "@/lib/propertyCategory";
 import { CHANNEL_LABELS, LeadGroupDTO, LeadStageDTO, SOURCE_LABELS } from "@/components/leads/leadTypes";
 import { IconChevronLeft, IconPin } from "@/components/desktop/icons";
+import LeadProperty from "@/components/leads/LeadProperty";
+import ViewingsCard from "@/components/ViewingsCard";
 
 interface Activity {
   id: string;
@@ -81,6 +83,10 @@ interface Detail {
       bedrooms: keyof typeof BEDROOM_SHORT_LABELS | null;
       sizeSqm: number | null;
       cover: string | null;
+      shareToken?: string | null;
+      unitDetailsPrivate?: boolean;
+      apartmentNumber?: string;
+      floor?: string;
     } | null;
   };
   stages: LeadStageDTO[];
@@ -99,20 +105,24 @@ function dueInput(offsetHours: number, hour?: number): string {
 }
 
 const TIMELINE: Record<string, { label: string; color: string; icon: string }> = {
-  RECEIVED: { label: "Lead received", color: "#6366f1", icon: "M12 5v14M5 12l7 7 7-7" },
-  ASSIGNED: { label: "Assigned", color: "#0ea5e9", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6" },
-  UNASSIGNED: { label: "Unassigned", color: "#d97706", icon: "M12 9v4M12 17h.01" },
-  STAGE_CHANGED: { label: "Stage changed", color: "#8b5cf6", icon: "M5 12h14M13 6l6 6-6 6" },
-  PF_STATUS: { label: "Property Finder", color: "#64748b", icon: "M3 12h4l3 8 4-16 3 8h4" },
-  NOTE: { label: "Note", color: "#f59e0b", icon: "M4 4h16v12H8l-4 4zM8 9h8M8 12.5h5" },
-  CALL_LOGGED: { label: "Call", color: "#10b981", icon: "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" },
-  WHATSAPP_LOGGED: { label: "WhatsApp", color: "#16a34a", icon: "M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
-  VIEWING_BOOKED: { label: "Viewing", color: "#f59e0b", icon: "M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" },
-  TASK_CREATED: { label: "Follow-up set", color: "#0ea5e9", icon: "M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z" },
-  TASK_DONE: { label: "Follow-up done", color: "#10b981", icon: "M5 12.5l4.5 4.5L19 7.5" },
-  GROUP_CHANGED: { label: "Groups", color: "#8b5cf6", icon: "M4 6h16M4 12h16M4 18h10" },
-  VOICE_NOTE: { label: "Voice note", color: "#ec4899", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM19 11a7 7 0 0 1-14 0M12 18v3" },
-  DOCUMENT: { label: "Document", color: "#14b8a6", icon: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5" },
+  RECEIVED: { label: "Lead received", color: "var(--text-muted)", icon: "M12 5v14M5 12l7 7 7-7" },
+  ASSIGNED: { label: "Assigned", color: "var(--text-muted)", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6" },
+  UNASSIGNED: { label: "Unassigned", color: "var(--text-muted)", icon: "M12 9v4M12 17h.01" },
+  STAGE_CHANGED: { label: "Stage changed", color: "var(--primary)", icon: "M5 12h14M13 6l6 6-6 6" },
+  PF_STATUS: { label: "Property Finder", color: "var(--text-muted)", icon: "M3 12h4l3 8 4-16 3 8h4" },
+  NOTE: { label: "Note", color: "var(--warning)", icon: "M4 4h16v12H8l-4 4zM8 9h8M8 12.5h5" },
+  CALL_LOGGED: { label: "Call", color: "var(--success)", icon: "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" },
+  WHATSAPP_LOGGED: { label: "WhatsApp", color: "var(--success)", icon: "M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
+  VIEWING_BOOKED: { label: "Viewing", color: "var(--primary)", icon: "M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" },
+  TASK_CREATED: { label: "Follow-up set", color: "var(--text-muted)", icon: "M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z" },
+  TASK_DONE: { label: "Follow-up done", color: "var(--success)", icon: "M5 12.5l4.5 4.5L19 7.5" },
+  GROUP_CHANGED: { label: "Groups", color: "var(--text-muted)", icon: "M4 6h16M4 12h16M4 18h10" },
+  VOICE_NOTE: { label: "Voice note", color: "var(--text-muted)", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM19 11a7 7 0 0 1-14 0M12 18v3" },
+  VIEWING_DONE: { label: "Viewing done", color: "var(--success)", icon: "M5 12.5l4.5 4.5L19 7.5" },
+  VIEWING_CANCELLED: { label: "Viewing cancelled", color: "var(--danger)", icon: "M6 6l12 12M18 6 6 18" },
+  MERGED: { label: "Merged", color: "var(--text-muted)", icon: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" },
+  PROPERTY_LINKED: { label: "Property linked", color: "var(--primary)", icon: "M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" },
+  DOCUMENT: { label: "Document", color: "var(--text-muted)", icon: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5" },
 };
 
 function duration(ms: number): string {
@@ -198,6 +208,12 @@ export default function LeadDetailPage() {
     if (!res.ok) setError((await res.json().catch(() => null))?.error ?? "Couldn't save");
     await load();
     return res.ok;
+  }
+
+  // Fold a duplicate lead into this one: its timeline, follow-ups and groups move here.
+  async function mergeDuplicate(fromId: string) {
+    if (!window.confirm("Merge that duplicate into this lead? Its timeline and follow-ups will be added here and the duplicate removed.")) return;
+    await send(`/api/leads/${id}/merge`, "POST", { fromId });
   }
 
   async function addTask() {
@@ -347,10 +363,10 @@ export default function LeadDetailPage() {
   const addTitle: Record<ComposerTab, string> = { note: "Add a note", followup: "Add a follow-up", meeting: "Schedule a meeting", voice: "Record a voice note", document: "Upload a file" };
   const input = "rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-primary";
   const primaryBtn = "rounded-xl px-5 py-2.5 text-[13.5px] font-medium text-white disabled:opacity-50";
-  const stageColor = lead.stage.color ?? "#6366f1";
+  const stageColor = lead.stage.color ?? "var(--primary)";
   const openTasks = lead.tasks.filter((t) => !t.doneAt);
   // Machine-written events stay as quiet one-liners; things people added get a card.
-  const QUIET = new Set(["RECEIVED", "ASSIGNED", "UNASSIGNED", "STAGE_CHANGED", "PF_STATUS", "GROUP_CHANGED", "TASK_CREATED", "TASK_DONE"]);
+  const QUIET = new Set(["RECEIVED", "ASSIGNED", "UNASSIGNED", "STAGE_CHANGED", "PF_STATUS", "GROUP_CHANGED", "TASK_CREATED", "TASK_DONE", "MERGED", "PROPERTY_LINKED", "VIEWING_BOOKED", "VIEWING_DONE", "VIEWING_CANCELLED"]);
   const LIMIT = 8;
   const shown = showAll ? lead.activities : lead.activities.slice(0, LIMIT);
 
@@ -407,7 +423,7 @@ export default function LeadDetailPage() {
           {groups.map((g) => {
             const on = inGroup.has(g.id);
             return (
-              <button key={g.id} type="button" onClick={() => toggleGroup(g.id)} className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors ${on ? "text-white" : "bg-surface-muted text-slate-600 hover:bg-border"}`} style={on ? { background: g.color ?? "#6366f1" } : undefined}>
+              <button key={g.id} type="button" onClick={() => toggleGroup(g.id)} className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors ${on ? "text-white" : "bg-surface-muted text-slate-600 hover:bg-border"}`} style={on ? { background: g.color ?? "var(--primary)" } : undefined}>
                 {g.name}
               </button>
             );
@@ -448,6 +464,10 @@ export default function LeadDetailPage() {
           </div>
         </Link>
       )}
+
+      <LeadProperty leadId={lead.id} leadName={lead.name} phone={lead.phone} listing={listing} onChange={load} />
+
+      <ViewingsCard leadId={lead.id} defaultListing={listing ? { id: listing.id, label: `${listingCode(listing.id)} ${listing.buildingName}` } : null} agents={canManage ? agents : undefined} onBooked={load} />
 
       {lead.channel === "CALL" && (lead.callTalkTime !== null || lead.callRecordUrl) && (
         <div className={card}>
@@ -501,18 +521,18 @@ export default function LeadDetailPage() {
         <div className="flex flex-col gap-4 border-t border-border px-5 py-4">
       {related.length > 0 && (
         <div>
-          <h3 className="mb-2 text-[13px] font-medium">Other enquiries from this number</h3>
+          <h3 className="mb-2 text-[13px] font-medium">Possible duplicates (same phone number)</h3>
           <ul className="flex flex-col gap-2.5">
             {related.map((r) => (
               <li key={r.id}>
-                <Link href={`/leads/${r.id}`} className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[13px] transition-colors hover:bg-slate-50">
-                  <span className="min-w-0 truncate">
-                    <span className="font-medium">{r.listingReference ?? "Enquiry"}</span> <span className="text-muted">· {timeAgo(r.receivedAt)}</span>
-                  </span>
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: `color-mix(in srgb, ${r.stage.color ?? "#6366f1"} 14%, white)`, color: r.stage.color ?? "#6366f1" }}>
-                    {r.stage.name}
-                  </span>
-                </Link>
+                <div className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[13px] transition-colors hover:bg-slate-50">
+                  <Link href={`/leads/${r.id}`} className="min-w-0 truncate">
+                    <span className="rounded-full bg-warning-soft px-1.5 py-0.5 text-[10.5px] font-bold text-warning">Duplicate</span> <span className="font-medium">{r.listingReference ?? r.name}</span> <span className="text-muted">· {timeAgo(r.receivedAt)}</span>
+                  </Link>
+                  <button type="button" onClick={() => mergeDuplicate(r.id)} className="shrink-0 rounded-lg bg-surface-muted px-2.5 py-1 text-[12px] font-semibold hover:bg-border">
+                    Merge into this lead
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -600,7 +620,7 @@ export default function LeadDetailPage() {
             </li>
 
             {shown.map((a, i) => {
-              const t = TIMELINE[a.type] ?? { label: a.type, color: "#64748b", icon: "M12 5v14" };
+              const t = TIMELINE[a.type] ?? { label: a.type, color: "var(--text-muted)", icon: "M12 5v14" };
               const last = i === shown.length - 1;
               const when = new Date(a.createdAt);
               const fromStage = a.type === "STAGE_CHANGED" ? stages.find((x) => x.id === a.data?.from) : undefined;
@@ -608,14 +628,14 @@ export default function LeadDetailPage() {
               const c = toStage?.color ?? t.color;
               const title = QUIET.has(a.type) ? (a.text ?? t.label) : t.label;
               const chip = (st: LeadStageDTO) => (
-                <span key={st.id} className="rounded-full px-3 py-1 text-[13px] font-medium" style={{ background: `color-mix(in srgb, ${st.color ?? "#6366f1"} 16%, white)`, color: `color-mix(in srgb, ${st.color ?? "#6366f1"} 70%, black)` }}>
+                <span key={st.id} className="rounded-full px-3 py-1 text-[13px] font-medium" style={{ background: `color-mix(in srgb, ${st.color ?? "var(--primary)"} 16%, white)`, color: `color-mix(in srgb, ${st.color ?? "var(--primary)"} 70%, black)` }}>
                   {st.name}
                 </span>
               );
               return (
                 <li key={a.id} className={`relative flex gap-4 ${last ? "" : "pb-7"}`}>
                   {!last && <span className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-slate-200" />}
-                  <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white" style={{ background: `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 72%, black))`, boxShadow: `0 0 0 4px color-mix(in srgb, ${c} 16%, white), 0 4px 10px color-mix(in srgb, ${c} 35%, transparent)` }}>
+                  <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--surface-elevated)", color: c, border: "1px solid var(--border)", boxShadow: "0 4px 14px rgba(13,31,92,0.08)" }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d={t.icon} />
                     </svg>
@@ -627,7 +647,7 @@ export default function LeadDetailPage() {
                     {fromStage && toStage ? (
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         {chip(fromStage)}
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M5 12h14M13 6l6 6-6 6" />
                         </svg>
                         {chip(toStage)}
@@ -861,7 +881,7 @@ export default function LeadDetailPage() {
           {/* quick actions */}
           <div className="mt-4 flex gap-2.5">
             {wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => log("WHATSAPP_LOGGED")} className="flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[12.5px] font-medium active:opacity-80" style={{ background: "#e7f9ee", color: "#1a7f3c" }}>
+              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => log("WHATSAPP_LOGGED")} className="flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[12.5px] font-medium active:opacity-80" style={{ background: "var(--success-soft)", color: "var(--success)" }}>
                 {ic("M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z", 21)}
                 WhatsApp
               </a>
@@ -962,7 +982,7 @@ export default function LeadDetailPage() {
                   {groups.map((g) => {
                     const on = inGroup.has(g.id);
                     return (
-                      <button key={g.id} type="button" onClick={() => toggleGroup(g.id)} className={`rounded-full px-3.5 py-2 text-[13.5px] font-medium ${on ? "text-white" : "bg-surface-muted text-slate-600"}`} style={on ? { background: g.color ?? "#6366f1" } : undefined}>
+                      <button key={g.id} type="button" onClick={() => toggleGroup(g.id)} className={`rounded-full px-3.5 py-2 text-[13.5px] font-medium ${on ? "text-white" : "bg-surface-muted text-slate-600"}`} style={on ? { background: g.color ?? "var(--primary)" } : undefined}>
                         {g.name}
                       </button>
                     );
@@ -1008,7 +1028,7 @@ export default function LeadDetailPage() {
         </div>
 
         {(addSheet || options) && (
-          <div className="fixed inset-0 z-50 flex items-end bg-slate-900/45" onMouseDown={(e) => e.target === e.currentTarget && (setAddSheet(false), setOptions(false))}>
+          <div className="fixed inset-0 z-50 flex items-end bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onMouseDown={(e) => e.target === e.currentTarget && (setAddSheet(false), setOptions(false))}>
             <div role="dialog" className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-surface px-5 pb-8 pt-3 shadow-2xl">
               <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
               {addSheet ? (
@@ -1091,7 +1111,7 @@ export default function LeadDetailPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             {wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => log("WHATSAPP_LOGGED")} className="inline-flex h-11 items-center gap-2 rounded-xl px-4 text-[14px] font-medium" style={{ background: "#e7f9ee", color: "#1a7f3c" }}>
+              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => log("WHATSAPP_LOGGED")} className="inline-flex h-11 items-center gap-2 rounded-xl px-4 text-[14px] font-medium" style={{ background: "var(--success-soft)", color: "var(--success)" }}>
                 WhatsApp
               </a>
             )}

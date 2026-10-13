@@ -7,7 +7,7 @@ import { orgUpdateSchema } from "@/lib/validation";
 export async function GET() {
   const { orgId, error } = await requireSession();
   if (error) return error;
-  const org = await prisma.organization.findUnique({ where: { id: orgId! }, select: { id: true, name: true, slug: true, logoUrl: true, brandColor: true } });
+  const org = await prisma.organization.findUnique({ where: { id: orgId! }, select: { id: true, name: true, slug: true, logoUrl: true, brandColor: true, contactSlaHours: true } });
   return NextResponse.json({ org });
 }
 
@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest) {
   const org = await prisma.organization.update({
     where: { id: orgId! },
     data: parsed.data,
-    select: { id: true, name: true, slug: true, logoUrl: true, brandColor: true },
+    select: { id: true, name: true, slug: true, logoUrl: true, brandColor: true, contactSlaHours: true },
   });
   return NextResponse.json({ org });
 }

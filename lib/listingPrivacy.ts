@@ -30,6 +30,8 @@ export const PRIVATE_LISTING_FIELDS = [
   "privateNotes",
   "titleDeedImage",
   "authorizationFormImage",
+  "ownerId",
+  "leaseEndDate",
 ] as const;
 
 export type PrivateListingField = (typeof PRIVATE_LISTING_FIELDS)[number];

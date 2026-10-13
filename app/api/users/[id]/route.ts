@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { requireAdmin } from "@/lib/api-helpers";
 import { whatsappSchema, adminResetPasswordSchema } from "@/lib/validation";
 import { setIdentityPassword, setIdentityDisabled, deleteIdentity } from "@/lib/identity";
+import { logActivity } from "@/lib/activity";
 
 // Only the OWNER can touch the OWNER account (deactivate, remove, reset password, change role).
 async function ownerProtected(db: NonNullable<Awaited<ReturnType<typeof requireAdmin>>["db"]>, id: string, callerRole: string) {
@@ -12,7 +13,7 @@ async function ownerProtected(db: NonNullable<Awaited<ReturnType<typeof requireA
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, error } = await requireAdmin();
+  const { session, db, orgId, error } = await requireAdmin();
   if (error) return error;
 
   const { id } = await params;
@@ -73,6 +74,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     pfPublicProfileId = body.pfPublicProfileId;
   }
 
+  const before = role ? await db!.user.findUnique({ where: { id }, select: { role: true } }) : null;
   const user = await db!.user.update({
     where: { id },
     data: {
@@ -95,6 +97,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   });
 
+  if (role && before && before.role !== role) await logActivity(orgId!, { type: "role_changed", agentId: session!.user.id, oldValue: before.role, newValue: role, note: user.name });
   if (status) await setIdentityDisabled(id, status === "INACTIVE");
   return NextResponse.json({ user });
 }

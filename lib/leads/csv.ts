@@ -110,6 +110,44 @@ export function normalizePhone(raw: unknown): string | null {
   return plus ? `+${digits}` : digits;
 }
 
+// Where a hand-added or imported lead came from. One choice sets both the channel and the label shown.
+export const LEAD_ORIGINS = [
+  { key: "OTHER", label: "Other / not sure", channel: "OTHER", sourceLabel: null },
+  { key: "WHATSAPP", label: "WhatsApp", channel: "WHATSAPP", sourceLabel: "WhatsApp" },
+  { key: "CALL", label: "Phone call", channel: "CALL", sourceLabel: "Phone call" },
+  { key: "EMAIL", label: "Email", channel: "EMAIL", sourceLabel: "Email" },
+  { key: "FACEBOOK", label: "Facebook", channel: "FORM", sourceLabel: "Facebook" },
+  { key: "INSTAGRAM", label: "Instagram", channel: "FORM", sourceLabel: "Instagram" },
+  { key: "PROPERTY_FINDER", label: "Property Finder", channel: "OTHER", sourceLabel: "Property Finder" },
+  { key: "WEBSITE", label: "Website", channel: "FORM", sourceLabel: "Website" },
+  { key: "REFERRAL", label: "Referral / walk-in", channel: "OTHER", sourceLabel: "Referral" },
+] as const;
+
+export function resolveOrigin(key: unknown) {
+  return LEAD_ORIGINS.find((o) => o.key === key) ?? LEAD_ORIGINS[0];
+}
+
+// "Sara" + "Ali" -> "Sara Ali". Never repeats a name: a file whose first-name column already holds the
+// full name ("Sara Ali" + "Ali") gives "Sara Ali", not "Sara Ali Ali".
+export function joinName(first: string, last: string): string {
+  const f = first.trim().replace(/\s+/g, " ");
+  const l = last.trim().replace(/\s+/g, " ");
+  if (!l) return f;
+  if (!f) return l;
+  const fl = f.toLowerCase();
+  const ll = l.toLowerCase();
+  if (fl === ll || fl.endsWith(` ${ll}`) || fl.startsWith(`${ll} `)) return f;
+  return `${f} ${l}`;
+}
+
+// "Iqbal ahmed Iqbal ahmed" -> "Iqbal ahmed": a name that is the same words written twice.
+export function collapseDoubledName(name: string): string {
+  const w = name.trim().split(/\s+/);
+  if (w.length < 2 || w.length % 2 !== 0) return name;
+  const h = w.length / 2;
+  return w.slice(0, h).join(" ").toLowerCase() === w.slice(h).join(" ").toLowerCase() ? w.slice(0, h).join(" ") : name;
+}
+
 export function normalizeEmail(raw: unknown): string | null {
   const s = String(raw ?? "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null;

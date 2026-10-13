@@ -36,7 +36,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
   ].filter(Boolean);
 
   return (
-    <aside className="sticky top-6 flex flex-col gap-5">
+    <aside className="flex flex-col gap-5 min-[1040px]:sticky min-[1040px]:top-6">
       <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
         <div className="relative aspect-[16/10] bg-surface-muted">
           {data.cover ? (
@@ -51,7 +51,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
           <div className="absolute left-3 top-3">
             <TypePill type={data.listingType} solid />
           </div>
-          {data.photoCount > 0 && <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white">{data.photoCount} photo{data.photoCount === 1 ? "" : "s"}</div>}
+          {data.photoCount > 0 && <div className="absolute bottom-3 right-3 rounded-full bg-[rgba(13,31,92,0.6)] px-2.5 py-1 text-[11px] font-medium text-white">{data.photoCount} photo{data.photoCount === 1 ? "" : "s"}</div>}
         </div>
         <div className="p-4">
           <div className="text-[22px] font-bold tracking-tight">
@@ -89,7 +89,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
               >
                 <span
                   className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-                  style={c.done ? { background: "var(--success)", color: "#fff" } : { border: "1.5px solid var(--border)" }}
+                  style={c.done ? { background: "var(--success)", color: "var(--surface-elevated)" } : { border: "1.5px solid var(--border)" }}
                 >
                   {c.done && <IconCheck size={12} strokeWidth={3} />}
                 </span>
@@ -114,7 +114,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
                   >
                     <span
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-                      style={c.done ? { background: "var(--success)", color: "#fff" } : { border: "1.5px dashed #d6a528" }}
+                      style={c.done ? { background: "var(--success)", color: "var(--surface-elevated)" } : { border: "1.5px dashed var(--warning)" }}
                     >
                       {c.done && <IconCheck size={12} strokeWidth={3} />}
                     </span>

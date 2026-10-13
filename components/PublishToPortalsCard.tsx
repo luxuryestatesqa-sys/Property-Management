@@ -2,11 +2,39 @@
 
 import { useRouter } from "next/navigation";
 import { ListingDTO } from "@/lib/types";
-import { getPfStatus, PF_TONE_COLORS } from "@/lib/propertyFinder/status";
+import { getPfStatus } from "@/lib/propertyFinder/status";
 
 interface PublishToPortalsCardProps {
   listing: ListingDTO;
   readOnly?: boolean;
+}
+
+type Status = "PUBLISHED" | "NOT_PUBLISHED" | "ERROR";
+const STATUS_LABEL: Record<Status, string> = { PUBLISHED: "Published", NOT_PUBLISHED: "Not published", ERROR: "Error" };
+const STATUS_STYLE: Record<Status, { background: string; color: string }> = {
+  PUBLISHED: { background: "var(--success-soft)", color: "var(--success)" },
+  NOT_PUBLISHED: { background: "var(--background)", color: "var(--text-muted)" },
+  ERROR: { background: "var(--danger-soft)", color: "var(--danger)" },
+};
+
+// One portal: its name, whether the listing is Published / Not published / Error there, and a button to
+// publish (or fix) it.
+function PortalCell({ name, status, detail, href }: { name: string; status: Status; detail?: string; href?: string }) {
+  return (
+    <div className="flex min-h-[60px] flex-col justify-between rounded-xl border border-border bg-surface-elevated p-2.5">
+      <span className="text-[11px] font-semibold text-muted">{name}</span>
+      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        <span title={detail} className="inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={STATUS_STYLE[status]}>
+          {STATUS_LABEL[status]}
+        </span>
+        {href && (
+          <a href={href} className="text-[11px] font-semibold hover:underline" style={{ color: "var(--primary)" }}>
+            {status === "PUBLISHED" ? "Manage" : status === "ERROR" ? "Fix" : "Publish"}
+          </a>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function PublishToPortalsCard({ listing, readOnly }: PublishToPortalsCardProps) {
@@ -14,7 +42,7 @@ export default function PublishToPortalsCard({ listing, readOnly }: PublishToPor
 
   const pfView = getPfStatus(listing.propertyFinderState);
   const pfEnabled = pfView.active;
-  const pfBadge = pfView.kind === "not_published" ? null : { label: pfView.kind === "live" ? "Live" : pfView.label, ...PF_TONE_COLORS[pfView.tone] };
+  const pfError = listing.propertyFinderState?.lastError ?? null;
 
   const websiteLive = listing.channelStates?.WEBSITE?.enabled ?? false;
   const qatarLivingLive = listing.channelStates?.QATAR_LIVING?.enabled ?? false;
@@ -46,22 +74,7 @@ export default function PublishToPortalsCard({ listing, readOnly }: PublishToPor
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        <div className="rounded-xl border border-border bg-surface-muted/60 p-2.5 flex flex-col justify-between min-h-[60px]">
-          <span className="text-[11px] font-semibold text-muted">Property Finder</span>
-          <div>
-            {pfView.kind === "live" ? (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
-                ✓ Live on Property Finder
-              </span>
-            ) : pfBadge ? (
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full inline-block mt-1" style={{ background: pfBadge.bg, color: pfBadge.text }}>
-                {pfBadge.label}
-              </span>
-            ) : (
-              <span className="text-[11px] font-semibold text-muted inline-block mt-1">Off</span>
-            )}
-          </div>
-        </div>
+        <PortalCell name="Property Finder" status={pfError ? "ERROR" : pfView.kind === "live" || pfEnabled ? "PUBLISHED" : "NOT_PUBLISHED"} detail={pfError ?? undefined} href={readOnly ? undefined : `/property/${listing.id}/propertyfinder`} />
 
         <div className="rounded-xl border border-border bg-surface-muted/60 p-2.5 flex flex-col justify-between min-h-[60px]">
           <span className="text-[11px] font-semibold text-muted">Website</span>
@@ -72,23 +85,9 @@ export default function PublishToPortalsCard({ listing, readOnly }: PublishToPor
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-surface-muted/60 p-2.5 flex flex-col justify-between min-h-[60px]">
-          <span className="text-[11px] font-semibold text-muted">Qatar Living</span>
-          <div>
-            <span className="text-[10px] font-bold inline-block mt-1 px-2 py-0.5 rounded-full" style={{ background: qatarLivingLive ? "var(--success-bg)" : "transparent", color: qatarLivingLive ? "var(--success)" : "var(--muted)" }}>
-              {qatarLivingLive ? "✓ Already Published" : "Off"}
-            </span>
-          </div>
-        </div>
+        <PortalCell name="Qatar Living" status={qatarLivingLive ? "PUBLISHED" : "NOT_PUBLISHED"} href={readOnly ? undefined : `/property/${listing.id}/portals`} />
 
-        <div className="rounded-xl border border-border bg-surface-muted/60 p-2.5 flex flex-col justify-between min-h-[60px]">
-          <span className="text-[11px] font-semibold text-muted">Property Oryx</span>
-          <div>
-            <span className="text-[10px] font-bold inline-block mt-1 px-2 py-0.5 rounded-full" style={{ background: oryxLive ? "var(--success-bg)" : "transparent", color: oryxLive ? "var(--success)" : "var(--muted)" }}>
-              {oryxLive ? "✓ Already Published" : "Off"}
-            </span>
-          </div>
-        </div>
+        <PortalCell name="Property Oryx" status={oryxLive ? "PUBLISHED" : "NOT_PUBLISHED"} href={readOnly ? undefined : `/property/${listing.id}/oryx`} />
 
         <div className="rounded-xl border border-border bg-surface-muted/60 p-2.5 flex flex-col justify-between min-h-[60px]">
           <span className="text-[11px] font-semibold text-muted">Other Portals</span>

@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { verifyPassword, IdentityError } from "@/lib/identity";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity";
 import type { Role } from "@/lib/types";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -36,6 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           else throw e;
         }
         if (!valid) return null;
+        void logActivity(user.organizationId, { type: "user_login", agentId: user.id, note: user.email });
 
         return {
           id: user.id,

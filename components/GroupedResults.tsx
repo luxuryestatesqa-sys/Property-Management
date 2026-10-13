@@ -45,7 +45,7 @@ const DuplicateGroupCard = memo(function DuplicateGroupCard({ group }: { group: 
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-[14px] truncate" style={{ color: "var(--primary)" }}>
             {first.buildingName}
-            {first.apartmentNumber && ` — Apartment ${first.apartmentNumber}`}
+            {first.apartmentNumber && !first.unitDetailsPrivate && ` — Apartment ${first.apartmentNumber}`}
           </div>
           <div className="text-[12px] text-muted truncate">
             📍 {first.area} → {first.community} {first.floor && ` · Floor ${first.floor}`}

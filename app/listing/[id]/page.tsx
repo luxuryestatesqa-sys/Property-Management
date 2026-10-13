@@ -76,7 +76,7 @@ function PublicListingView() {
         <img src={org?.logoUrl ?? "/logo.png"} alt={org?.name ?? ""} className="h-14 w-auto" />
         <span className="text-[13px] text-muted">Property details</span>
       </div>
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 lg:static lg:pt-9 lg:pb-6">
+      <div className="sticky top-0 z-20 glass safe-top pt-4 pb-3 flex items-center gap-3 lg:static lg:pt-9 lg:pb-6">
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold truncate lg:text-[34px] lg:leading-tight lg:tracking-tight">{listing.buildingName}</h1>
           <p className="hidden text-[15px] text-muted lg:block lg:mt-1">

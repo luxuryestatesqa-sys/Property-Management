@@ -27,23 +27,29 @@ function LoginForm() {
       setError("Invalid email or password, or your account is inactive.");
       return;
     }
-    router.push(searchParams.get("callbackUrl") ?? "/");
+    // Admins land on the dashboard; everyone else on the property search (unless they were sent here from a page).
+    let home = "/";
+    try {
+      const role = (await (await fetch("/api/auth/session")).json())?.user?.role;
+      if (role === "OWNER" || role === "ADMIN") home = "/dashboard";
+    } catch {}
+    router.push(searchParams.get("callbackUrl") ?? home);
     router.refresh();
   }
 
   return (
     <div className="min-h-screen flex flex-col justify-center px-6 py-10 lg:grid lg:grid-cols-[1.1fr_1fr] lg:p-0">
-      <aside className="hidden lg:flex flex-col justify-between p-14 text-white" style={{ background: "linear-gradient(160deg, #14181f 0%, #231d0e 100%)" }}>
+      <aside className="hidden lg:flex flex-col justify-between p-14 text-white" style={{ background: "var(--gradient-primary)" }}>
         <div className="text-[18px] font-semibold tracking-tight">Listings Portal</div>
         <div>
           <h2 className="text-4xl font-bold leading-tight tracking-tight max-w-md">
             Every listing, every agent, one workspace.
           </h2>
-          <p className="mt-4 text-[16px] max-w-md leading-relaxed" style={{ color: "#b9b4a4" }}>
+          <p className="mt-4 text-[16px] max-w-md leading-relaxed" style={{ color: "rgba(255,255,255,0.78)" }}>
             Search the whole company inventory, manage your own properties and publish to portals in a few clicks.
           </p>
         </div>
-        <p className="text-[13px]" style={{ color: "#8d8878" }}>Agent Listings Portal</p>
+        <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.6)" }}>Agent Listings Portal</p>
       </aside>
       <div className="mx-auto w-full max-w-sm lg:max-w-md lg:flex lg:flex-col lg:justify-center lg:px-10">
         <div className="flex flex-col items-center mb-8 lg:hidden">
@@ -96,7 +102,9 @@ function LoginForm() {
         </form>
 
         <p className="text-center text-[13px] text-muted mt-5">
-          Forgot your password? Ask your admin to reset it for you.
+          <Link href="/forgot-password" className="font-semibold" style={{ color: "var(--primary)" }}>
+            Forgot your password?
+          </Link>
         </p>
         {process.env.NEXT_PUBLIC_ALLOW_SIGNUP !== "false" && (
           <p className="text-center text-[13px] text-muted mt-3">

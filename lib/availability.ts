@@ -9,9 +9,9 @@ export const AVAILABILITY_LABELS: Record<AvailabilityStatus, string> = {
 
 export const AVAILABILITY_COLORS: Record<AvailabilityStatus, { bg: string; text: string }> = {
   AVAILABLE: { bg: "var(--success-bg)", text: "var(--success)" },
-  RESERVED: { bg: "#fff4e0", text: "#b4650a" },
-  RENTED: { bg: "var(--surface-muted)", text: "var(--muted)" },
-  SOLD: { bg: "var(--surface-muted)", text: "var(--muted)" },
+  RESERVED: { bg: "var(--warning-soft)", text: "var(--warning)" },
+  RENTED: { bg: "var(--background)", text: "var(--text-muted)" },
+  SOLD: { bg: "var(--background)", text: "var(--text-muted)" },
 };
 
 // RENT listings can be Available / Reserved / Rented.

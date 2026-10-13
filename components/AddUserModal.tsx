@@ -36,7 +36,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative bg-background rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[88vh] overflow-y-auto">
         <form onSubmit={submit} className="px-5 py-6 flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -75,7 +75,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value)}
               className="w-full rounded-xl border border-border px-4 py-3 text-base outline-none focus:border-primary"
-              placeholder="+974 5000 0000"
+              placeholder="e.g. +974 5000 0000"
             />
             <p className="text-[12px] text-muted mt-1">Other agents will use this to contact them directly.</p>
           </div>

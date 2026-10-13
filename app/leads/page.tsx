@@ -13,11 +13,13 @@ import { AddLeadModal, ImportLeadsModal } from "@/components/leads/LeadIntake";
 import { ContactButtons, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
 import { LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
 import { timeAgo } from "@/lib/timeAgo";
+import { agentCount as gridAgentCount, kpis, stageCount } from "@/lib/leads/counts";
 
 interface Attention {
   overdue: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
   today: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
   waiting: { id: string; name: string; receivedAt: string; assignedTo: { name: string } | null }[];
+  waitingCount: number;
 }
 
 const CHANNELS = [
@@ -109,6 +111,7 @@ function DesktopLeads() {
     if (channel !== "ALL") p.set("channel", channel);
     if (debounced) p.set("q", debounced);
     if (group !== "all") p.set("group", group);
+    p.set("limit", "100");
     try {
       const [res, gRes, aRes] = await Promise.all([fetch(`/api/leads?${p.toString()}`), fetch("/api/leads/groups"), fetch("/api/leads/attention")]);
       if (res.ok) setData(await res.json());
@@ -123,12 +126,53 @@ function DesktopLeads() {
     if (status === "authenticated") load();
   }, [load, status]);
 
+  const [loadingMore, setLoadingMore] = useState(false);
+  async function loadMore() {
+    if (!data?.nextCursor) return;
+    setLoadingMore(true);
+    const p = new URLSearchParams();
+    if (assignee !== "all") p.set("assignee", assignee);
+    if (channel !== "ALL") p.set("channel", channel);
+    if (debounced) p.set("q", debounced);
+    if (group !== "all") p.set("group", group);
+    p.set("limit", "100");
+    p.set("cursor", data.nextCursor);
+    try {
+      const res = await fetch(`/api/leads?${p.toString()}`);
+      if (res.ok) {
+        const more: LeadsResponse = await res.json();
+        setData((cur) => (cur ? { ...cur, leads: [...cur.leads, ...more.leads], nextCursor: more.nextCursor } : more));
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   async function moveLead(id: string, stageId: string) {
     if (!data) return;
     const prev = data;
-    setData({ ...data, leads: data.leads.map((l) => (l.id === id ? { ...l, stageId } : l)) });
+    const moved = data.leads.find((l) => l.id === id);
+    // Keep the one count grid in step, so every number on screen stays right after a move.
+    const countGrid = moved && moved.stageId !== stageId
+      ? data.countGrid.map((c) => (c.assignedToId === (moved.assignedTo?.id ?? null) && c.stageId === moved.stageId ? { ...c, count: c.count - 1 } : c)).concat(data.countGrid.some((c) => c.assignedToId === (moved.assignedTo?.id ?? null) && c.stageId === stageId) ? [] : [{ assignedToId: moved.assignedTo?.id ?? null, stageId, count: 0 }]).map((c) => (c.assignedToId === (moved.assignedTo?.id ?? null) && c.stageId === stageId ? { ...c, count: c.count + 1 } : c))
+      : data.countGrid;
+    setData({ ...data, countGrid, leads: data.leads.map((l) => (l.id === id ? { ...l, stageId } : l)) });
     const res = await fetch(`/api/leads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stageId }) });
     if (!res.ok) setData(prev);
+  }
+
+  // Download the ticked leads as a CSV file (what is on screen, with the stage and agent names).
+  function exportPicked() {
+    const stageName = new Map(stages.map((st) => [st.id, st.name]));
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const head = ["Name", "Phone", "Email", "Source", "Channel", "Stage", "Agent", "Area", "Received"];
+    const rows = visible.filter((l) => selected.has(l.id)).map((l) => [l.name, l.phone, l.email, l.sourceLabel ?? l.source, l.channel, stageName.get(l.stageId), l.assignedTo?.name ?? "Unassigned", l.region, l.receivedAt]);
+    const blob = new Blob(["\ufeff" + [head, ...rows].map((r) => r.map(esc).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   async function syncNow() {
@@ -164,19 +208,17 @@ function DesktopLeads() {
     });
   const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
 
-  const counts = {
-    fresh: all.filter((l) => l.stageId === firstStage?.id).length,
-    open: all.filter((l) => stages.find((s) => s.id === l.stageId)?.kind === "OPEN").length,
-    won: all.filter((l) => stages.find((s) => s.id === l.stageId)?.kind === "WON").length,
-    unassigned: all.filter((l) => !l.assignedTo).length,
-  };
-  const agentCount = (id: string | null) => data?.agentCounts.find((c) => c.assignedToId === id)?.count ?? 0;
-  const totalAll = data?.agentCounts.reduce((n, c) => n + c.count, 0) ?? 0;
+  // Every number below comes from the server's one (agent x stage) grid, never from the rows on screen.
+  const grid = useMemo(() => data?.countGrid ?? [], [data]);
+  const sel = { assignee, stageId: stageFilter };
+  const counts = kpis(grid, stages, firstStage?.id, { assignee });
+  const agentCount = (id: string | null) => gridAgentCount(grid, id, sel);
+  const totalAll = gridAgentCount(grid, "all", sel);
 
   const empty = !loading && all.length === 0;
 
   const filtersActive = Boolean(debounced) || channel !== "ALL" || stageFilter !== "all" || assignee !== "all" || group !== "all";
-  const attentionItems = attention ? attention.overdue.length + attention.today.length + attention.waiting.length : 0;
+  const attentionItems = attention ? attention.overdue.length + attention.today.length + attention.waitingCount : 0;
 
   return (
     <div className="px-4 pb-24 lg:px-0 lg:pb-10 page-in">
@@ -277,14 +319,14 @@ function DesktopLeads() {
 
       {/* Needs attention: one slim row; the list opens on demand and scrolls inside a small box */}
       {attention && attentionItems > 0 && (
-        <div className="mb-4 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/70">
+        <div className="mb-4 overflow-hidden rounded-xl border border-warning/30 bg-warning-soft">
           <button type="button" onClick={() => setAttentionOpen((o) => !o)} aria-expanded={attentionOpen} className="flex w-full items-center gap-3 px-4 py-2.5 text-left">
             <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
             <span className="text-[13.5px] font-semibold text-amber-900">Needs attention</span>
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
               {attention.overdue.length > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11.5px] font-semibold text-rose-700">{attention.overdue.length} overdue</span>}
               {attention.today.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.today.length} due today</span>}
-              {attention.waiting.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.waiting.length} not contacted</span>}
+              {attention.waitingCount > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.waitingCount} of {counts.fresh} new not contacted</span>}
             </span>
             <span className="shrink-0 text-[12.5px] font-semibold text-amber-900">{attentionOpen ? "Hide" : "View"}</span>
             <svg className={`shrink-0 text-amber-900 transition-transform ${attentionOpen ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -313,19 +355,19 @@ function DesktopLeads() {
       )}
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="kpi-row grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {[
           { label: "New", value: counts.fresh, hint: "Waiting to be contacted", tone: "var(--primary)" },
-          { label: "In progress", value: counts.open, hint: "Open leads", tone: "#0ea5e9" },
+          { label: "In progress", value: counts.open, hint: "Open leads", tone: "var(--primary)" },
           { label: "Won", value: counts.won, hint: "Converted", tone: "var(--success)" },
-          canManage ? { label: "Unassigned", value: counts.unassigned, hint: "Need an agent", tone: "#d97706" } : { label: "Total", value: all.length, hint: "Your leads", tone: "var(--muted)" },
+          canManage ? { label: "Unassigned", value: counts.unassigned, hint: "Need an agent", tone: "var(--warning)" } : { label: "Total", value: counts.total, hint: "Your leads", tone: "var(--muted)" },
         ].map((t) => (
           <div key={t.label} className="rounded-2xl border border-border bg-surface shadow-sm px-4 py-3.5 lg:p-5">
             <div className="flex items-center gap-2 text-[12.5px] font-medium text-muted">
               <span className="h-2 w-2 rounded-full" style={{ background: t.tone }} />
               {t.label}
             </div>
-            <div className="tnum mt-1.5 text-[26px] font-semibold leading-none tracking-tight lg:mt-2 lg:text-[30px]">{loading ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : t.value}</div>
+            <div className="kpi-num tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2 lg:text-[30px]">{loading ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : t.value}</div>
             <div className="mt-1.5 text-[12px] text-muted lg:mt-2">{t.hint}</div>
           </div>
         ))}
@@ -365,7 +407,7 @@ function DesktopLeads() {
             onChange={setStageFilter}
             allValue="all"
             width={200}
-            options={[{ value: "all", label: "All stages", count: all.length }, ...stages.map((s) => ({ value: s.id, label: s.name, color: s.color, count: all.filter((l) => l.stageId === s.id).length }))]}
+            options={[{ value: "all", label: "All stages", count: stageCount(grid, "all", { assignee }) }, ...stages.map((s) => ({ value: s.id, label: s.name, color: s.color, count: stageCount(grid, s.id, { assignee }) }))]}
           />
         )}
         <FilterSelect label="Filter by channel" value={channel} onChange={(v) => setChannel(v as (typeof CHANNELS)[number][0])} allValue="ALL" width={170} options={CHANNELS.map(([v, l]) => ({ value: v, label: l }))} />
@@ -393,7 +435,7 @@ function DesktopLeads() {
                 type="button"
                 onClick={() => setGroup(g.id)}
                 className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${on ? "text-white" : "bg-surface-muted text-slate-600 hover:bg-border"}`}
-                style={on ? { background: g.color ?? "#0f172a" } : undefined}
+                style={on ? { background: g.color ?? "var(--primary-dark)" } : undefined}
               >
                 {g.name}
                 {g.count !== null && <span className={`tnum text-[11px] ${on ? "text-white/75" : "text-muted"}`}>{g.count}</span>}
@@ -451,10 +493,10 @@ function DesktopLeads() {
                 >
                   <div className="mb-2.5 flex items-center justify-between px-1.5 pt-1">
                     <span className="flex items-center gap-2 text-[13.5px] font-semibold">
-                      <span className="h-2 w-2 rounded-full" style={{ background: s.color ?? "#94a3b8" }} />
+                      <span className="h-2 w-2 rounded-full" style={{ background: s.color ?? "var(--text-subtle)" }} />
                       {s.name}
                     </span>
-                    <span className="tnum rounded-full bg-white/80 px-2 py-0.5 text-[11.5px] font-semibold text-slate-600">{col.length}</span>
+                    <span className="tnum rounded-full bg-white/80 px-2 py-0.5 text-[11.5px] font-semibold text-slate-600">{stageCount(grid, s.id, { assignee })}</span>
                   </div>
                   <div className="flex flex-col gap-2.5">
                     {col.map((l) => (
@@ -518,6 +560,7 @@ function DesktopLeads() {
                     </td>
                     <td className="px-2.5 py-3">
                       <Link href={`/leads/${l.id}`} className="block max-w-[190px] truncate text-[14px] font-medium hover:text-primary">{l.name}</Link>
+                      {l.duplicates > 0 && <span title={`${l.duplicates} other lead${l.duplicates === 1 ? "" : "s"} with the same phone or email`} className="mt-0.5 inline-block rounded-full bg-warning-soft px-2 py-0.5 text-[10.5px] font-bold leading-none text-warning">Duplicate</span>}
                     </td>
                     <td className="whitespace-nowrap px-2.5 py-3 text-[13.5px]">{l.phone ?? <span className="text-muted">{l.email ?? "—"}</span>}</td>
                     <td className="px-2.5 py-3">
@@ -565,9 +608,18 @@ function DesktopLeads() {
             ))}
           </div>
         )}
+        {data?.nextCursor && !loading && (
+          <div className="mt-4 flex flex-col items-center gap-1.5">
+            <span className="text-[12.5px] text-muted">Showing {all.length} of {data.total}</span>
+            <button type="button" onClick={loadMore} disabled={loadingMore} className="rounded-xl border border-border bg-surface px-5 py-2.5 text-[13.5px] font-medium shadow-sm transition-colors hover:bg-surface-muted disabled:opacity-60">
+              {loadingMore ? "Loading..." : "Load more leads"}
+            </button>
+          </div>
+        )}
         {isDesktop && view === "table" && picked.length > 0 && (
           <BulkBar
             selected={picked}
+            onExport={exportPicked}
             onClear={() => setSelected(new Set())}
             onDone={(m) => {
               setFlash(m);

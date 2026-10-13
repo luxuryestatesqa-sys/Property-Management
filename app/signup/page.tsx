@@ -49,17 +49,17 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex flex-col justify-center px-6 py-10 lg:grid lg:grid-cols-[1.1fr_1fr] lg:p-0">
-      <aside className="hidden lg:flex flex-col justify-between p-14 text-white" style={{ background: "linear-gradient(160deg, #14181f 0%, #231d0e 100%)" }}>
+      <aside className="hidden lg:flex flex-col justify-between p-14 text-white" style={{ background: "var(--gradient-primary)" }}>
         <div className="text-[18px] font-semibold tracking-tight">Listings Portal</div>
         <div>
           <h2 className="text-4xl font-bold leading-tight tracking-tight max-w-md">Run your whole agency from one place.</h2>
-          <ul className="mt-6 flex flex-col gap-3 text-[16px] max-w-md" style={{ color: "#b9b4a4" }}>
+          <ul className="mt-6 flex flex-col gap-3 text-[16px] max-w-md" style={{ color: "rgba(255,255,255,0.78)" }}>
             <li>Manage listings and publish to property portals</li>
             <li>Capture, assign and follow up on leads</li>
             <li>Give every agent their own login and role</li>
           </ul>
         </div>
-        <p className="text-[13px]" style={{ color: "#8d8878" }}>Your agency&apos;s data is private to your agency.</p>
+        <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.6)" }}>Your agency&apos;s data is private to your agency.</p>
       </aside>
 
       <div className="mx-auto w-full max-w-sm lg:max-w-md lg:flex lg:flex-col lg:justify-center lg:px-10">
@@ -83,7 +83,7 @@ export default function SignupPage() {
           </div>
           <div>
             <label className="text-sm font-medium block mb-1.5">WhatsApp number</label>
-            <input required type="tel" autoComplete="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={input} placeholder="+974 5000 0000" />
+            <input required type="tel" autoComplete="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={input} placeholder="e.g. +974 5000 0000" />
           </div>
           <div>
             <label className="text-sm font-medium block mb-1.5">Password</label>

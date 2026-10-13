@@ -36,6 +36,8 @@ model Organization {
   logoUrl    String? // data URL or hosted image shown in the app and on share pages
   brandColor String? // hex, e.g. #8a6d1f - drives the app's primary colour
   status     OrgStatus @default(ACTIVE)
+  // A new lead nobody has contacted within this many hours shows under "Needs attention".
+  contactSlaHours Int      @default(2)
   createdAt  DateTime  @default(now())
 
   users           User[]
@@ -49,6 +51,9 @@ model Organization {
   leadGroups      LeadGroup[]
   leadGroupLinks  LeadGroupLink[]
   metaPages       MetaPage[]
+  viewings        Viewing[]
+  owners          Owner[]
+  activities      Activity[]
 }
 
 enum UserStatus {
@@ -147,6 +152,7 @@ model User {
   leads          Lead[]         @relation("AssignedLeads")
   leadActivities LeadActivity[]
   leadTasks      LeadTask[]
+  viewings       Viewing[]      @relation("ViewingAgent")
 
   @@index([status])
   @@index([role])
@@ -251,6 +257,13 @@ model Listing {
   images         ListingImage[]
   portalListings PortalListing[]
   leads          Lead[]
+  viewings       Viewing[]
+
+  // The owner / landlord of this property, and when the current lease ends (private, like the other
+  // owner details: see lib/listingPrivacy.ts).
+  ownerId      String?
+  owner        Owner?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  leaseEndDate DateTime?
 
   @@index([area])
   @@index([community])
@@ -268,6 +281,9 @@ model Listing {
   @@index([bedrooms])
   @@index([organizationId, status])
   @@index([organizationId, dupKey])
+  @@index([createdAt])
+  @@index([organizationId, status, createdAt])
+  @@index([leaseEndDate])
 }
 
 model ListingImage {
@@ -438,6 +454,8 @@ model Lead {
   source     LeadSource
   externalId String // the source's lead id
   channel    LeadChannel @default(OTHER)
+  // Where it really came from, for display: "Facebook", "Instagram", "WhatsApp", "Property Finder", "Manual"...
+  sourceLabel String?
   entityType String? // Property Finder: listing | project | developer | agent | company | seller
 
   name             String
@@ -483,6 +501,7 @@ model Lead {
   activities LeadActivity[]
   tasks      LeadTask[]
   groupLinks LeadGroupLink[]
+  viewings   Viewing[]
 
   @@unique([organizationId, source, externalId])
   @@index([organizationId, assignedToId])
@@ -607,4 +626,76 @@ model MetaPage {
 
   @@index([organizationId])
   @@index([fbUserId])
+}
+
+enum ViewingStatus {
+  SCHEDULED
+  DONE
+  CANCELLED
+}
+
+// A booked property viewing: one lead, usually one listing, one agent, one time.
+model Viewing {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  listingId      Int?
+  listing        Listing?      @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  agentId        String?
+  agent          User?         @relation("ViewingAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  scheduledAt    DateTime
+  notes          String?
+  status         ViewingStatus @default(SCHEDULED)
+  createdById    String?
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, scheduledAt])
+  @@index([leadId])
+  @@index([listingId])
+  @@index([agentId, scheduledAt])
+}
+
+// The owner / landlord behind one or more listings.
+model Owner {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String?
+  whatsapp       String?
+  email          String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  listings Listing[]
+
+  @@index([organizationId, name])
+}
+
+// The unified activity log behind Dashboard > Activities. Rows are written in one place each: database
+// triggers copy lead timeline entries, listing audit entries and portal publish changes here, and a few
+// app events (login, user added, role changed, lead deleted) are logged by lib/activity.ts.
+// leadId / agentId / listingId are plain references on purpose: the history must outlive a deleted lead.
+model Activity {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String // lead_created, stage_changed, call_logged, listing_published, user_login, ...
+  agentId        String? // who did it; null = the system
+  leadId         String?
+  listingId      Int?
+  oldValue       String?
+  newValue       String?
+  note           String?
+  source         String? // where the lead came from: "Property Finder", "Facebook", "WhatsApp", "Manual"...
+  createdAt      DateTime     @default(now())
+
+  @@index([createdAt])
+  @@index([agentId, createdAt])
+  @@index([type, createdAt])
+  @@index([leadId])
+  @@index([listingId])
+  @@index([organizationId, createdAt])
 }

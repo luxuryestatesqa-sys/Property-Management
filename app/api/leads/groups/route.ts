@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
 
-const COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316"];
+// Group chip colours come from the theme: cobalt, deep navy, muted status colours and greys.
+const COLORS = ["#2b4fc0", "#0d1f5c", "#3e8e6a", "#b7862b", "#b5474b", "#5a6690"];
 
 export async function GET() {
   const { session, db, error } = await requireSession();

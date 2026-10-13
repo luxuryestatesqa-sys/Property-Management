@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { memo } from "react";
 import Link from "next/link";
 import { ListingDTO } from "@/lib/types";
@@ -28,13 +29,12 @@ function PropertyCard({ listing }: { listing: ListingDTO }) {
     >
       <div className="relative shrink-0 w-[95px] h-[85px] sm:w-[136px] sm:h-[108px] rounded-lg overflow-hidden bg-surface-muted">
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover.url} alt={listing.buildingName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+          <Image src={cover.url} alt={listing.buildingName} fill sizes="136px" className="object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-2xl text-border">🏠</div>
         )}
         {listing.status === "INACTIVE" && (
-          <span className="absolute bottom-1 left-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-black/60 text-white">
+          <span className="absolute bottom-1 left-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[rgba(13,31,92,0.6)] text-white">
             Inactive
           </span>
         )}

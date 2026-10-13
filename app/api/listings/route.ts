@@ -8,6 +8,7 @@ import { redactPrivateFieldsList, unitDetailsSearchableWhere, visibleListingsWhe
 import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
 import { isAdminRole } from "@/lib/roles";
+import { avatarLink } from "@/lib/avatar";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
 
 const DEFAULT_PAGE_SIZE = 30;
@@ -130,13 +131,22 @@ export async function GET(req: NextRequest) {
 
   const finalWhere: Prisma.ListingWhereInput = { AND: conditions };
 
+  // The All / Rent / Sale tab counts only need the number, not a page of listings. Cached briefly.
+  if (sp.get("countOnly") === "1") {
+    const total = await db!.listing.count({ where: finalWhere });
+    return NextResponse.json({ total }, { headers: { "Cache-Control": "private, max-age=20" } });
+  }
+
   const [total, listings] = await Promise.all([
     db!.listing.count({ where: finalWhere }),
     db!.listing.findMany({
       where: finalWhere,
+      // The list never needs the scanned documents (large data URLs) or the long private notes.
+      omit: { titleDeedImage: true, authorizationFormImage: true },
       include: {
         createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
-        images: { orderBy: { sortOrder: "asc" }, take: 1, select: { id: true, url: true } },
+        // Only the cover's id: the photo itself is a link to the cacheable image route, never embedded.
+        images: { orderBy: { sortOrder: "asc" }, take: 1, select: { id: true, createdAt: true } },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -145,7 +155,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   return NextResponse.json({
-    listings: redactPrivateFieldsList(listings, session!.user.id, isAdmin),
+    listings: redactPrivateFieldsList(listings.map((l) => ({ ...l, createdBy: avatarLink(l.createdBy)!, images: withImageLinks(l.id, l.images) })), session!.user.id, isAdmin),
     total,
     page,
     pageSize,
@@ -235,6 +245,8 @@ export async function POST(req: NextRequest) {
       titleDeedNumber: data.listingType === "SALE" ? data.titleDeedNumber ?? null : null,
       titleDeedImage: data.listingType === "SALE" ? data.titleDeedImage ?? null : null,
       authorizationFormImage: data.listingType === "RENT" ? data.authorizationFormImage ?? null : null,
+      ownerId: data.ownerId && (await db!.owner.findFirst({ where: { id: data.ownerId }, select: { id: true } })) ? data.ownerId : null,
+      leaseEndDate: data.listingType === "RENT" ? data.leaseEndDate ?? null : null,
       title: data.title ?? null,
       description: data.description ?? null,
       titleAr: data.titleAr ?? null,

@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import Avatar from "@/components/Avatar";
 import { LeadGroupDTO, LeadStageDTO } from "@/components/leads/leadTypes";
+import { LEAD_ORIGINS } from "@/lib/leads/csv";
 
 type Agent = { id: string; name: string; avatarUrl: string | null };
-type Panel = null | "assign" | "stage" | "group" | "delete";
+type Panel = null | "assign" | "stage" | "group" | "source" | "delete";
 
 const icon = {
   user: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6",
@@ -24,7 +25,7 @@ function Ico({ d }: { d: string }) {
 
 // The bar that appears when leads are ticked: change agent, stage or group for all of them at
 // once, or delete them. Each action opens a small popup that asks before anything changes.
-export default function BulkBar({ selected, onClear, onDone, canManage, isAdmin, stages, agents, groups }: { selected: string[]; onClear: () => void; onDone: (message: string) => void; canManage: boolean; isAdmin: boolean; stages: LeadStageDTO[]; agents: Agent[]; groups: LeadGroupDTO[] }) {
+export default function BulkBar({ selected, onClear, onDone, onExport, canManage, isAdmin, stages, agents, groups }: { selected: string[]; onClear: () => void; onDone: (message: string) => void; onExport?: () => void; canManage: boolean; isAdmin: boolean; stages: LeadStageDTO[]; agents: Agent[]; groups: LeadGroupDTO[] }) {
   const [panel, setPanel] = useState<Panel>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -35,6 +36,7 @@ export default function BulkBar({ selected, onClear, onDone, canManage, isAdmin,
   const [q, setQ] = useState("");
   // stage / group
   const [stageId, setStageId] = useState("");
+  const [originKey, setOriginKey] = useState("");
   const [groupId, setGroupId] = useState("");
 
   const n = selected.length;
@@ -91,6 +93,18 @@ export default function BulkBar({ selected, onClear, onDone, canManage, isAdmin,
             <Ico d={icon.stage} />
             Change stage
           </button>
+          {canManage && (
+            <button type="button" className={pill} onClick={() => open("source")}>
+              <Ico d={icon.stage} />
+              Set source
+            </button>
+          )}
+          {onExport && (
+            <button type="button" className={pill} onClick={onExport}>
+              <Ico d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+              Export CSV
+            </button>
+          )}
           <button type="button" className={pill} onClick={() => open("group")}>
             <Ico d={icon.group} />
             Groups
@@ -105,14 +119,15 @@ export default function BulkBar({ selected, onClear, onDone, canManage, isAdmin,
       </div>
 
       {panel && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 lg:items-center lg:p-6" onMouseDown={(e) => e.target === e.currentTarget && setPanel(null)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px] lg:items-center lg:p-6" onMouseDown={(e) => e.target === e.currentTarget && setPanel(null)}>
           <div role="dialog" className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-surface p-5 shadow-2xl lg:max-w-xl lg:rounded-3xl lg:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-[20px] font-semibold tracking-[-0.01em]">{panel === "assign" ? "Assign leads" : panel === "stage" ? "Change stage" : panel === "group" ? "Groups" : "Delete leads"}</h2>
+                <h2 className="text-[20px] font-semibold tracking-[-0.01em]">{panel === "assign" ? "Assign leads" : panel === "stage" ? "Change stage" : panel === "group" ? "Groups" : panel === "source" ? "Set source" : "Delete leads"}</h2>
                 <p className="mt-1 text-[13.5px] text-muted">
                   {panel === "assign" && `Choose a team member for these ${noun}, or share them across several team members with round robin.`}
                   {panel === "stage" && `Move ${noun} to another stage.`}
+                  {panel === "source" && `Say where ${noun} came from (Facebook, WhatsApp, Property Finder...).`}
                   {panel === "group" && `Add ${noun} to a group, or take them out of it.`}
                   {panel === "delete" && `You are about to delete ${noun}.`}
                 </p>
@@ -195,7 +210,7 @@ export default function BulkBar({ selected, onClear, onDone, canManage, isAdmin,
                   {stages.map((s) => (
                     <li key={s.id}>
                       <button type="button" onClick={() => setStageId(s.id)} className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left ${stageId === s.id ? "border-primary bg-accent-light" : "border-border hover:bg-surface-muted"}`}>
-                        <span className="h-3 w-3 rounded-full" style={{ background: s.color ?? "#6366f1" }} />
+                        <span className="h-3 w-3 rounded-full" style={{ background: s.color ?? "var(--primary)" }} />
                         <span className="text-[14px] font-semibold">{s.name}</span>
                       </button>
                     </li>
@@ -204,6 +219,25 @@ export default function BulkBar({ selected, onClear, onDone, canManage, isAdmin,
                 <div className="mt-5 flex justify-end">
                   <button type="button" disabled={busy || !stageId} onClick={() => run({ action: "stage", stageId }, (c) => (c === 0 ? "They were already in that stage." : `Moved ${c} lead${c === 1 ? "" : "s"}.`))} className={primary} style={{ background: "var(--primary)" }}>
                     {busy ? "Moving…" : "Move"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {panel === "source" && (
+              <div className="mt-4">
+                <ul className="grid grid-cols-2 gap-1.5">
+                  {LEAD_ORIGINS.filter((o) => o.key !== "OTHER").map((o) => (
+                    <li key={o.key}>
+                      <button type="button" onClick={() => setOriginKey(o.key)} className={`w-full rounded-xl border px-4 py-3 text-left text-[14px] font-semibold ${originKey === o.key ? "border-primary bg-accent-light" : "border-border hover:bg-surface-muted"}`}>
+                        {o.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-5 flex justify-end">
+                  <button type="button" disabled={busy || !originKey} onClick={() => run({ action: "source", origin: originKey }, (c) => `Updated ${c} lead${c === 1 ? "" : "s"}.`)} className={primary} style={{ background: "var(--primary)" }}>
+                    {busy ? "Saving…" : "Save"}
                   </button>
                 </div>
               </div>
@@ -218,7 +252,7 @@ export default function BulkBar({ selected, onClear, onDone, canManage, isAdmin,
                     {groups.map((g) => (
                       <li key={g.id}>
                         <button type="button" onClick={() => setGroupId(g.id)} className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left ${groupId === g.id ? "border-primary bg-accent-light" : "border-border hover:bg-surface-muted"}`}>
-                          <span className="h-3 w-3 rounded-full" style={{ background: g.color ?? "#6366f1" }} />
+                          <span className="h-3 w-3 rounded-full" style={{ background: g.color ?? "var(--primary)" }} />
                           <span className="text-[14px] font-semibold">{g.name}</span>
                         </button>
                       </li>

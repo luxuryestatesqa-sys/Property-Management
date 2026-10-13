@@ -8,6 +8,7 @@ import { extractErrorMessage } from "@/lib/errors";
 interface Org {
   name: string;
   logoUrl: string | null;
+  contactSlaHours?: number;
 }
 
 // Admin-only: the agency's name and logo, shown across the app
@@ -18,6 +19,7 @@ export default function AgencyBrandingCard() {
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState("");
   const [logo, setLogo] = useState<string | null>(null);
+  const [slaHours, setSlaHours] = useState(2);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -28,6 +30,7 @@ export default function AgencyBrandingCard() {
         if (d.org) {
           setName(d.org.name);
           setLogo(d.org.logoUrl);
+          setSlaHours(d.org.contactSlaHours ?? 2);
         }
       })
       .catch(() => setMessage({ ok: false, text: "Couldn't load agency details" }))
@@ -58,7 +61,7 @@ export default function AgencyBrandingCard() {
       const res = await fetch("/api/org", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, logoUrl: logo }),
+        body: JSON.stringify({ name, logoUrl: logo, contactSlaHours: slaHours }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -119,6 +122,15 @@ export default function AgencyBrandingCard() {
 
       </div>
 
+      <div>
+        <label className="text-sm font-medium block mb-1.5">Flag uncontacted leads after</label>
+        <div className="flex items-center gap-2">
+          <input type="number" min={1} max={168} value={slaHours} onChange={(e) => setSlaHours(Math.max(1, Math.min(168, Number(e.target.value) || 1)))} disabled={!loaded} className="w-24 rounded-xl border border-border bg-surface px-4 py-3 text-base outline-none focus:border-primary" />
+          <span className="text-sm text-muted">hours</span>
+        </div>
+        <p className="mt-1.5 text-[12.5px] text-muted">A new lead nobody has contacted within this time shows under &ldquo;Needs attention&rdquo; on the Leads page.</p>
+      </div>
+
       {message && (
         <div className={`rounded-xl px-4 py-3 text-sm ${message.ok ? "bg-success-bg" : "bg-danger-bg text-danger"}`} style={message.ok ? { color: "var(--success)" } : undefined}>
           {message.text}
@@ -131,7 +143,7 @@ export default function AgencyBrandingCard() {
         className="self-start rounded-xl px-5 py-2.5 text-[14px] font-semibold text-white active:opacity-80 disabled:opacity-60"
         style={{ background: "var(--primary)" }}
       >
-        {saving ? "Saving..." : "Save branding"}
+        {saving ? "Saving..." : "Save"}
       </button>
     </form>
   );

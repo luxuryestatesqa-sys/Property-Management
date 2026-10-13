@@ -1,5 +1,6 @@
 "use client";
 
+import ViewingsCard from "@/components/ViewingsCard";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -75,6 +76,7 @@ export default function PropertyDetailPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
+  const [headerMenu, setHeaderMenu] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
   const [form, setForm] = useState<Record<string, string>>({});
@@ -132,6 +134,8 @@ export default function PropertyDetailPage() {
         privateNotes: data.listing.privateNotes ?? "",
         titleDeedImage: data.listing.titleDeedImage ?? null,
         authorizationFormImage: data.listing.authorizationFormImage ?? null,
+        ownerId: data.listing.ownerId ?? "",
+        leaseEndDate: data.listing.leaseEndDate ? String(data.listing.leaseEndDate).slice(0, 10) : "",
       });
     }
     setLoading(false);
@@ -236,6 +240,8 @@ export default function PropertyDetailPage() {
         privateNotes: privateDetails.privateNotes.trim() || null,
         titleDeedImage: privateDetails.titleDeedImage,
         authorizationFormImage: privateDetails.authorizationFormImage,
+        ownerId: privateDetails.ownerId || null,
+        leaseEndDate: listing?.listingType === "RENT" ? privateDetails.leaseEndDate || null : null,
       };
       const imagesChanged = images.length !== initialImages.length || images.some((url, i) => url !== initialImages[i]);
       if (imagesChanged) {
@@ -541,7 +547,8 @@ export default function PropertyDetailPage() {
               listing.titleDeedNumber ||
               listing.privateNotes ||
               listing.titleDeedImage ||
-              listing.authorizationFormImage) && (
+              listing.authorizationFormImage ||
+              listing.leaseEndDate) && (
               <section className="rounded-2xl border border-dashed border-border bg-surface-muted/40 p-4">
                 <div className="flex items-center gap-1.5 mb-3">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -576,6 +583,21 @@ export default function PropertyDetailPage() {
                       </dd>
                     </div>
                   )}
+                  {listing.leaseEndDate && (() => {
+                    const days = Math.ceil((new Date(listing.leaseEndDate).getTime() - Date.now()) / 86400000);
+                    const tone = days <= 30 ? { background: "var(--warning-soft)", color: "var(--warning)" } : days <= 60 ? { background: "var(--primary-soft)", color: "var(--primary)" } : { background: "var(--background)", color: "var(--text-muted)" };
+                    return (
+                      <div className="flex items-center justify-between gap-3">
+                        <dt className="text-muted shrink-0">Lease ends</dt>
+                        <dd className="flex items-center gap-2 text-right font-medium">
+                          {formatDate(listing.leaseEndDate)}
+                          <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={tone}>
+                            {days < 0 ? `${-days} d ago` : days <= 60 ? `Reminder: ${days} d left` : `${days} d left`}
+                          </span>
+                        </dd>
+                      </div>
+                    );
+                  })()}
                   {listing.titleDeedNumber && (
                     <div className="flex justify-between gap-3">
                       <dt className="text-muted shrink-0">Title Deed Number</dt>
@@ -857,7 +879,7 @@ export default function PropertyDetailPage() {
     <div className="surface-card overflow-hidden">
       <div className="p-5">
         <div className="text-[12.5px] font-medium text-muted">{isRent ? "Rent" : "Price"}</div>
-        <div className="tnum mt-1 text-[30px] font-semibold leading-none tracking-[-0.025em]">
+        <div className="tnum mt-1 text-[30px] font-bold leading-none tracking-[-0.025em] text-primary-dark">
           {formatQAR(price)}
           {isRent && <span className="ml-1.5 text-[16px] font-medium text-muted">/ month</span>}
         </div>
@@ -884,11 +906,11 @@ export default function PropertyDetailPage() {
   );
 
   return (
-    <div className="px-4 pb-10 lg:px-0">
+    <div className="px-4 pb-44 lg:px-0 lg:pb-10">
       {isDesktop && !editing ? (
         desktopHeader
       ) : (
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 lg:pt-8 lg:pb-5">
+      <div className="sticky top-0 z-20 glass safe-top pt-4 pb-3 flex items-center gap-3 lg:pt-8 lg:pb-5">
         <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 rounded-full bg-surface-muted flex items-center justify-center shrink-0 active:opacity-70">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--foreground)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 18-6-6 6-6" />
@@ -925,6 +947,26 @@ export default function PropertyDetailPage() {
               className="shrink-0"
             />
           </>
+        )}
+        {canManage && !editing && (
+          <div className="relative lg:hidden">
+            <button type="button" onClick={() => setHeaderMenu((o) => !o)} aria-label="More actions" aria-haspopup="menu" aria-expanded={headerMenu} className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-surface-muted active:opacity-70">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+            </button>
+            {headerMenu && (
+              <>
+                <button type="button" aria-label="Close menu" className="fixed inset-0 z-30 cursor-default" onClick={() => setHeaderMenu(false)} />
+                <div role="menu" className="absolute right-0 top-11 z-40 w-48 overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
+                  <button type="button" role="menuitem" onClick={() => { setHeaderMenu(false); setEditing(true); }} className="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-surface-muted">
+                    Edit listing
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => { setHeaderMenu(false); toggleStatus(); }} disabled={saving} className={`w-full border-t border-border px-4 py-3 text-left text-[14px] font-medium hover:bg-surface-muted disabled:opacity-60 ${listing.status === "ACTIVE" ? "text-danger" : ""}`}>
+                    {listing.status === "ACTIVE" ? "Deactivate listing" : "Reactivate listing"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
         {canManage && !editing && (
           <div className="hidden items-center gap-2 lg:flex">
@@ -968,6 +1010,7 @@ export default function PropertyDetailPage() {
             <div className="sticky top-6 flex flex-col gap-5">
               {desktopPriceCard}
               {view_avail}
+              <ViewingsCard listingId={listing.id} />
               {view_portals}
             </div>
             </div>
@@ -976,14 +1019,19 @@ export default function PropertyDetailPage() {
           <div className="flex flex-col gap-4">
             {view_gallery}
             {view_summary}
-            {view_contact}
             {view_avail}
+            <ViewingsCard listingId={listing.id} />
             {view_portals}
             {view_info}
             {view_priv}
             {view_dups}
             {view_hist}
             {view_actions}
+            {!isOwner && (
+              <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-surface/95 px-4 py-2.5 backdrop-blur">
+                <div className="mx-auto max-w-md">{view_contact}</div>
+              </div>
+            )}
           </div>
         )
       ) : (
@@ -1032,7 +1080,7 @@ export default function PropertyDetailPage() {
                 max="20"
                 value={form.bathrooms}
                 onChange={(e) => setForm((f) => ({ ...f, bathrooms: e.target.value }))}
-                placeholder="2"
+                placeholder="e.g. 2"
                 className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
               />
             </div>
@@ -1079,7 +1127,7 @@ export default function PropertyDetailPage() {
                 min="1"
                 value={form.sizeSqm}
                 onChange={(e) => setForm((f) => ({ ...f, sizeSqm: e.target.value }))}
-                placeholder="120"
+                placeholder="e.g. 120"
                 className="flex-1 min-w-0 py-3.5 outline-none bg-transparent text-base"
               />
               <span className="text-muted text-[13px]">sqm</span>
@@ -1220,7 +1268,7 @@ export default function PropertyDetailPage() {
                     type="text"
                     value={form.apartmentNumber}
                     onChange={(e) => setForm((f) => ({ ...f, apartmentNumber: e.target.value }))}
-                    placeholder={unitLabelFor(form.propertyCategory as PropertyCategory).unitPlaceholder}
+                    placeholder={`e.g. ${unitLabelFor(form.propertyCategory as PropertyCategory).unitPlaceholder}`}
                     className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
                   />
                 </div>

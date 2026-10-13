@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { memo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -34,7 +35,7 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
   );
 
   const sheet = (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-900/45" onClick={() => setMenuOpen(false)}>
+    <div className="fixed inset-0 z-50 flex items-end bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={() => setMenuOpen(false)}>
       <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-surface pb-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200" />
         <div className="px-5 pb-2 pt-4">
@@ -116,12 +117,11 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
       >
         <div className="relative h-[85px] w-[95px] shrink-0 overflow-hidden rounded-lg bg-surface-muted sm:h-[108px] sm:w-[136px]">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover.url} alt={listing.buildingName} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+            <Image src={cover.url} alt={listing.buildingName} fill sizes="136px" className="object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-2xl text-border">🏠</div>
           )}
-          {!active && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white">Inactive</span>}
+          {!active && <span className="absolute bottom-1 left-1 rounded bg-[rgba(13,31,92,0.6)] px-1.5 py-0.5 text-[9px] font-semibold text-white">Inactive</span>}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-between">

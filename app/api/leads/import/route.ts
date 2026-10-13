@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
 import { createLeads, IntakeError, type NewLeadInput } from "@/lib/leads/intake";
-import { parseReceivedAt } from "@/lib/leads/csv";
+import { parseReceivedAt, resolveOrigin } from "@/lib/leads/csv";
 
 const MAX_ROWS = 1000;
 
@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
   const manager = isManagerRole(session!.user.role);
   const mode = manager && (body?.assign?.mode === "rules" || body?.assign?.mode === "agent" || body?.assign?.mode === "none") ? body.assign.mode : "self";
   if (mode === "agent" && !body?.assign?.agentId) return NextResponse.json({ error: "Choose an agent" }, { status: 400 });
-  const channel = body?.channel === "WHATSAPP" || body?.channel === "CALL" || body?.channel === "EMAIL" ? body.channel : "OTHER";
+  const origin = resolveOrigin(body?.channel);
+  const channel = origin.channel;
 
-  const inputs: NewLeadInput[] = rows.map((r) => ({ name: r.name, phone: r.phone, email: r.email, region: r.region, notes: r.notes, channel, receivedAt: parseReceivedAt(r.date), extra: r.extra && typeof r.extra === "object" ? r.extra : undefined }));
+  const inputs: NewLeadInput[] = rows.map((r) => ({ name: r.name, phone: r.phone, email: r.email, region: r.region, notes: r.notes, channel, sourceLabel: origin.sourceLabel, receivedAt: parseReceivedAt(r.date), extra: r.extra && typeof r.extra === "object" ? r.extra : undefined }));
 
   try {
     const me = await db!.user.findFirst({ where: { id: session!.user.id }, select: { name: true } });

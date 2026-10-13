@@ -445,7 +445,7 @@ export default function MultiPortalPublishingPage() {
   return (
     <div className="px-4 pb-12 lg:px-0 lg:max-w-3xl">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 border-b border-border/50 lg:pt-8">
+      <div className="sticky top-0 z-20 glass safe-top pt-4 pb-3 flex items-center gap-3 border-b border-border/50 lg:pt-8">
         <button
           type="button"
           onClick={() => router.back()}

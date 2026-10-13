@@ -133,10 +133,18 @@ export function unitLabelFor(category: PropertyCategory): UnitLabelConfig {
 // "Apt 1204, Fl 12" / "Villa 12" for a listing, or null when the unit number
 // is hidden from this viewer (the API blanks it - see lib/listingPrivacy.ts).
 // `short` uses the compact prefix for cards; otherwise the full label.
+//
+// When the listing has "Unit hidden" on, the unit number and floor are never shown: the place is shown
+// instead (the community, so a card reads "Venice · Lusail Marina"). This is the one place every card,
+// title and heading gets its unit text from, so the rule holds everywhere.
 export function unitSummary(
-  listing: { propertyCategory: PropertyCategory; apartmentNumber: string; floor: string },
+  listing: { propertyCategory: PropertyCategory; apartmentNumber: string; floor: string; unitDetailsPrivate?: boolean; buildingName?: string; community?: string },
   short = true
 ): string | null {
+  if (listing.unitDetailsPrivate) {
+    const place = listing.community?.trim();
+    return place && place !== listing.buildingName?.trim() ? place : null;
+  }
   // Building, floor and unit number are optional (Property Finder doesn't need them): a blank or "-" means none.
   if (!listing.apartmentNumber || listing.apartmentNumber.trim() === "-") return null;
   const unit = unitLabelFor(listing.propertyCategory);

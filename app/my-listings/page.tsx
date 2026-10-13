@@ -84,11 +84,11 @@ export default function MyListingsPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="kpi-row grid grid-cols-4 gap-4">
           {stats.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-border bg-surface p-5 shadow-[0_1px_2px_rgba(20,24,31,.04)]">
+            <div key={s.label} className="rounded-2xl border border-border bg-surface p-5">
               <div className="text-[12.5px] font-medium text-muted">{s.label}</div>
-              <div className="mt-2 text-[30px] font-bold leading-none tracking-tight">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-surface-muted" /> : s.value}</div>
+              <div className="kpi-num tnum mt-2 text-[30px] font-bold leading-none tracking-tight">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-surface-muted" /> : s.value}</div>
               <div className="mt-2 text-[12px] text-muted">{s.hint}</div>
             </div>
           ))}
@@ -138,7 +138,7 @@ export default function MyListingsPage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 px-4 border-b border-border">
+      <div className="sticky top-0 z-20 glass safe-top pt-4 pb-3 px-4 border-b border-border">
         <h1 className="text-xl font-bold mb-3">My Listings</h1>
         <div className="flex bg-surface-muted rounded-xl p-1 gap-1">
           {(["ACTIVE", "INACTIVE"] as Tab[]).map((t) => (
@@ -152,6 +152,21 @@ export default function MyListingsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Phones: the numbers scroll sideways */}
+      <div className="kpi-row no-scrollbar flex gap-3 overflow-x-auto px-4 pt-4">
+        {[
+          { label: "Active listings", value: counts.ACTIVE },
+          { label: "Inactive", value: counts.INACTIVE },
+          { label: "Available now", value: listingsByTab.ACTIVE.length === counts.ACTIVE ? listingsByTab.ACTIVE.filter((l) => l.availabilityStatus === "AVAILABLE").length : "—" },
+          { label: "Live on Property Finder", value: listingsByTab.ACTIVE.length === counts.ACTIVE ? listingsByTab.ACTIVE.filter((l) => l.propertyFinderState?.state === "live").length : "—" },
+        ].map((c) => (
+          <div key={c.label} className="min-w-[132px] shrink-0 rounded-2xl border border-border bg-surface px-4 py-3.5">
+            <div className="text-[12px] font-medium text-muted">{c.label}</div>
+            <div className="kpi-num tnum mt-1.5 text-[24px] font-bold leading-none">{loading ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : c.value}</div>
+          </div>
+        ))}
       </div>
 
       <div className="px-4 py-4">

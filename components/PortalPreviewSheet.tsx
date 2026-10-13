@@ -33,7 +33,7 @@ export default function PortalPreviewSheet({ listingId, portal, label, onClose }
   const c = data?.card;
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end lg:items-center lg:justify-center" role="dialog" aria-label={`${label} preview`}>
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative mx-auto flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-background lg:rounded-3xl">
         <div className="flex shrink-0 items-center justify-between border-b border-border px-5 pb-3 pt-4">
           <div>
@@ -85,7 +85,7 @@ export default function PortalPreviewSheet({ listingId, portal, label, onClose }
                         <div className="flex h-full w-full items-center justify-center text-4xl text-border">🏠</div>
                       )}
                       {c.photos.length > 1 && (
-                        <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white">
+                        <span className="absolute bottom-2 right-2 rounded-full bg-[rgba(13,31,92,0.6)] px-2.5 py-1 text-[11px] font-medium text-white">
                           {photo + 1} / {c.photos.length}
                         </span>
                       )}

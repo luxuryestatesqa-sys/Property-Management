@@ -59,7 +59,7 @@ export default function PropertyFinderPreviewSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative bg-background rounded-t-3xl max-h-[92vh] flex flex-col mx-auto w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border shrink-0">
           <div>
@@ -104,7 +104,7 @@ export default function PropertyFinderPreviewSheet({
               </div>
             )}
             {photos.length > 1 && (
-              <span className="absolute bottom-2.5 right-2.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-black/60 text-white">
+              <span className="absolute bottom-2.5 right-2.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(13,31,92,0.6)] text-white">
                 {activePhoto + 1}/{photos.length}
               </span>
             )}

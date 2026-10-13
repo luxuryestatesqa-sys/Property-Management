@@ -123,7 +123,7 @@ export default function PhotoPicker({ images, onChange }: PhotoPickerProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={src} alt={`Property photo ${index + 1}`} draggable={false} className="w-full h-full object-cover pointer-events-none" />
             {index === 0 && (
-              <span className="pointer-events-none absolute bottom-1 left-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 text-white">
+              <span className="pointer-events-none absolute bottom-1 left-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[rgba(13,31,92,0.6)] text-white">
                 Cover
               </span>
             )}
@@ -132,7 +132,7 @@ export default function PhotoPicker({ images, onChange }: PhotoPickerProps) {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => removeAt(index)}
               aria-label={`Remove photo ${index + 1}`}
-              className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-[12px] active:opacity-70"
+              className="absolute top-1 right-1 w-6 h-6 rounded-full bg-[rgba(13,31,92,0.6)] text-white flex items-center justify-center text-[12px] active:opacity-70"
             >
               ✕
             </button>

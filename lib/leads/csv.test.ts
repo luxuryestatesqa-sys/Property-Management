@@ -1,6 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { normalizeEmail, normalizePhone, parseCsv, parseReceivedAt, suggestMapping, templateCsv } from "./csv";
 
+import { joinName, collapseDoubledName } from "./csv";
+
+describe("names", () => {
+  it("joins without repeating", () => {
+    expect(joinName("Sara", "Ali")).toBe("Sara Ali");
+    expect(joinName("Sara Ali", "Ali")).toBe("Sara Ali");
+    expect(joinName("Sara Ali", "Sara Ali")).toBe("Sara Ali");
+    expect(joinName("", "Ali")).toBe("Ali");
+  });
+  it("collapses a doubled name", () => {
+    expect(collapseDoubledName("Iqbal ahmed Iqbal ahmed")).toBe("Iqbal ahmed");
+    expect(collapseDoubledName("Ahmed Azib Riaz Ahmed Azib Riaz")).toBe("Ahmed Azib Riaz");
+    expect(collapseDoubledName("Sara Ali")).toBe("Sara Ali");
+  });
+});
+
 describe("parseCsv", () => {
   it("reads quotes, commas inside quotes, doubled quotes and Windows line breaks", () => {
     const rows = parseCsv('Name,Notes\r\n"Ali, Sr.","He said ""call me"""\r\nSara,plain\r\n');

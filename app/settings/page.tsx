@@ -259,7 +259,7 @@ export default function ProfilePage() {
                         {avatarUploading ? (
                           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                         ) : (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--surface-elevated)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                             <circle cx="12" cy="13" r="4" />
                           </svg>
@@ -313,7 +313,7 @@ export default function ProfilePage() {
                       </div>
                     ) : (
                       <form onSubmit={submitWhatsappChange} className="flex flex-col gap-2.5">
-                        <input type="tel" required value={whatsappInput} onChange={(e) => setWhatsappInput(e.target.value)} placeholder="+974 5000 0000" className={inputCls} />
+                        <input type="tel" required value={whatsappInput} onChange={(e) => setWhatsappInput(e.target.value)} placeholder="e.g. +974 5000 0000" className={inputCls} />
                         {whatsappError && <div className="rounded-xl bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger">{whatsappError}</div>}
                         <div className="flex gap-2">
                           <button type="submit" disabled={whatsappSaving} className="rounded-xl px-5 py-2 text-[13.5px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--primary)" }}>
@@ -435,7 +435,7 @@ export default function ProfilePage() {
     { key: "ai", label: "AI writing", hint: "OpenAI key", icon: <IconSettings size={20} />, tint: "bg-amber-50 text-amber-600" },
   ];
   const chevron = (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a3abb8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="m9 6 6 6-6 6" />
     </svg>
   );
@@ -477,7 +477,7 @@ export default function ProfilePage() {
               {avatarUploading ? (
                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
               ) : (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--surface-elevated)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                   <circle cx="12" cy="13" r="4" />
                 </svg>
@@ -571,7 +571,7 @@ export default function ProfilePage() {
             ) : (
               <form onSubmit={submitWhatsappChange} className="flex flex-col gap-2 py-3.5">
                 <label className="block text-sm font-medium">WhatsApp number</label>
-                <input type="tel" required value={whatsappInput} onChange={(e) => setWhatsappInput(e.target.value)} placeholder="+974 5000 0000" className={phoneInput} />
+                <input type="tel" required value={whatsappInput} onChange={(e) => setWhatsappInput(e.target.value)} placeholder="e.g. +974 5000 0000" className={phoneInput} />
                 {whatsappError && <div className="rounded-xl bg-danger-bg px-4 py-3 text-sm text-danger">{whatsappError}</div>}
                 <div className="mt-1 flex gap-2">
                   <button type="button" onClick={() => setEditingWhatsapp(false)} className="flex-1 rounded-xl bg-surface-muted py-3 text-[14px] font-semibold active:opacity-70">

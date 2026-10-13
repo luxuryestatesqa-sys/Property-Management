@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import DocumentPicker from "./DocumentPicker";
 
 export interface PrivateDetailsValue {
@@ -10,9 +11,13 @@ export interface PrivateDetailsValue {
   privateNotes: string;
   titleDeedImage: string | null;
   authorizationFormImage: string | null;
+  ownerId: string; // "" = no owner record
+  leaseEndDate: string; // yyyy-mm-dd, rentals only
 }
 
 export const EMPTY_PRIVATE_DETAILS: PrivateDetailsValue = {
+  ownerId: "",
+  leaseEndDate: "",
   ownerName: "",
   ownerPhone: "",
   ownerWhatsapp: "",
@@ -41,6 +46,35 @@ export default function PrivateDetailsSection({
     onChange({ ...value, [key]: v });
   }
 
+  type OwnerRow = { id: string; name: string; phone: string | null; whatsapp: string | null };
+  const [owners, setOwners] = useState<OwnerRow[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [newOwner, setNewOwner] = useState({ name: "", phone: "" });
+  const [ownerError, setOwnerError] = useState("");
+  useEffect(() => {
+    fetch("/api/owners")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setOwners(d.owners))
+      .catch(() => {});
+  }, []);
+
+  // Choosing an owner fills the owner contact fields below from their record.
+  function pickOwner(id: string) {
+    const o = owners.find((x) => x.id === id);
+    onChange({ ...value, ownerId: id, ...(o ? { ownerName: o.name, ownerPhone: o.phone ?? "", ownerWhatsapp: o.whatsapp ?? "" } : {}) });
+  }
+
+  async function createOwner() {
+    setOwnerError("");
+    const res = await fetch("/api/owners", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newOwner.name, phone: newOwner.phone, whatsapp: newOwner.phone }) });
+    const d = await res.json().catch(() => null);
+    if (!res.ok) return setOwnerError(typeof d?.error === "string" ? d.error : "Couldn't add the owner");
+    setOwners((o) => [...o, d.owner].sort((a, b) => a.name.localeCompare(b.name)));
+    setAdding(false);
+    setNewOwner({ name: "", phone: "" });
+    onChange({ ...value, ownerId: d.owner.id, ownerName: d.owner.name, ownerPhone: d.owner.phone ?? "", ownerWhatsapp: d.owner.whatsapp ?? "" });
+  }
+
   return (
     <section className="rounded-2xl border border-border bg-surface p-4">
       <div className="flex items-center gap-1.5 mb-0.5">
@@ -53,6 +87,40 @@ export default function PrivateDetailsSection({
       <p className="text-[12px] text-muted mb-3">Optional. Only visible to you and admins — never shown to other agents.</p>
 
       <div className="flex flex-col gap-3">
+        <div>
+          <label className="text-sm font-medium text-foreground block mb-1.5">Owner record</label>
+          <select value={value.ownerId} onChange={(e) => (e.target.value === "__new" ? setAdding(true) : pickOwner(e.target.value))} className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary">
+            <option value="">No owner record</option>
+            {owners.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+            <option value="__new">+ Add a new owner…</option>
+          </select>
+          {adding && (
+            <div className="mt-2 flex flex-col gap-2 rounded-xl bg-surface-muted p-3">
+              <input value={newOwner.name} onChange={(e) => setNewOwner((n) => ({ ...n, name: e.target.value }))} placeholder="Owner name" className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[15px] outline-none" />
+              <input value={newOwner.phone} onChange={(e) => setNewOwner((n) => ({ ...n, phone: e.target.value }))} placeholder="e.g. +974 5000 0000" className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[15px] outline-none" />
+              {ownerError && <p className="text-[12.5px] text-danger">{ownerError}</p>}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setAdding(false)} className="rounded-lg bg-surface px-3 py-1.5 text-[13px] font-semibold">
+                  Cancel
+                </button>
+                <button type="button" onClick={createOwner} className="rounded-lg px-3 py-1.5 text-[13px] font-semibold text-white" style={{ background: "var(--primary)" }}>
+                  Add owner
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        {listingType === "RENT" && (
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1.5">Lease ends</label>
+            <input type="date" value={value.leaseEndDate} onChange={(e) => update("leaseEndDate", e.target.value)} className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary" />
+            <p className="mt-1 text-[12px] text-muted">You&apos;ll be reminded 60 and 30 days before it ends (on the dashboard and this listing).</p>
+          </div>
+        )}
         <div>
           <label className="text-sm font-medium text-foreground block mb-1.5">Owner Name</label>
           <input
@@ -70,7 +138,7 @@ export default function PrivateDetailsSection({
               type="tel"
               value={value.ownerPhone}
               onChange={(e) => update("ownerPhone", e.target.value)}
-              placeholder="+974 5000 0000"
+              placeholder="e.g. +974 5000 0000"
               className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
             />
           </div>
@@ -80,7 +148,7 @@ export default function PrivateDetailsSection({
               type="tel"
               value={value.ownerWhatsapp}
               onChange={(e) => update("ownerWhatsapp", e.target.value)}
-              placeholder="+974 5000 0000"
+              placeholder="e.g. +974 5000 0000"
               className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
             />
           </div>

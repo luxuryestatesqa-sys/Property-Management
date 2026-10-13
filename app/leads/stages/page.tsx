@@ -195,7 +195,7 @@ export default function LeadStagesPage() {
                           ▼
                         </button>
                       </div>
-                      <button type="button" aria-label="Change colour" onClick={() => setPaletteFor(paletteFor === s.id ? null : s.id)} className="h-5 w-5 shrink-0 rounded-full ring-offset-2 transition-transform hover:scale-110 focus-visible:ring-2" style={{ background: s.color ?? "#6366f1" }} />
+                      <button type="button" aria-label="Change colour" onClick={() => setPaletteFor(paletteFor === s.id ? null : s.id)} className="h-5 w-5 shrink-0 rounded-full ring-offset-2 transition-transform hover:scale-110 focus-visible:ring-2" style={{ background: s.color ?? "var(--primary)" }} />
                       {editing?.id === s.id ? (
                         <input autoFocus value={editing.name} maxLength={30} onChange={(e) => setEditing({ id: s.id, name: e.target.value })} onBlur={rename} onKeyDown={(e) => (e.key === "Enter" ? rename() : e.key === "Escape" && setEditing(null))} className="min-w-0 flex-1 rounded-lg border border-primary bg-surface px-2.5 py-1.5 text-[14.5px] outline-none" />
                       ) : (
@@ -236,7 +236,7 @@ export default function LeadStagesPage() {
       </div>
 
       {removing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 lg:items-center lg:p-6" onMouseDown={(e) => e.target === e.currentTarget && setRemoving(null)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px] lg:items-center lg:p-6" onMouseDown={(e) => e.target === e.currentTarget && setRemoving(null)}>
           <div role="dialog" className="w-full rounded-t-3xl bg-surface p-5 shadow-2xl lg:max-w-md lg:rounded-3xl lg:p-6">
             <h2 className="text-[19px] font-medium">Delete &ldquo;{removing.name}&rdquo;?</h2>
             {removing.leads > 0 ? (

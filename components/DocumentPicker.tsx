@@ -47,7 +47,7 @@ export default function DocumentPicker({ label, value, onChange }: DocumentPicke
             type="button"
             onClick={() => onChange(null)}
             aria-label={`Remove ${label}`}
-            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-[12px] active:opacity-70"
+            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-[rgba(13,31,92,0.6)] text-white flex items-center justify-center text-[12px] active:opacity-70"
           >
             ✕
           </button>

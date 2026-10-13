@@ -94,6 +94,9 @@ export interface ListingDTO {
   createdBy: { id: string; name: string; whatsapp: string; avatarUrl: string | null; pfPublicProfileId: number | null };
   createdAt: string;
   updatedAt: string;
+  // Private (creator / admin only): the owner record and the date the current lease ends.
+  ownerId?: string | null;
+  leaseEndDate?: string | null;
   propertyFinderState: PropertyFinderListingDTO | null;
   channelStates: Record<PullChannel, ChannelStateDTO | null>;
 }

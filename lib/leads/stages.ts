@@ -23,6 +23,20 @@ export async function ensureStages(organizationId: string) {
   return prisma.leadStage.findMany({ where: { organizationId }, orderBy: { position: "asc" } });
 }
 
+// Stage colours in the app follow the theme, not whatever colour was stored on the stage:
+// the first open stage (New) is the cobalt accent, other open stages are quiet neutral, Won is the
+// success green and Lost the danger red. Used by every API that sends stages to the screen.
+export function stageThemeColor(kind: LeadStageKind, isFirstOpen: boolean): string {
+  if (kind === "WON") return "var(--success)";
+  if (kind === "LOST") return "var(--danger)";
+  return isFirstOpen ? "var(--primary)" : "var(--text-muted)";
+}
+
+export function themedStages<T extends { id: string; kind: LeadStageKind }>(stages: T[]): (T & { color: string })[] {
+  const firstOpen = stages.find((s) => s.kind === "OPEN")?.id;
+  return stages.map((s) => ({ ...s, color: stageThemeColor(s.kind, s.id === firstOpen) }));
+}
+
 // The stage a brand-new lead starts in: the first OPEN stage.
 export async function firstStageId(organizationId: string): Promise<string> {
   const stages = await ensureStages(organizationId);

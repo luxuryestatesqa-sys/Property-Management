@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
+import { isManagerRole, isAdminRole } from "@/lib/roles";
+import { visibleListingsWhere } from "@/lib/listingPrivacy";
+import { listingCode } from "@/lib/format";
+import { listingImageUrl } from "@/lib/listingImages";
 import { extractLeadDetails } from "@/lib/leads/details";
+import { themedStages, stageThemeColor } from "@/lib/leads/stages";
 
 // Everything the lead detail page needs: the lead, its listing, the timeline,
 // the other leads from the same phone number, and the pickers (stages, agents).
@@ -19,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       listing: {
         select: {
           id: true, buildingName: true, area: true, community: true, listingType: true, rentPrice: true, salePrice: true,
-          propertyCategory: true, bedrooms: true, sizeSqm: true, images: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+          propertyCategory: true, bedrooms: true, sizeSqm: true, shareToken: true, unitDetailsPrivate: true, floor: true, apartmentNumber: true, images: { orderBy: { sortOrder: "asc" }, take: 1, select: { id: true, createdAt: true } },
         },
       },
       activities: { orderBy: { createdAt: "desc" }, include: { user: { select: { id: true, name: true, avatarUrl: true } } } },
@@ -37,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           where: { phone: lead.phone, NOT: { id: lead.id }, ...(manager ? {} : { assignedToId: session!.user.id }) },
           orderBy: { receivedAt: "desc" },
           take: 5,
-          select: { id: true, name: true, receivedAt: true, listingReference: true, stage: { select: { name: true, color: true } } },
+          select: { id: true, name: true, receivedAt: true, listingReference: true, stage: { select: { name: true, kind: true, color: true } } },
         })
       : Promise.resolve([]),
   ]);
@@ -48,10 +52,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json({
     groups,
     // Attachments keep only their metadata here; the file is fetched from the attachments route.
-    lead: { ...rest, activities: rest.activities.map((a) => (a.type === "VOICE_NOTE" || a.type === "DOCUMENT" ? { ...a, data: { name: (a.data as { name?: string } | null)?.name, mime: (a.data as { mime?: string } | null)?.mime, size: (a.data as { size?: number } | null)?.size } } : a.type === "STAGE_CHANGED" ? a : { ...a, data: undefined })), callRecordUrl, details: extractLeadDetails({ sellerProperty: lead.sellerProperty, raw }), groups: groupLinks.map((g) => g.group), listing: lead.listing ? { ...lead.listing, cover: lead.listing.images[0]?.url ?? null, images: undefined } : null },
-    stages: stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, color: s.color, position: s.position })),
+    lead: { ...rest, stage: { ...rest.stage, color: stageThemeColor(rest.stage.kind, rest.stage.id === stages.find((s) => s.kind === "OPEN")?.id) }, activities: rest.activities.map((a) => (a.type === "VOICE_NOTE" || a.type === "DOCUMENT" ? { ...a, data: { name: (a.data as { name?: string } | null)?.name, mime: (a.data as { mime?: string } | null)?.mime, size: (a.data as { size?: number } | null)?.size } } : a.type === "STAGE_CHANGED" ? a : { ...a, data: undefined })), callRecordUrl, details: extractLeadDetails({ sellerProperty: lead.sellerProperty, raw }), groups: groupLinks.map((g) => g.group), listing: lead.listing ? { ...lead.listing, cover: lead.listing.images[0] ? listingImageUrl(lead.listing.id, lead.listing.images[0]) : null, images: undefined } : null },
+    stages: themedStages(stages).map((s) => ({ id: s.id, name: s.name, kind: s.kind, color: s.color, position: s.position })),
     agents,
-    related,
+    related: related.map((r) => ({ ...r, stage: { ...r.stage, color: stageThemeColor(r.stage.kind, false) } })),
     canManage: manager,
   });
 }
@@ -63,9 +67,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
-  const { value: body, error: bodyError } = await parseJsonBody<{ stageId?: string; assignedToId?: string | null }>(req);
+  const { value: body, error: bodyError } = await parseJsonBody<{ stageId?: string; assignedToId?: string | null; listing?: string | number | null }>(req);
   if (bodyError) return bodyError;
-  if (!body || (body.stageId === undefined && body.assignedToId === undefined)) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  if (!body || (body.stageId === undefined && body.assignedToId === undefined && body.listing === undefined)) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
   const lead = await db!.lead.findFirst({ where: { id }, include: { stage: true } });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
@@ -83,6 +87,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: { organizationId: orgId!, leadId: id, userId: session!.user.id, type: "ASSIGNED", text: target ? `Assigned to ${target.name}` : "Moved back to Unassigned", data: { from: lead.assignedToId, to: target?.id ?? null } },
       });
     }
+    if (body.stageId === undefined) return NextResponse.json({ ok: true });
+  }
+  // Link the lead to a property ("LST-000085" or 85), or unlink with null.
+  if (body.listing !== undefined) {
+    let target: { id: number; buildingName: string } | null = null;
+    if (body.listing !== null && body.listing !== "") {
+      const n = Number(String(body.listing).replace(/\D/g, ""));
+      target = Number.isFinite(n) && n > 0 ? await db!.listing.findFirst({ where: { id: n, ...visibleListingsWhere(session!.user.id, isAdminRole(session!.user.role)) }, select: { id: true, buildingName: true } }) : null;
+      if (!target) return NextResponse.json({ error: "No property found with that ID" }, { status: 404 });
+    }
+    await db!.lead.update({ where: { id }, data: { listingId: target?.id ?? null, listingReference: target ? listingCode(target.id) : null } });
+    await db!.leadActivity.create({ data: { organizationId: orgId!, leadId: id, userId: session!.user.id, type: "PROPERTY_LINKED", text: target ? `Interested in ${listingCode(target.id)} (${target.buildingName})` : "Property link removed", data: { listingId: target?.id ?? null } } });
     if (body.stageId === undefined) return NextResponse.json({ ok: true });
   }
   if (!body.stageId || typeof body.stageId !== "string") return NextResponse.json({ error: "stageId is required" }, { status: 400 });

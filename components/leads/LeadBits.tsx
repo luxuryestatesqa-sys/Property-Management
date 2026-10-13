@@ -38,10 +38,10 @@ function ChannelIcon({ channel }: { channel: LeadRow["channel"] }) {
 // Source + channel, e.g. "Property Finder · WhatsApp".
 export function SourceBadge({ lead }: { lead: LeadRow }) {
   const tone =
-    lead.channel === "WHATSAPP" ? { bg: "#e7f9ee", fg: "#1a7f3c" } : lead.channel === "CALL" ? { bg: "#eaf1ff", fg: "#2b50c8" } : lead.channel === "FORM" ? { bg: "#eef2ff", fg: "#4338ca" } : { bg: "var(--surface-muted)", fg: "var(--muted)" };
+    lead.channel === "WHATSAPP" ? { bg: "var(--success-soft)", fg: "var(--success)" } : lead.channel === "CALL" ? { bg: "var(--primary-soft)", fg: "var(--primary)" } : lead.channel === "FORM" ? { bg: "var(--primary-soft)", fg: "var(--primary)" } : { bg: "var(--surface-muted)", fg: "var(--muted)" };
   return (
     <div className="flex flex-col items-start gap-1">
-      <span className="whitespace-nowrap text-[12.5px] font-medium text-foreground">{SOURCE_LABELS[lead.source]}</span>
+      <span className="whitespace-nowrap text-[12.5px] font-medium text-foreground">{lead.sourceLabel ?? SOURCE_LABELS[lead.source]}</span>
       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tone.bg, color: tone.fg }}>
         <ChannelIcon channel={lead.channel} />
         {CHANNEL_LABELS[lead.channel]}
@@ -61,7 +61,7 @@ export function ReceivedAt({ iso }: { iso: string }) {
 
 export function StageSelect({ lead, stages, onChange, compact }: { lead: LeadRow; stages: LeadStageDTO[]; onChange: (stageId: string) => void; compact?: boolean }) {
   const cur = stages.find((s) => s.id === lead.stageId);
-  const color = cur?.color ?? "#6366f1";
+  const color = cur?.color ?? "var(--primary)";
   return (
     <div className="relative inline-block">
       <select
@@ -93,7 +93,7 @@ export function ContactButtons({ lead, size = 34 }: { lead: LeadRow; size?: numb
   const wa = `https://wa.me/${digits}?text=${encodeURIComponent(buildWhatsAppLeadMessage(lead.name, org.name, lead.listing?.buildingName ?? null))}`;
   return (
     <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-      <a href={wa} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${lead.name}`} title="WhatsApp" className="flex items-center justify-center rounded-full transition-opacity hover:opacity-80" style={{ background: "#e7f9ee", color: "#1a7f3c", width: size, height: size }}>
+      <a href={wa} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${lead.name}`} title="WhatsApp" className="flex items-center justify-center rounded-full transition-opacity hover:opacity-80" style={{ background: "var(--success-soft)", color: "var(--success)", width: size, height: size }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12.04 2c-5.46 0-9.9 4.44-9.9 9.9 0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21c5.46 0 9.9-4.44 9.9-9.9 0-2.64-1.03-5.13-2.9-7-1.87-1.87-4.36-2.9-7-2.92Zm4.52 11.91c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.16.24-.64.81-.78.97-.14.17-.29.19-.53.06-.25-.12-1.04-.38-1.98-1.22-.73-.65-1.23-1.46-1.37-1.7-.15-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.16.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43h-.48c-.16 0-.43.06-.66.31-.22.24-.87.85-.87 2.08 0 1.22.89 2.4 1.02 2.57.12.16 1.75 2.68 4.25 3.75.59.26 1.05.41 1.41.53.6.19 1.14.16 1.57.1.48-.07 1.47-.6 1.68-1.18.2-.58.2-1.08.14-1.18-.06-.1-.22-.16-.47-.28Z" />
         </svg>

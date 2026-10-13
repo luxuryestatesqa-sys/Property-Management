@@ -19,7 +19,7 @@ export default function DuplicateWarningModal({ existing, onCancel, onContinue, 
   const org = useOrg();
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={onCancel} />
       <div className="relative bg-background rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[85vh] overflow-y-auto">
         <div className="px-5 pt-6 pb-5">
           <div className="flex items-start gap-3 mb-4">
@@ -45,7 +45,7 @@ export default function DuplicateWarningModal({ existing, onCancel, onContinue, 
                     <div className="text-[13px] text-muted mt-0.5">
                       📍 {l.area} → {l.community}
                     </div>
-                    {l.apartmentNumber ? (
+                    {l.apartmentNumber && !l.unitDetailsPrivate ? (
                       <div className="text-[13px] text-muted mt-0.5">
                         {unitLabelFor(l.propertyCategory).showFloor && <>Floor: {l.floor} &nbsp;·&nbsp; </>}
                         {unitLabelFor(l.propertyCategory).unitLabel}: {l.apartmentNumber}

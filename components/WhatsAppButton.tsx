@@ -46,7 +46,7 @@ export default function WhatsAppButton({ number, name, message, label = "WhatsAp
         type="button"
         onClick={handleClick}
         className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold active:opacity-70 ${className}`}
-        style={{ background: "#e7f9ee", color: "#1a7f3c" }}
+        style={{ background: "var(--success-soft)", color: "var(--success)" }}
       >
         <WhatsAppIcon size={15} />
         {label}
@@ -60,7 +60,7 @@ export default function WhatsAppButton({ number, name, message, label = "WhatsAp
       onClick={handleClick}
       aria-label={ariaLabel ?? (name ? `Contact ${name} on WhatsApp` : "Contact on WhatsApp")}
       className={`rounded-full flex items-center justify-center shrink-0 active:opacity-70 ${className}`}
-      style={{ background: "#e7f9ee", color: "#1a7f3c", width: size, height: size }}
+      style={{ background: "var(--success-soft)", color: "var(--success)", width: size, height: size }}
     >
       <WhatsAppIcon size={Math.round(size * 0.5)} />
     </button>

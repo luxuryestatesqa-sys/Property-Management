@@ -163,7 +163,7 @@ export default function PropertiesPage() {
       const kinds = ["ALL", "RENT", "SALE"] as const;
       const totals = await Promise.all(
         kinds.map(async (t) => {
-          const params = filtersToParams({ ...filters, listingType: t }, { page: "1", pageSize: "1" });
+          const params = filtersToParams({ ...filters, listingType: t }, { countOnly: "1" });
           if (debouncedQuery) params.set("q", debouncedQuery);
           try {
             const res = await fetch(`/api/listings?${params.toString()}`);
@@ -340,7 +340,7 @@ export default function PropertiesPage() {
       <Suspense fallback={null}>
         <QuerySync onQuery={setQuery} />
       </Suspense>
-      <div className="sticky top-0 z-30 bg-background safe-top pt-4 px-4 pb-3 border-b border-border">
+      <div className="sticky top-0 z-30 glass safe-top pt-4 px-4 pb-3 border-b border-border">
         <h1 className="text-xl font-bold mb-3">Properties</h1>
         <div className="flex gap-2">
           <div className="flex-1 flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-3">

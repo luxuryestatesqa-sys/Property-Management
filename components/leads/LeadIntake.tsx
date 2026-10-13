@@ -2,17 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { IMPORT_FIELDS, ImportField, parseCsv, suggestMapping, templateCsv } from "@/lib/leads/csv";
+import { IMPORT_FIELDS, ImportField, LEAD_ORIGINS, joinName, parseCsv, suggestMapping, templateCsv } from "@/lib/leads/csv";
 import { LeadStageDTO } from "@/components/leads/leadTypes";
 
 type Agent = { id: string; name: string };
 type AssignMode = "self" | "rules" | "agent" | "none";
-const CHANNELS = [
-  ["OTHER", "Other / not sure"],
-  ["WHATSAPP", "WhatsApp"],
-  ["CALL", "Phone call"],
-  ["EMAIL", "Email"],
-] as const;
+const CHANNELS = LEAD_ORIGINS.map((o) => [o.key, o.label] as const);
 const MAX_ROWS = 1000;
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -22,7 +17,7 @@ const primaryBtn = "rounded-xl px-5 py-2.5 text-[13.5px] font-medium text-white 
 
 function Shell({ title, subtitle, onClose, children, wide }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 lg:items-center lg:p-6" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px] lg:items-center lg:p-6" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-label={title} className={`max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-surface p-5 shadow-2xl lg:rounded-3xl lg:p-6 ${wide ? "lg:max-w-3xl" : "lg:max-w-lg"}`}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
@@ -110,7 +105,7 @@ export function AddLeadModal({ onClose, onDone, canManage, agents }: { onClose: 
         <div className="grid gap-3.5 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Phone</label>
-            <input value={f.phone} onChange={set("phone")} inputMode="tel" className={input} placeholder="+974 5550 0001" />
+            <input value={f.phone} onChange={set("phone")} inputMode="tel" className={input} placeholder="e.g. +974 5550 0001" />
           </div>
           <div>
             <label className={labelCls}>Email</label>
@@ -238,7 +233,7 @@ export function ImportLeadsModal({ onClose, onDone, canManage, agents, stages }:
         const v = (r[i] ?? "").trim();
         if (!mappedCols.has(i) && h.trim() && v && Object.keys(extra).length < 25) extra[h.trim().slice(0, 60)] = v.slice(0, 500);
       });
-    return { name: [cell(r, "name"), cell(r, "lastName")].filter(Boolean).join(" "), phone: cell(r, "phone"), email: cell(r, "email"), region: cell(r, "region"), notes: cell(r, "notes"), date: cell(r, "date"), extra };
+    return { name: joinName(cell(r, "name"), cell(r, "lastName")), phone: cell(r, "phone"), email: cell(r, "email"), region: cell(r, "region"), notes: cell(r, "notes"), date: cell(r, "date"), extra };
   };
 
   async function run() {
@@ -388,7 +383,7 @@ export function ImportLeadsModal({ onClose, onDone, canManage, agents, stages }:
           <div className="grid grid-cols-3 gap-3">
             {[
               ["Imported", result.created, "var(--success)"],
-              ["Already leads", result.duplicates, "#d97706"],
+              ["Already leads", result.duplicates, "var(--warning)"],
               ["Skipped", result.invalid, "var(--danger)"],
             ].map(([l, n, c]) => (
               <div key={l as string} className="rounded-xl bg-slate-50 px-4 py-3.5">

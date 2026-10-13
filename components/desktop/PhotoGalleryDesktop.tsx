@@ -90,7 +90,7 @@ export default function PhotoGalleryDesktop({ images, height = 440 }: { images: 
       </div>
 
       {lightbox !== null && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90" onClick={() => setLightbox(null)} role="dialog" aria-modal="true" aria-label="Photo viewer">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(13,31,92,0.92)]" onClick={() => setLightbox(null)} role="dialog" aria-modal="true" aria-label="Photo viewer">
           <button type="button" aria-label="Close" onClick={() => setLightbox(null)} className="absolute right-6 top-6 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
             <IconClose size={20} />
           </button>

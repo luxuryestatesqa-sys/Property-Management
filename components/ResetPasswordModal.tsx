@@ -52,7 +52,7 @@ export default function ResetPasswordModal({ user, onClose }: ResetPasswordModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative bg-background rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[88vh] overflow-y-auto">
         {!done ? (
           <form onSubmit={submit} className="px-5 py-6 flex flex-col gap-4">

@@ -1,29 +1,112 @@
 @import "tailwindcss";
 
+/* ---- "Frosted Cobalt" theme tokens. Every colour in the app comes from here (or from the palette overrides
+   in @theme below), never from a hard-coded value. Blue is for emphasis only. ---- */
 :root {
-  --background: #f5f6f8;
-  --foreground: #14181f;
-  --surface: #ffffff;
-  --surface-muted: #eef0f3;
-  --border: #e2e5ea;
-  --primary: #8a6d1f;
-  --primary-light: #b8923a;
-  --accent: #c9a15a;
-  --accent-light: #f4e9d5;
-  --success: #1c8a4b;
-  --success-bg: #e6f5ec;
-  --danger: #c23b3b;
-  --danger-bg: #fbe9e9;
-  --muted: #6b7280;
-  --rent-bg: #e7f0ff;
-  --rent-text: #1d4ed8;
-  --sale-bg: #fdf1e2;
-  --sale-text: #b4650a;
+  --background: #eef0f6;
+  --surface: #f7f8fb;
+  --surface-elevated: #ffffff;
+  --border: #e2e5ef;
+  --primary: #2b4fc0;
+  --primary-hover: #2447a8;
+  --primary-dark: #0d1f5c;
+  --primary-soft: #e3e9fa;
+  --gradient-primary: linear-gradient(135deg, #0d1f5c 0%, #2b4fc0 100%);
+  --text: #0d1f5c;
+  --text-body: #2a3557;
+  --text-muted: #5a6690;
+  --text-subtle: #9aa3bf; /* placeholders and disabled only, never readable text */
+  --success: #3e8e6a;
+  --success-soft: #e4f2eb;
+  --warning: #b7862b;
+  --warning-soft: #f7eedc;
+  --danger: #b5474b;
+  --danger-soft: #f6e3e4;
+  --shadow-card: 0 8px 30px rgba(13, 31, 92, 0.06);
+  --shadow-card-hover: 0 14px 38px rgba(13, 31, 92, 0.1);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* names the components already use */
+  --foreground: var(--text);
+  --surface-muted: #eef0f6;
+  --muted: var(--text-muted);
+  --primary-light: #5b7be0; /* focus rings */
+  --accent: var(--primary);
+  --accent-light: var(--primary-soft);
+  --success-bg: var(--success-soft);
+  --danger-bg: var(--danger-soft);
+  --rent-bg: rgba(255, 255, 255, 0.9);
+  --rent-text: var(--text);
+  --sale-bg: rgba(255, 255, 255, 0.9);
+  --sale-text: var(--text);
 }
 
 /* wide laptops/desktops: switch result grids to three columns */
 @theme {
+  /* Tablets (768px and up) get the desktop layout with the icon-only sidebar and two-column grids. */
+  --breakpoint-lg: 48rem;
   --breakpoint-wide: 85rem;
+
+  /* The built-in Tailwind palettes are re-pointed at the theme, so a class like text-slate-600 or
+     bg-amber-100 (used all over) is a cobalt-theme colour, never a stray default one. */
+  --color-slate-50: #f7f8fb;
+  --color-slate-100: #eef0f6;
+  --color-slate-200: #e2e5ef;
+  --color-slate-300: #c9d0e4;
+  --color-slate-400: #6b76a0;
+  --color-slate-500: #5a6690;
+  --color-slate-600: #3e4a72;
+  --color-slate-700: #2a3557;
+  --color-slate-800: #14246a;
+  --color-slate-900: #0d1f5c;
+  --color-gray-50: #f7f8fb;
+  --color-gray-100: #eef0f6;
+  --color-gray-200: #e2e5ef;
+  --color-gray-500: #5a6690;
+  --color-gray-700: #2a3557;
+  --color-gray-900: #0d1f5c;
+  --color-indigo-50: #e3e9fa;
+  --color-indigo-100: #d5def7;
+  --color-indigo-500: #2b4fc0;
+  --color-indigo-600: #2b4fc0;
+  --color-indigo-700: #2447a8;
+  --color-violet-50: #e3e9fa;
+  --color-violet-100: #d5def7;
+  --color-violet-600: #2b4fc0;
+  --color-violet-700: #2447a8;
+  --color-blue-50: #e3e9fa;
+  --color-blue-100: #d5def7;
+  --color-blue-500: #2b4fc0;
+  --color-blue-600: #2b4fc0;
+  --color-blue-700: #2447a8;
+  --color-sky-500: #2b4fc0;
+  --color-sky-600: #2b4fc0;
+  --color-teal-600: #3e8e6a;
+  --color-amber-50: #fbf5e8;
+  --color-amber-100: #f7eedc;
+  --color-amber-200: #ebd9ac;
+  --color-amber-500: #b7862b;
+  --color-amber-600: #a67724;
+  --color-amber-700: #8f6a1f;
+  --color-amber-800: #7a5a18;
+  --color-amber-900: #5f4612;
+  --color-amber-950: #4a370e;
+  --color-rose-50: #fbefef;
+  --color-rose-100: #f6e3e4;
+  --color-rose-300: #e3a9ab;
+  --color-rose-500: #b5474b;
+  --color-rose-600: #a33c40;
+  --color-rose-700: #8e3236;
+  --color-rose-800: #752a2d;
+  --color-red-300: #e3a9ab;
+  --color-red-500: #b5474b;
+  --color-red-600: #a33c40;
+  --color-emerald-100: #e4f2eb;
+  --color-emerald-500: #3e8e6a;
+  --color-emerald-600: #357c5c;
+  --color-emerald-700: #2c694e;
+  --color-green-500: #3e8e6a;
+  --color-green-600: #357c5c;
 }
 
 @theme inline {
@@ -41,8 +124,20 @@
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
   --color-muted: var(--muted);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-soft: var(--primary-soft);
+  --color-text: var(--text);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success-soft: var(--success-soft);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-inter);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 * {
@@ -57,7 +152,7 @@ body {
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--text-body);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
@@ -80,10 +175,10 @@ textarea {
 }
 
 /* Desktop shows a slim, unobtrusive scrollbar (phones keep it hidden). */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   html {
     scrollbar-width: thin;
-    scrollbar-color: #c9cdd4 transparent;
+    scrollbar-color: var(--color-slate-300) transparent;
   }
   ::-webkit-scrollbar {
     display: block;
@@ -91,13 +186,13 @@ textarea {
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: #c9cdd4;
+    background: var(--color-slate-300);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #aab0ba;
+    background: var(--text-subtle);
     background-clip: content-box;
   }
   .no-scrollbar::-webkit-scrollbar {
@@ -149,7 +244,7 @@ textarea {
 }
 
 /* Desktop cards are tall (image on top) and sit in a grid. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .card-cv-compact {
     contain-intrinsic-size: 0 360px;
   }
@@ -210,171 +305,287 @@ textarea {
   }
 }
 
-/* Notices (warnings, errors, success messages) - always dark, high-contrast
-   text on a tinted card with a coloured edge, so they stay readable on any
-   device (including a phone in dark mode) instead of coloured-on-tint text. */
+/* Notices (warnings, errors, success messages) - readable text on a soft tinted card with a coloured edge. */
 .notice-warning,
 div.bg-danger-bg,
 div.bg-success-bg {
-  color: var(--foreground) !important;
-  border-left: 4px solid var(--notice-edge, var(--muted));
+  color: var(--text-body) !important;
+  border-left: 4px solid var(--notice-edge, var(--text-muted));
 }
 .notice-warning {
-  --notice-edge: #d89a00;
-  background: #fff4d1;
-  border-top: 1px solid #ecd28a;
-  border-right: 1px solid #ecd28a;
-  border-bottom: 1px solid #ecd28a;
+  --notice-edge: var(--warning);
+  background: var(--warning-soft);
+  border-top: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
 }
 div.bg-danger-bg {
   --notice-edge: var(--danger);
-  background: #fde4e4;
+  background: var(--danger-soft);
 }
 div.bg-success-bg {
   --notice-edge: var(--success);
-  background: #dff3e6;
+  background: var(--success-soft);
 }
 
 /* ------------------------------------------------------------------ */
-/* Desktop design system (lg+). Phones keep the original look.        */
-/* Soft cool-grey canvas, hairline borders, layered shadows, tighter   */
-/* typography, rich primary buttons and gentle entrance motion.        */
+/* Frosted Cobalt design system: light, airy glass surfaces, one deep   */
+/* royal-blue accent, soft depth and calm motion.                       */
 /* ------------------------------------------------------------------ */
-@media all {
-  :root {
-    /* Platform theme (desktop and phone): deep ink + one signature indigo on a faintly tinted canvas.
-       To re-theme, change these colours (and the gradient stops in .bg-primary / the primary-button rule below). */
-    --primary: #4f46e5;
-    --primary-light: #6366f1;
-    --accent: #818cf8;
-    --accent-light: #eef0ff;
-    --background: #f7f7fb;
-    --surface-muted: #f0f1f7;
-    --border: #e6e8f1;
-    --foreground: #0b0f1e;
-    --brand-gradient: linear-gradient(135deg, #7062ff 0%, #4f46e5 52%, #4338ca 100%);
-    --shadow-card: 0 0 0 1px rgba(30, 27, 75, 0.045), 0 1px 2px rgba(30, 27, 75, 0.04), 0 2px 8px -2px rgba(30, 27, 75, 0.07);
-    --shadow-card-hover: 0 0 0 1px rgba(79, 70, 229, 0.18), 0 4px 10px -2px rgba(30, 27, 75, 0.1), 0 22px 40px -14px rgba(79, 70, 229, 0.28);
-  }
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.006em;
+}
 
-  body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "ss01", "cv11";
-    letter-spacing: -0.006em;
-    /* a whisper of the agency colour at the top of the canvas */
-    background-image: radial-gradient(900px 380px at 82% -140px, color-mix(in srgb, #7062ff 13%, transparent), transparent 70%), radial-gradient(700px 320px at 8% -160px, color-mix(in srgb, #4f46e5 7%, transparent), transparent 70%);
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+/* App background: soft cobalt glows in ONE fixed layer behind the content (one glow on phones). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(520px 520px at 100% 0%, rgba(43, 79, 192, 0.13), transparent 70%);
+}
+@media (min-width: 768px) {
+  body::before {
+    background: radial-gradient(900px 900px at 100% -5%, rgba(43, 79, 192, 0.14), transparent 70%), radial-gradient(800px 800px at -5% 105%, rgba(43, 79, 192, 0.1), transparent 70%), radial-gradient(700px 700px at 55% 50%, rgba(43, 79, 192, 0.06), transparent 70%);
   }
+}
 
+@layer base {
   h1,
   h2,
   h3 {
+    color: var(--text);
+    font-weight: 600;
     letter-spacing: -0.02em;
   }
+}
 
-  /* prices and counts line up and read as figures */
-  .tnum {
-    font-variant-numeric: tabular-nums;
-  }
+/* prices and counts line up and read as figures */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
 
-  /* Every solid brand-coloured control gets depth: a faint top-light gradient,
-     an inner highlight and a soft contact shadow. */
-  [style*="background: var(--primary)"],
-  .bg-primary {
-    background-image: var(--brand-gradient);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(30, 27, 75, 0.25), 0 8px 18px -8px rgba(79, 70, 229, 0.65);
-  }
+/* Small uppercase label (section titles, table headers). */
+.label-caps {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 
-  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
-  select,
-  textarea {
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+/* Frosted glass: sidebar, top bars, drawers/modals, mobile bottom nav. Solid white where unsupported. */
+.glass,
+[role="dialog"] {
+  background: #ffffff;
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass,
+  [role="dialog"] {
+    background: rgba(255, 255, 255, 0.7);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
   }
-  /* inputs show the soft glow ring instead of the hard keyboard outline */
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible {
-    outline: none;
-  }
-  input[data-bare]:focus {
-    border-color: transparent !important;
-    box-shadow: none !important;
-  }
-  input:not([data-bare]):focus,
-  textarea:focus,
-  select:focus {
-    border-color: var(--primary) !important;
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent);
-  }
+}
+[role="dialog"] {
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 24px 60px rgba(13, 31, 92, 0.18);
+}
 
+/* Primary button: flat cobalt, white text, 12px radius, soft blue shadow. */
+[style*="background: var(--primary)"],
+.bg-primary {
+  background-image: none;
+  background-color: var(--primary);
+  box-shadow: 0 6px 20px rgba(43, 79, 192, 0.25);
+  transition: background-color 0.25s var(--ease), box-shadow 0.25s var(--ease), transform 0.25s var(--ease);
+}
+button[style*="background: var(--primary)"]:hover:not(:disabled),
+a[style*="background: var(--primary)"]:hover,
+button.bg-primary:hover:not(:disabled),
+a.bg-primary:hover {
+  background-color: var(--primary-hover) !important;
+}
+/* the brand gradient is only for the lead KPI card, banners, the login hero and the mobile "+" */
+.bg-brand-gradient {
+  background-image: var(--gradient-primary) !important;
+  background-color: var(--primary-dark) !important;
+  color: #fff;
+}
 
-  /* Existing white cards across every desktop page get the same hairline-free,
-     layered-shadow treatment as the new components. */
-  .rounded-2xl.border.bg-surface,
-  .rounded-xl.border.bg-surface:not(input):not(button):not(a) {
-    border-color: transparent;
-    box-shadow: var(--shadow-card);
-  }
+/* Secondary buttons and fields: white, hairline border, 12px radius. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([data-bare]),
+select,
+textarea {
+  background-color: var(--surface-elevated);
+  border-color: var(--border);
+  border-radius: 12px;
+  transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+input[data-bare]:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+input:not([data-bare]):focus,
+textarea:focus,
+select:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(43, 79, 192, 0.15);
+}
 
-  /* Surfaces used by the desktop pages. */
-  .surface-card {
-    background: var(--surface);
-    border-radius: 18px;
-    box-shadow: var(--shadow-card);
+/* Cards: soft surface, hairline border, large radius, airy shadow. Lift on hover (desktop only). */
+.rounded-2xl.border.bg-surface,
+.rounded-xl.border.bg-surface:not(input):not(button):not(a),
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+@media (hover: hover) and (min-width: 768px) {
+  .card-hover {
+    transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
   }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
 
-  /* Staggered entrance for page content and card grids. */
-  @keyframes fade-up {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+/* KPI rows: the first (most important) card is the cobalt gradient with white text; the rest are white
+   cards with deep-navy numbers. */
+.kpi-num {
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-row > :first-child {
+  background-image: var(--gradient-primary) !important;
+  background-color: var(--primary-dark) !important;
+  border-color: transparent !important;
+  box-shadow: 0 14px 34px rgba(43, 79, 192, 0.28) !important;
+}
+.kpi-row > :first-child *:not(svg):not(path) {
+  color: #fff !important;
+}
+.kpi-row > :first-child .rounded-full {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+.kpi-row > :first-child .opacity-hint,
+.kpi-row > :first-child [class*="text-muted"] {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+/* Tables: white rows, hairline dividers, small uppercase headers, soft hover, selected = primary-soft. */
+table thead th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface);
+}
+table tbody tr {
+  background: var(--surface-elevated);
+  transition: background-color 0.2s var(--ease);
+}
+table tbody tr:hover {
+  background: var(--surface);
+}
+table tbody tr[aria-selected="true"],
+table tbody tr.is-selected {
+  background: var(--primary-soft);
+}
+table tbody tr td,
+table tbody tr th {
+  border-color: var(--border);
+}
+
+/* Motion: fade + 8px slide, staggered 50ms for the first 12 items. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
-  .page-in {
-    animation: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  to {
+    opacity: 1;
+    transform: none;
   }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.page-in {
+  animation: fade-up 0.3s var(--ease) backwards;
+}
+.stagger > * {
+  animation: fade-up 0.3s var(--ease) backwards;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
+.stagger > *:nth-child(7) { animation-delay: 300ms; }
+.stagger > *:nth-child(8) { animation-delay: 350ms; }
+.stagger > *:nth-child(9) { animation-delay: 400ms; }
+.stagger > *:nth-child(10) { animation-delay: 450ms; }
+.stagger > *:nth-child(11) { animation-delay: 500ms; }
+.stagger > *:nth-child(12) { animation-delay: 550ms; }
+.stagger > *:nth-child(n + 13) { animation: none; }
+
+/* Loading skeletons: soft #E9ECF4 blocks with a gentle shimmer. */
+@keyframes shimmer {
+  from {
+    background-position: -400px 0;
+  }
+  to {
+    background-position: 400px 0;
+  }
+}
+.animate-pulse,
+.animate-pulse .bg-surface-muted {
+  background-color: #e9ecf4;
+}
+.animate-pulse {
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  background-size: 400px 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s linear infinite !important;
+}
+
+/* Reduced motion: no movement, keep the fades. */
+@media (prefers-reduced-motion: reduce) {
+  .page-in,
   .stagger > * {
-    animation: fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    animation: fade-in 0.2s linear backwards !important;
+    animation-delay: 0ms !important;
   }
-  .stagger > *:nth-child(1) { animation-delay: 0ms; }
-  .stagger > *:nth-child(2) { animation-delay: 45ms; }
-  .stagger > *:nth-child(3) { animation-delay: 90ms; }
-  .stagger > *:nth-child(4) { animation-delay: 135ms; }
-  .stagger > *:nth-child(5) { animation-delay: 180ms; }
-  .stagger > *:nth-child(6) { animation-delay: 225ms; }
-  .stagger > *:nth-child(n + 7) { animation-delay: 270ms; }
-
-  /* Loading skeletons shimmer instead of pulsing. */
-  @keyframes shimmer {
-    from {
-      background-position: -400px 0;
-    }
-    to {
-      background-position: 400px 0;
-    }
+  .card-hover:hover {
+    transform: none;
   }
   .animate-pulse {
     animation: none !important;
   }
-  .animate-pulse .bg-surface-muted,
-  .animate-pulse.bg-surface {
-    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
-    background-size: 400px 100%;
-    background-repeat: no-repeat;
-    animation: shimmer 1.4s linear infinite;
-  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .page-in,
-  .stagger > *,
-  .animate-pulse .bg-surface-muted {
-    animation: none !important;
-  }
+/* Placeholders are hints, not values: a soft grey that cannot be mistaken for typed text. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-subtle);
+  opacity: 1;
 }

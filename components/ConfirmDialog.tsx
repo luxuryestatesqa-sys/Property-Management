@@ -42,7 +42,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       {state && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
-          <div className="absolute inset-0 bg-black/50" onClick={() => handle(false)} />
+          <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={() => handle(false)} />
           <div className="relative bg-background rounded-3xl w-full max-w-sm p-6 shadow-xl">
             {state.options.title && <h2 className="text-lg font-bold text-foreground mb-2">{state.options.title}</h2>}
             <p className="text-[15px] text-muted leading-relaxed">{state.options.message}</p>

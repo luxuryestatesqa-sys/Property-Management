@@ -63,9 +63,9 @@ function DuplicateGroupCardDesktop({ group, compact = false }: { group: ListingD
 
           <div className="absolute left-3 top-3 flex items-center gap-1.5">
             {allRent || group.every((l) => l.listingType === "SALE") ? <TypePill type={first.listingType} solid /> : null}
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-1 text-[11px] font-bold leading-none text-amber-950 shadow-sm">Duplicate · {group.length}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2.5 py-1 text-[11px] font-bold leading-none text-warning shadow-sm">Duplicate · {group.length}</span>
           </div>
-          <div className="absolute right-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">{listingCode(first.id)}</div>
+          <div className="absolute right-3 top-3 rounded-full bg-[rgba(13,31,92,0.55)] px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">{listingCode(first.id)}</div>
 
           <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2 text-white">
             <div className="tnum text-[22px] font-semibold leading-none tracking-tight drop-shadow">
@@ -134,7 +134,7 @@ function DuplicateGroupCardDesktop({ group, compact = false }: { group: ListingD
 
       {open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label="Agents listing this property">
-          <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[3px]" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px] backdrop-blur-[3px]" onClick={() => setOpen(false)} />
           <div className="page-in relative flex max-h-[85vh] w-full max-w-[560px] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_28px_80px_-16px_rgba(16,24,40,0.5),0_0_0_1px_rgba(16,24,40,0.06)]">
             <div className="flex items-start gap-4 border-b border-slate-100 p-5">
               <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-surface-muted">

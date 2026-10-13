@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ListingDTO } from "@/lib/types";
@@ -27,8 +28,7 @@ export function PropertyCell({ listing }: { listing: ListingDTO }) {
     <div className="flex min-w-0 items-center gap-3.5">
       <div className="relative h-14 w-[76px] shrink-0 overflow-hidden rounded-lg bg-surface-muted">
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover.url} alt="" loading="lazy" decoding="async" className={`h-full w-full object-cover ${listing.status === "INACTIVE" ? "grayscale" : ""}`} />
+          <Image src={cover.url} alt="" fill sizes="76px" className={`object-cover ${listing.status === "INACTIVE" ? "grayscale" : ""}`} />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted/50">
             <IconImage size={20} />

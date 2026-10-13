@@ -103,3 +103,46 @@ export async function verifyPassword(user: { id: string; email: string; name: st
   // The Firebase account must be this very user (UID == User.id), never a look-alike.
   return result === user.id;
 }
+
+const identityToolkit = (method: string) =>
+  `https://identitytoolkit.googleapis.com/v1/accounts:${method}?key=${encodeURIComponent(process.env.FIREBASE_WEB_API_KEY ?? "")}`;
+
+// Asks Firebase to email the user its password-reset message (the sending is Firebase's own mail service).
+// The link in that email carries an oobCode and opens whatever "action URL" the Firebase console's
+// Authentication > Templates > Password reset is set to - point it at <app>/reset-password.
+export async function sendFirebaseResetEmail(user: { id: string; email: string; name: string }): Promise<boolean> {
+  if (!process.env.FIREBASE_WEB_API_KEY) throw new IdentityError("FIREBASE_WEB_API_KEY is not set");
+  const send = () =>
+    fetch(identityToolkit("sendOobCode"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestType: "PASSWORD_RESET", email: user.email }),
+    });
+  let res = await send();
+  let reason = res.ok ? "" : ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? "";
+  if (reason.startsWith("EMAIL_NOT_FOUND")) {
+    // Never copied into Firebase: create them with a throwaway password (replaced when they reset), then retry.
+    const tmp = Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => b.toString(16).padStart(2, "0")).join("");
+    await createIdentity({ id: user.id, email: user.email, name: user.name, password: tmp });
+    res = await send();
+    reason = res.ok ? "" : ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? "";
+  }
+  if (!res.ok) throw new IdentityError(`Could not send the reset email: ${reason || res.status}`);
+  return true;
+}
+
+// Finishes a Firebase reset: checks the emailed oobCode and sets the new password. Returns the account's
+// email, or null if the code is invalid / expired / already used.
+export async function confirmFirebaseReset(oobCode: string, newPassword: string): Promise<string | null> {
+  if (!process.env.FIREBASE_WEB_API_KEY) throw new IdentityError("FIREBASE_WEB_API_KEY is not set");
+  const res = await fetch(identityToolkit("resetPassword"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ oobCode, newPassword }),
+  });
+  const body = (await res.json().catch(() => null)) as { email?: string; error?: { message?: string } } | null;
+  if (res.ok) return body?.email?.toLowerCase() ?? null;
+  const reason = body?.error?.message ?? "";
+  if (/^(INVALID_OOB_CODE|EXPIRED_OOB_CODE|OPERATION_NOT_ALLOWED|WEAK_PASSWORD|USER_DISABLED)/.test(reason)) return null;
+  throw new IdentityError(`Reset service error: ${reason || res.status}`);
+}

@@ -23,6 +23,7 @@ interface Attention {
   overdue: unknown[];
   today: unknown[];
   waiting: unknown[];
+  waitingCount: number;
 }
 
 const icon = (d: string, size = 18, sw = 2) => (
@@ -56,7 +57,7 @@ function Chip({ children, bg, fg }: { children: React.ReactNode; bg: string; fg:
 }
 
 function Row({ lead, stage, canManage, now }: { lead: LeadRow; stage?: LeadStageDTO; canManage: boolean; now: number }) {
-  const sc = stage?.color ?? "#6366f1";
+  const sc = stage?.color ?? "var(--primary)";
   const due = lead.nextFollowUp ? new Date(lead.nextFollowUp) : null;
   const overdue = due ? due.getTime() < now : false;
   const property = lead.listing?.buildingName ?? lead.listingReference ?? lead.region;
@@ -66,7 +67,7 @@ function Row({ lead, stage, canManage, now }: { lead: LeadRow; stage?: LeadStage
         <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-light text-[16px] font-medium text-primary">{lead.name.trim().charAt(0).toUpperCase() || "?"}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[15.5px] font-medium">{lead.name}</span>
+            <span className="flex min-w-0 items-center gap-1.5"><span className="truncate text-[15.5px] font-medium">{lead.name}</span>{lead.duplicates > 0 && <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-bold leading-none text-warning">Duplicate</span>}</span>
             <span className="shrink-0 text-[11.5px] text-muted">{timeAgo(lead.receivedAt)}</span>
           </div>
           <div className="mt-0.5 truncate text-[13px] text-muted">
@@ -86,12 +87,12 @@ function Row({ lead, stage, canManage, now }: { lead: LeadRow; stage?: LeadStage
               </Chip>
             )}
             {lead.groups?.map((g) => (
-              <Chip key={g.id} bg={g.color ?? "#6366f1"} fg="#fff">
+              <Chip key={g.id} bg={g.color ?? "var(--primary)"} fg="var(--surface-elevated)">
                 {g.name}
               </Chip>
             ))}
             {due && (
-              <Chip bg={overdue ? "#ffe4e6" : "#fef3c7"} fg={overdue ? "#be123c" : "#92400e"}>
+              <Chip bg={overdue ? "var(--danger-soft)" : "var(--warning-soft)"} fg={overdue ? "var(--danger)" : "var(--warning)"}>
                 {overdue ? "Follow-up overdue" : `Follow-up ${due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
               </Chip>
             )}
@@ -250,7 +251,7 @@ export default function MobileLeads() {
   }
 
   const activeFilters = [assignee !== "all", stageId !== "all", channel !== "ALL", group !== "all"].filter(Boolean).length;
-  const attentionCount = attention ? attention.overdue.length + attention.today.length + attention.waiting.length : 0;
+  const attentionCount = attention ? attention.overdue.length + attention.today.length + attention.waitingCount : 0;
   const tabs: [typeof tab, string][] = [["all", "All"], ["new", "New"], ...(canManage ? ([["unassigned", "Unassigned"]] as [typeof tab, string][]) : [])];
   const clearAll = () => {
     setTab("all");
@@ -271,14 +272,20 @@ export default function MobileLeads() {
   ].filter((m) => m.show);
 
   return (
-    <div className="pb-36 page-in">
+    <div className="pb-28 page-in">
       {/* top: title and the "more" menu */}
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <h1 className="text-[24px] font-medium tracking-[-0.02em]">Leads</h1>
+        <div className="flex items-center gap-2">
+        <button type="button" onClick={() => setIntake("add")} className="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[14px] font-medium text-white shadow-sm active:opacity-80" style={{ background: "var(--primary)" }}>
+          {icon(I.plus, 16, 2.6)}
+          Add lead
+        </button>
         <button type="button" onClick={() => setSheet("more")} aria-label="More" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-surface text-slate-600 shadow-sm ring-1 ring-border active:opacity-70">
           {icon(I.more, 20, 2.6)}
           {canManage && (meta?.unassigned ?? 0) > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white" />}
         </button>
+        </div>
       </div>
 
       {/* search and filter */}
@@ -309,12 +316,12 @@ export default function MobileLeads() {
       </div>
 
       {attention && attentionCount > 0 && tab === "all" && !filtering && (
-        <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-[13px] text-amber-900">
+        <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning-soft px-3.5 py-2.5 text-[13px] text-amber-900">
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
           <span className="min-w-0 flex-1 truncate">
             <b className="font-medium">{attentionCount} need attention</b>
             {attention.overdue.length > 0 ? ` · ${attention.overdue.length} overdue` : ""}
-            {attention.waiting.length > 0 ? ` · ${attention.waiting.length} not contacted` : ""}
+            {attention.waitingCount > 0 ? ` · ${attention.waitingCount} not contacted` : ""}
           </span>
         </div>
       )}
@@ -385,15 +392,9 @@ export default function MobileLeads() {
         {error && items.length > 0 && <p className="py-4 text-center text-[13px] text-danger">{error}</p>}
       </div>
 
-      {/* add lead */}
-      <button type="button" onClick={() => setIntake("add")} className="fixed bottom-24 right-4 z-30 flex h-14 items-center gap-2 rounded-full pl-4 pr-5 text-[15px] font-medium text-white shadow-xl active:scale-95" style={{ background: "var(--primary)" }}>
-        {icon(I.plus, 22, 2.5)}
-        Add lead
-      </button>
-
       {/* sheets */}
       {sheet && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-900/45" onMouseDown={(e) => e.target === e.currentTarget && setSheet(null)}>
+        <div className="fixed inset-0 z-50 flex items-end bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onMouseDown={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div role="dialog" className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl bg-surface px-5 pb-8 pt-3 shadow-2xl">
             <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
             {sheet === "filters" ? (

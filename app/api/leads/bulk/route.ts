@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { openLeadCounts, pickLeastLoaded } from "@/lib/leads/rules";
+import { resolveOrigin } from "@/lib/leads/csv";
+import { logActivity } from "@/lib/activity";
 
 const MAX_LEADS = 500;
 
 interface Body {
-  action?: "assign" | "stage" | "group-add" | "group-remove" | "delete";
+  action?: "assign" | "stage" | "group-add" | "group-remove" | "delete" | "source";
+  origin?: string; // source: a key from LEAD_ORIGINS
   leadIds?: string[];
   agentId?: string | null; // assign: one agent, or null/"" for Unassigned
   agentIds?: string[]; // assign with roundRobin: share the leads across these agents
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
   const action = body?.action;
   const ids = Array.isArray(body?.leadIds) ? [...new Set(body!.leadIds.filter((x) => typeof x === "string"))].slice(0, MAX_LEADS) : [];
   if (!action || ids.length === 0) return NextResponse.json({ error: "Choose some leads first" }, { status: 400 });
-  if ((action === "assign" && !manager) || (action === "delete" && !isAdminRole(role))) {
+  if (((action === "assign" || action === "source") && !manager) || (action === "delete" && !isAdminRole(role))) {
     return NextResponse.json({ error: action === "delete" ? "Only admins can delete leads" : "Only managers can assign leads" }, { status: 403 });
   }
 
@@ -39,8 +42,16 @@ export async function POST(req: NextRequest) {
   const leadIds = leads.map((l) => l.id);
   const note = (leadId: string, type: string, text: string, data?: object) => ({ organizationId: orgId!, leadId, userId: me, type, text, ...(data ? { data } : {}) });
 
+  if (action === "source") {
+    const o = resolveOrigin(body?.origin);
+    await db!.lead.updateMany({ where: { id: { in: leadIds } }, data: { channel: o.channel, sourceLabel: o.sourceLabel } });
+    return NextResponse.json({ count: leadIds.length });
+  }
+
   if (action === "delete") {
+    const gone = await db!.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, name: true, phone: true } });
     await db!.lead.deleteMany({ where: { id: { in: leadIds } } });
+    for (const l of gone) await logActivity(orgId!, { type: "lead_deleted", agentId: me, leadId: l.id, note: `${l.name}${l.phone ? ` (${l.phone})` : ""}` });
     return NextResponse.json({ count: leadIds.length });
   }
 

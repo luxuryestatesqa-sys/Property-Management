@@ -68,7 +68,7 @@ export default function PhotoGallery({ images }: { images: ListingImageDTO[] }) 
           </div>
         </div>
         {images.length > 1 && (
-          <div className="absolute bottom-3 right-7 text-[11px] font-semibold px-2 py-1 rounded-full bg-black/60 text-white">
+          <div className="absolute bottom-3 right-7 text-[11px] font-semibold px-2 py-1 rounded-full bg-[rgba(13,31,92,0.6)] text-white">
             {active + 1} / {images.length}
           </div>
         )}

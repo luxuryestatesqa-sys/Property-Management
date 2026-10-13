@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ListingDTO } from "@/lib/types";
 import { formatQAR, formatSqm, listingCode } from "@/lib/format";
@@ -15,11 +16,10 @@ function Card({ listing, onChange }: { listing: ListingDTO; onChange: () => void
   const price = isRent ? listing.rentPrice : listing.salePrice;
 
   return (
-    <div className="flex flex-col rounded-[20px] bg-surface shadow-[var(--shadow-card)] transition-shadow duration-300 hover:shadow-[var(--shadow-card-hover)]">
+    <div className="flex flex-col rounded-[20px] card-hover border border-border bg-surface">
       <Link href={`/property/${listing.id}`} className="group relative block aspect-[16/10] overflow-hidden rounded-t-[20px] bg-surface-muted">
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover.url} alt={listing.buildingName} loading="lazy" decoding="async" className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${listing.status === "INACTIVE" ? "grayscale" : ""}`} />
+          <Image src={cover.url} alt={listing.buildingName} fill sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" className={`object-cover transition-transform duration-500 group-hover:scale-[1.04] ${listing.status === "INACTIVE" ? "grayscale" : ""}`} />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted/50">
             <IconImage size={40} />
@@ -29,9 +29,9 @@ function Card({ listing, onChange }: { listing: ListingDTO; onChange: () => void
         <div className="absolute left-3 top-3 flex items-center gap-1.5">
           <TypePill type={listing.listingType} solid />
           {listing.visibility === "PRIVATE" && <PrivatePill />}
-          {listing.status === "INACTIVE" && <span className="rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold leading-none text-white">Inactive</span>}
+          {listing.status === "INACTIVE" && <span className="rounded-full bg-[rgba(13,31,92,0.72)] px-2.5 py-1 text-[11px] font-semibold leading-none text-white">Inactive</span>}
         </div>
-        <div className="absolute right-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">{listingCode(listing.id)}</div>
+        <div className="absolute right-3 top-3 rounded-full bg-[rgba(13,31,92,0.55)] px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">{listingCode(listing.id)}</div>
         <div className="tnum absolute bottom-3 left-3 text-[22px] font-semibold leading-none tracking-tight text-white drop-shadow">
           {formatQAR(price)}
           {isRent && <span className="ml-1 text-[13px] font-medium opacity-90">/mo</span>}

@@ -139,11 +139,11 @@ export default function AdminUsersPage() {
             { label: "Property Finder linked", value: `${pfLinked}/${users.length}`, hint: users.length - pfLinked > 0 ? `${users.length - pfLinked} not linked yet` : "All linked" },
           ];
           return (
-            <div className="stagger mb-7 grid grid-cols-4 gap-4">
+            <div className="kpi-row stagger mb-7 grid grid-cols-4 gap-4">
               {cards.map((c) => (
                 <div key={c.label} className="surface-card p-5">
                   <div className="text-[12.5px] font-medium text-muted">{c.label}</div>
-                  <div className="tnum mt-2 text-[30px] font-semibold leading-none tracking-tight">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-surface-muted" /> : c.value}</div>
+                  <div className="kpi-num tnum mt-2 text-[30px] font-bold leading-none tracking-tight">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-surface-muted" /> : c.value}</div>
                   <div className="mt-2 truncate text-[12px] text-muted">{loading ? " " : c.hint}</div>
                 </div>
               ))}
@@ -291,7 +291,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="px-4 pb-10 lg:px-0">
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center justify-between lg:pt-8 lg:pb-5">
+      <div className="sticky top-0 z-20 glass safe-top pt-4 pb-3 flex items-center justify-between lg:pt-8 lg:pb-5">
         <div>
           <h1 className="text-xl font-bold lg:text-3xl lg:tracking-tight">Users</h1>
           <p className="hidden lg:block text-[14px] text-muted mt-1">Manage your team, their access and portal links.</p>
@@ -305,6 +305,47 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
+      {/* Phones: the numbers scroll sideways, then search and a role filter */}
+      {!loading && (
+        <>
+          <div className="kpi-row no-scrollbar -mx-4 mt-1 flex gap-3 overflow-x-auto px-4 pb-1">
+            {[
+              { label: "Team members", value: users.length },
+              { label: "Active", value: users.filter((u) => u.status === "ACTIVE").length },
+              { label: "Active listings", value: users.reduce((n, u) => n + (u.activeListingsCount ?? 0), 0) },
+              { label: "PF linked", value: `${users.filter((u) => u.pfPublicProfileId).length}/${users.length}` },
+            ].map((c) => (
+              <div key={c.label} className="min-w-[132px] shrink-0 rounded-2xl border border-border bg-surface px-4 py-3.5">
+                <div className="text-[12px] font-medium text-muted">{c.label}</div>
+                <div className="kpi-num tnum mt-1.5 text-[24px] font-bold leading-none">{c.value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input data-bare value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email or phone" className="min-w-0 flex-1 bg-transparent py-3 text-[15px] outline-none" />
+          </div>
+          <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
+            {(
+              [
+                ["ALL", "All"],
+                ["ADMIN", "Admins"],
+                ["MANAGER", "Managers"],
+                ["AGENT", "Agents"],
+                ["INACTIVE", "Inactive"],
+              ] as const
+            ).map(([key, label]) => (
+              <button key={key} type="button" onClick={() => setRoleTab(key)} aria-pressed={roleTab === key} className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium ${roleTab === key ? "bg-primary-soft text-primary" : "bg-surface-muted text-muted"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {loading ? (
         <div className="flex flex-col gap-3 mt-2 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-5">
           {[1, 2, 3].map((i) => (
@@ -312,8 +353,9 @@ export default function AdminUsersPage() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-3 mt-2 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-5 lg:items-start">
-          {users.map((u) => {
+        <div className="mt-3 flex flex-col gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-5 lg:items-start">
+          {visibleUsers.length === 0 && <p className="rounded-2xl border border-dashed border-border py-10 text-center text-[14px] text-muted">No team members match.</p>}
+          {visibleUsers.map((u) => {
             const isSelf = u.id === session?.user?.id;
             return (
               <div key={u.id} className="rounded-2xl bg-surface border border-border p-4 lg:p-5 lg:hover:shadow-md lg:transition-shadow">

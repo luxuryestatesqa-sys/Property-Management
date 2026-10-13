@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { memo } from "react";
 import Link from "next/link";
 import { ListingDTO } from "@/lib/types";
@@ -22,17 +23,16 @@ function ListingCardDesktop({ listing, compact = false }: { listing: ListingDTO;
   return (
     <Link
       href={`/property/${listing.id}`}
-      className="card-cv-compact group flex flex-col overflow-hidden rounded-[18px] bg-surface shadow-[var(--shadow-card)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]"
+      className="card-cv-compact group flex flex-col overflow-hidden rounded-[18px] card-hover border border-border bg-surface"
     >
       <div className={`relative overflow-hidden bg-surface-muted ${compact ? "aspect-[4/3]" : "aspect-[16/10] wide:aspect-[16/11]"}`}>
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={cover.url}
             alt={listing.buildingName}
-            loading="lazy"
-            decoding="async"
-            className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${listing.status === "INACTIVE" ? "grayscale" : ""}`}
+            fill
+            sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
+            className={`object-cover transition-transform duration-500 group-hover:scale-[1.04] ${listing.status === "INACTIVE" ? "grayscale" : ""}`}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted/50">
@@ -45,10 +45,10 @@ function ListingCardDesktop({ listing, compact = false }: { listing: ListingDTO;
         <div className="absolute left-3 top-3 flex items-center gap-1.5">
           <TypePill type={listing.listingType} solid />
           {listing.status === "INACTIVE" && (
-            <span className="rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold leading-none text-white">Inactive</span>
+            <span className="rounded-full bg-[rgba(13,31,92,0.72)] px-2.5 py-1 text-[11px] font-semibold leading-none text-white">Inactive</span>
           )}
         </div>
-        <div className="absolute right-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">
+        <div className="absolute right-3 top-3 rounded-full bg-[rgba(13,31,92,0.55)] px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">
           {listingCode(listing.id)}
         </div>
 

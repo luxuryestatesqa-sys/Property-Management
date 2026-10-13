@@ -19,7 +19,7 @@ export default function ChipSelect<T extends string>({
           className="text-[13px] font-medium px-3.5 py-2.5 rounded-xl"
           style={
             value === opt.value
-              ? { background: "var(--primary)", color: "#fff" }
+              ? { background: "var(--primary)", color: "var(--surface-elevated)" }
               : { background: "var(--surface-muted)", color: "var(--foreground)" }
           }
         >

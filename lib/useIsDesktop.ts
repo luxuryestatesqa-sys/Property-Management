@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-const QUERY = "(min-width: 1024px)";
+const QUERY = "(min-width: 768px)";
 
 function subscribe(callback: () => void) {
   const mql = window.matchMedia(QUERY);
@@ -8,7 +8,7 @@ function subscribe(callback: () => void) {
   return () => mql.removeEventListener("change", callback);
 }
 
-// True on laptop/desktop widths (Tailwind's `lg`). Lets a page render a
+// True from tablet width up (Tailwind's `lg`, set to 768px in globals.css). Lets a page render a
 // different, desktop-only layout instead of stacking CSS overrides on the
 // phone markup. Always false during server render, so phones never see the
 // desktop tree.

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
-import { ensureStages } from "@/lib/leads/stages";
+import { ensureStages, themedStages } from "@/lib/leads/stages";
 import { createLeads, IntakeError } from "@/lib/leads/intake";
-import { normalizePhone } from "@/lib/leads/csv";
+import { normalizePhone, resolveOrigin } from "@/lib/leads/csv";
 import type { Prisma } from "@prisma/client";
+import { agentCount } from "@/lib/leads/counts";
+import { avatarLink } from "@/lib/avatar";
 
 const MAX_LEADS = 300;
 
@@ -73,16 +75,33 @@ export async function GET(req: NextRequest) {
   const leads = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore ? leads[leads.length - 1].id : null;
 
-  // Per-agent / unassigned counts for the tabs (managers only), ignoring the agent filter itself.
-  let agentCounts: { assignedToId: string | null; count: number }[] = [];
+  // The one grid every count on screen is derived from (lib/leads/counts.ts): leads grouped by
+  // (agent, stage) under the search / channel / group filters, ignoring the agent and stage filters
+  // themselves so each dropdown can show what each choice would give.
+  const gridWhere: Prisma.LeadWhereInput = { ...where };
+  delete gridWhere.assignedToId;
+  delete gridWhere.stageId;
+  if (!manager) gridWhere.assignedToId = me;
+  const grouped = await db!.lead.groupBy({ by: ["assignedToId", "stageId"], where: gridWhere, _count: { _all: true } });
+  const countGrid = grouped.map((g) => ({ assignedToId: g.assignedToId, stageId: g.stageId, count: g._count._all }));
   let agents: { id: string; name: string; avatarUrl: string | null }[] = [];
+  let agentCounts: { assignedToId: string | null; count: number }[] = [];
   if (manager) {
-    const base: Prisma.LeadWhereInput = { ...where };
-    delete base.assignedToId;
-    const grouped = await db!.lead.groupBy({ by: ["assignedToId"], where: base, _count: { _all: true } });
-    agentCounts = grouped.map((g) => ({ assignedToId: g.assignedToId, count: g._count._all }));
-    agents = await db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } });
+    agents = (await db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } })).map((a) => avatarLink(a)!);
+    agentCounts = [...new Set(countGrid.map((c) => c.assignedToId))].map((id) => ({ assignedToId: id, count: agentCount(countGrid, id) }));
   }
+
+  // Leads that share a phone number or email with another lead the person may see: the "Duplicate" badge.
+  const phones = [...new Set(leads.flatMap((l) => (l.phone ? [l.phone] : [])))];
+  const emails = [...new Set(leads.flatMap((l) => (l.email ? [l.email.toLowerCase()] : [])))];
+  const scope: Prisma.LeadWhereInput = manager ? {} : { assignedToId: me };
+  const [phoneGroups, emailGroups] = await Promise.all([
+    phones.length ? db!.lead.groupBy({ by: ["phone"], where: { ...scope, phone: { in: phones } }, _count: { _all: true } }) : [],
+    emails.length ? db!.lead.groupBy({ by: ["email"], where: { ...scope, email: { in: emails, mode: "insensitive" } }, _count: { _all: true } }) : [],
+  ]);
+  const phoneCount = new Map(phoneGroups.map((g) => [g.phone, g._count._all]));
+  const emailCount = new Map(emailGroups.map((g) => [(g.email ?? "").toLowerCase(), g._count._all]));
+  const dupOf = (l: { phone: string | null; email: string | null }) => Math.max((l.phone ? phoneCount.get(l.phone) ?? 1 : 1) - 1, (l.email ? emailCount.get(l.email.toLowerCase()) ?? 1 : 1) - 1);
 
   const newStageId = stages.find((s) => s.kind === "OPEN")?.id;
   const newCount = await db!.lead.count({ where: { ...(manager ? {} : { assignedToId: me }), stageId: newStageId } });
@@ -94,13 +113,15 @@ export async function GET(req: NextRequest) {
       phone: l.phone,
       email: l.email,
       channel: l.channel,
+      sourceLabel: l.sourceLabel,
+      duplicates: dupOf(l),
       source: l.source,
       pfStatus: l.pfStatus,
       region: l.region,
       listing: l.listing ? { id: l.listing.id, buildingName: l.listing.buildingName } : null,
       listingReference: l.listingReference,
       stageId: l.stageId,
-      assignedTo: l.assignedTo,
+      assignedTo: avatarLink(l.assignedTo),
       receivedAt: l.receivedAt,
       callTalkTime: l.callTalkTime,
       hasRecording: Boolean(l.callRecordUrl),
@@ -111,9 +132,10 @@ export async function GET(req: NextRequest) {
     })),
     total,
     nextCursor,
-    stages: stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, color: s.color, position: s.position })),
+    stages: themedStages(stages).map((s) => ({ id: s.id, name: s.name, kind: s.kind, color: s.color, position: s.position })),
     agents,
     agentCounts,
+    countGrid,
     newCount,
     canManage: manager,
   });
@@ -131,13 +153,14 @@ export async function POST(req: NextRequest) {
   const manager = isManagerRole(session!.user.role);
   const mode = manager && (body?.assign?.mode === "rules" || body?.assign?.mode === "agent" || body?.assign?.mode === "none") ? body.assign.mode : "self";
   if (mode === "agent" && !body?.assign?.agentId) return NextResponse.json({ error: "Choose an agent" }, { status: 400 });
-  const channel = body?.channel === "WHATSAPP" || body?.channel === "CALL" || body?.channel === "EMAIL" ? body.channel : "OTHER";
+  const origin = resolveOrigin(body?.channel);
+  const channel = origin.channel;
 
   try {
     const me = await db!.user.findFirst({ where: { id: session!.user.id }, select: { name: true } });
     const r = await createLeads(
       orgId!,
-      [{ name: body?.name, phone: body?.phone, email: body?.email, region: body?.region, notes: body?.notes, channel }],
+      [{ name: body?.name, phone: body?.phone, email: body?.email, region: body?.region, notes: body?.notes, channel, sourceLabel: origin.sourceLabel ?? "Manual" }],
       { source: "MANUAL", actor: { id: session!.user.id, name: me?.name ?? "a team member" }, assign: { mode, agentId: body?.assign?.agentId }, stageId: manager ? body?.stageId : undefined, allowDuplicates: Boolean(body?.force) }
     );
     if (r.invalid.length) return NextResponse.json({ error: r.invalid[0].reason === "No phone number or email" ? "Enter a phone number or an email" : r.invalid[0].reason }, { status: 400 });

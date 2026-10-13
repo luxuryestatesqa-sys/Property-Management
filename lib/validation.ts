@@ -119,6 +119,12 @@ const privateListingFields = {
   privateNotes: optionalPrivateText(2000),
   titleDeedImage: optionalPrivateImage(),
   authorizationFormImage: optionalPrivateImage(),
+  // The owner record this listing belongs to, and when the current lease ends (a date, "2027-03-31").
+  ownerId: z.preprocess(trimOrPassThrough, z.string().max(40).nullable().optional()),
+  leaseEndDate: z.preprocess(
+    (v) => (v === "" ? null : v),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}/, "Enter a valid date").transform((d) => new Date(d.slice(0, 10) + "T00:00:00.000Z")).nullable().optional()
+  ),
 };
 
 export const listingCreateSchema = z
@@ -218,6 +224,8 @@ export const orgUpdateSchema = z.object({
     .optional(),
   // A small data URL (resized client-side) or null to remove the logo.
   logoUrl: z.string().startsWith("data:image/", "Invalid image").max(400_000, "Logo is too large").nullable().optional(),
+  // Hours a new lead may wait before it shows under "Needs attention".
+  contactSlaHours: z.number().int().min(1, "At least 1 hour").max(168, "At most 168 hours (a week)").optional(),
 });
 
 // Creates a brand-new agency together with its first (OWNER) account.

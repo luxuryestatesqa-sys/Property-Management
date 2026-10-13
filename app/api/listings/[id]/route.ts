@@ -202,6 +202,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // just its owner/admin), so logging the actual owner phone/title deed etc.
   // there would defeat the point of keeping them private.
   let privateDetailsChanged = false;
+  // An owner must belong to this agency.
+  if (data.ownerId && !(await db!.owner.findFirst({ where: { id: data.ownerId }, select: { id: true } }))) return NextResponse.json({ error: "Unknown owner" }, { status: 404 });
   for (const field of PRIVATE_LISTING_FIELDS) {
     const newVal = data[field];
     if (newVal !== undefined && newVal !== listing[field]) {

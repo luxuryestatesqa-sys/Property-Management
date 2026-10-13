@@ -3,7 +3,7 @@
 export default function PropertyDetailSkeleton() {
   return (
     <div className="px-4 pb-10 animate-pulse lg:px-0">
-      <div className="sticky top-0 z-20 bg-background safe-top pt-4 pb-3 flex items-center gap-3 lg:pt-8 lg:pb-5">
+      <div className="sticky top-0 z-20 glass safe-top pt-4 pb-3 flex items-center gap-3 lg:pt-8 lg:pb-5">
         <div className="w-9 h-9 rounded-full bg-surface-muted shrink-0" />
         <div className="h-5 w-40 rounded bg-surface-muted" />
       </div>

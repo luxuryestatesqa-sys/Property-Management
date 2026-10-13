@@ -3,7 +3,7 @@ import type { LeadChannel } from "@prisma/client";
 import { tenantDb } from "@/lib/tenant";
 import { firstStageId } from "./stages";
 import { makeRulePicker } from "./rules";
-import { normalizeEmail, normalizePhone } from "./csv";
+import { normalizeEmail, normalizePhone, collapseDoubledName } from "./csv";
 
 // Adding leads by hand and importing them from a file share this code: the same checks, the same
 // duplicate rules and the same timeline entries. Property Finder leads use ingest.ts instead.
@@ -15,6 +15,7 @@ export interface NewLeadInput {
   region?: unknown;
   notes?: unknown;
   channel?: LeadChannel;
+  sourceLabel?: string | null; // "Facebook", "WhatsApp"... shown as the lead's source
   receivedAt?: Date | null;
   extra?: Record<string, string>; // other columns from a file, shown under "Enquiry details"
 }
@@ -51,12 +52,12 @@ export async function createLeads(orgId: string, inputs: NewLeadInput[], opts: I
   const result: IntakeResult = { created: 0, duplicates: [], invalid: [], leadIds: [] };
 
   // 1. Clean each row; drop the ones with nothing to contact.
-  const clean: { row: number; name: string; phone: string | null; email: string | null; region: string | null; notes: string | null; channel: LeadChannel; receivedAt: Date; extra: Record<string, string> }[] = [];
+  const clean: { row: number; sourceLabel: string | null; name: string; phone: string | null; email: string | null; region: string | null; notes: string | null; channel: LeadChannel; receivedAt: Date; extra: Record<string, string> }[] = [];
   inputs.forEach((r, i) => {
     const row = i + rowOffset;
     const phone = normalizePhone(r.phone);
     const email = normalizeEmail(r.email);
-    const name = text(r.name, 120) || phone || email || "";
+    const name = collapseDoubledName(text(r.name, 120)) || phone || email || "";
     if (!phone && !email) return result.invalid.push({ row, reason: text(r.phone, 30) ? "The phone number isn't valid" : "No phone number or email" });
     clean.push({
       row,
@@ -66,6 +67,7 @@ export async function createLeads(orgId: string, inputs: NewLeadInput[], opts: I
       region: text(r.region, 120) || null,
       notes: text(r.notes, 2000) || null,
       channel: r.channel ?? "OTHER",
+      sourceLabel: r.sourceLabel ? text(r.sourceLabel, 40) : null,
       receivedAt: r.receivedAt && r.receivedAt.getTime() <= Date.now() + 86400000 ? r.receivedAt : new Date(),
       extra: r.extra ?? {},
     });
@@ -124,6 +126,7 @@ export async function createLeads(orgId: string, inputs: NewLeadInput[], opts: I
       email: c.email,
       region: c.region,
       channel: c.channel,
+      sourceLabel: c.sourceLabel,
       stageId,
       assignedToId: plan[i].to,
       receivedAt: c.receivedAt,

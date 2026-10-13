@@ -284,7 +284,7 @@ export default function PropertyOryxPage() {
                   </label>
                   <Counter value={form.title} max={50} />
                 </div>
-                <input id="oryx-title" value={form.title} maxLength={50} onChange={(e) => set("title", e.target.value)} className={inputCls} placeholder="Furnished 2BR with marina view" />
+                <input id="oryx-title" value={form.title} maxLength={50} onChange={(e) => set("title", e.target.value)} className={inputCls} placeholder="e.g. Furnished 2BR with marina view" />
                 <p className={hint}>Short and descriptive. Don&apos;t write it all in capitals. No emojis.</p>
               </div>
               <div>
@@ -373,7 +373,7 @@ export default function PropertyOryxPage() {
                 <div key={img.id} className={`relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-muted ${i >= ORYX_MAX_PHOTOS ? "opacity-40" : ""}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={img.url} alt="" className="h-full w-full object-cover" />
-                  <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white">{i < ORYX_MAX_PHOTOS ? i + 1 : "not sent"}</span>
+                  <span className="absolute left-1.5 top-1.5 rounded-md bg-[rgba(13,31,92,0.6)] px-1.5 py-0.5 text-[11px] font-medium text-white">{i < ORYX_MAX_PHOTOS ? i + 1 : "not sent"}</span>
                 </div>
               ))}
               {listing.images.length === 0 && <p className="col-span-full rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted">No photos yet.</p>}
@@ -383,7 +383,7 @@ export default function PropertyOryxPage() {
           <section id="oryx-agent" className={card}>
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-[16px] font-medium">Agent</h2>
-              <Link href="/profile" className="text-[13px] font-medium" style={{ color: "var(--primary)" }}>
+              <Link href="/settings" className="text-[13px] font-medium" style={{ color: "var(--primary)" }}>
                 Edit in Settings
               </Link>
             </div>

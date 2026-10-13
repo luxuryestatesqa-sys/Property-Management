@@ -2,30 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useLeadBadge } from "@/lib/useLeadBadge";
 import { useSession } from "next-auth/react";
 
 const icons = {
   properties: (active: boolean) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "var(--text-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 10.5 12 3l9 7.5" />
       <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
     </svg>
   ),
   listings: (active: boolean) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "var(--text-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="4" y="4" width="16" height="16" rx="2" />
       <path d="M8 9h8M8 13h8M8 17h4" />
     </svg>
   ),
   leads: (active: boolean) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "var(--text-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
       <path d="M8 9h8M8 12.5h5" />
     </svg>
   ),
   profile: (active: boolean) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "#8a93a3"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--primary)" : "var(--text-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" />
     </svg>
@@ -37,9 +37,9 @@ function NavItem({ href, label, icon, active, badge }: { href: string; label: st
     <Link href={href} aria-current={active ? "page" : undefined} className="relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 active:opacity-70">
       <span className={`relative flex h-8 w-14 items-center justify-center rounded-full transition-colors ${active ? "bg-accent-light" : ""}`}>
         {icon(active)}
-        {badge ? <span className="tnum absolute -right-0.5 -top-0.5 min-w-[17px] rounded-full bg-rose-500 px-1 py-0.5 text-center text-[10px] font-semibold leading-none text-white ring-2 ring-white">{badge > 99 ? "99+" : badge}</span> : null}
+        {badge ? <span className="tnum absolute -right-0.5 -top-0.5 min-w-[17px] rounded-full bg-primary px-1 py-0.5 text-center text-[10px] font-semibold leading-none text-white ring-2 ring-white">{badge > 99 ? "99+" : badge}</span> : null}
       </span>
-      <span className={`text-[11px] ${active ? "font-medium" : ""}`} style={{ color: active ? "var(--primary)" : "#8a93a3" }}>
+      <span className={`text-[11px] ${active ? "font-medium" : ""}`} style={{ color: active ? "var(--primary)" : "var(--text-muted)" }}>
         {label}
       </span>
     </Link>
@@ -50,22 +50,7 @@ export default function BottomNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
   // New leads and overdue follow-ups, for the badge on the Leads tab.
-  const [leadBadge, setLeadBadge] = useState(0);
-  useEffect(() => {
-    if (!session?.user) return;
-    let cancelled = false;
-    const load = () =>
-      fetch("/api/leads/summary")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => !cancelled && d && setLeadBadge((d.newCount ?? 0) + (d.overdueCount ?? 0)))
-        .catch(() => {});
-    load();
-    const t = setInterval(load, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [session?.user, pathname]);
+  const leadBadge = useLeadBadge(!!session?.user, pathname);
 
   const addActive = pathname.startsWith("/add");
 
@@ -75,13 +60,13 @@ export default function BottomNav() {
   ];
   const rightItems = [
     { href: "/leads", label: "Leads", icon: icons.leads, badge: leadBadge },
-    { href: "/profile", label: "Settings", icon: icons.profile },
+    { href: "/settings", label: "Settings", icon: icons.profile },
   ];
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border safe-bottom overflow-visible">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass border-t border-white/60 safe-bottom overflow-visible">
       <div className="relative mx-auto max-w-md grid items-stretch" style={{ gridTemplateColumns: "1fr 64px 1fr" }}>
         <div className="flex">
           {leftItems.map((item) => (
@@ -103,14 +88,13 @@ export default function BottomNav() {
           className="absolute left-1/2 -translate-x-1/2 -top-6 flex flex-col items-center gap-1 active:opacity-80"
         >
           <div
-            className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-background"
-            style={{ background: "var(--primary)" }}
+            className="w-14 h-14 rounded-full flex items-center justify-center bg-brand-gradient border-4 border-background shadow-[0_8px_24px_rgba(43,79,192,0.4)]"
           >
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
           </div>
-          <span className="text-[11px] font-medium" style={{ color: addActive ? "var(--primary)" : "#8a93a3" }}>
+          <span className="text-[11px] font-medium" style={{ color: addActive ? "var(--primary)" : "var(--text-muted)" }}>
             Add
           </span>
         </Link>

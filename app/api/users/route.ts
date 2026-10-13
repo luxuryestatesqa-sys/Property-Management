@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-helpers";
 import { userCreateSchema } from "@/lib/validation";
 import { createIdentity } from "@/lib/identity";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const { db, error } = await requireAdmin();
@@ -38,7 +39,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { db, orgId, error } = await requireAdmin();
+  const { session, db, orgId, error } = await requireAdmin();
   if (error) return error;
 
   const body = await req.json();
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true, name: true, email: true, whatsapp: true, avatarUrl: true, role: true, status: true, createdAt: true },
   });
+  void logActivity(orgId!, { type: "user_added", agentId: session!.user.id, newValue: user.role, note: `${user.name} (${user.email})` });
   try {
     await createIdentity({ id: user.id, email: user.email, name: user.name, password: data.password });
   } catch (e) {

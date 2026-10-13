@@ -36,6 +36,7 @@ export async function ingestMetaLead(orgId: string, lead: GraphLead, ctx: { page
         email: n.email,
         region: n.region,
         channel: "FORM",
+        sourceLabel: n.platformLabel,
         stageId,
         assignedToId: match?.userId ?? null,
         receivedAt: n.receivedAt,

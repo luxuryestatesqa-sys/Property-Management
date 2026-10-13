@@ -26,7 +26,7 @@ export default function MultiChipSelect({
             type="button"
             onClick={() => toggle(opt.value)}
             className="text-[13px] font-medium px-3.5 py-2.5 rounded-xl"
-            style={active ? { background: "var(--primary)", color: "#fff" } : { background: "var(--surface-muted)", color: "var(--foreground)" }}
+            style={active ? { background: "var(--primary)", color: "var(--surface-elevated)" } : { background: "var(--surface-muted)", color: "var(--foreground)" }}
           >
             {opt.label}
           </button>

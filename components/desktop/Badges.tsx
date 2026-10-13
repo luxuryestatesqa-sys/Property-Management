@@ -14,7 +14,7 @@ export function TypePill({ type, solid }: { type: ListingType; solid?: boolean }
       className={base}
       style={
         solid
-          ? { background: "rgba(255,255,255,.95)", color: rent ? "var(--rent-text)" : "var(--sale-text)" }
+          ? { background: "rgba(255,255,255,.82)", color: "var(--text)", backdropFilter: "blur(8px)" }
           : { background: rent ? "var(--rent-bg)" : "var(--sale-bg)", color: rent ? "var(--rent-text)" : "var(--sale-text)" }
       }
     >

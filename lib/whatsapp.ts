@@ -17,7 +17,8 @@ export function buildListingInquiryMessage(listing: ListingDTO, agencyName = "ou
     .filter(Boolean)
     .join(" • ");
 
-  const unitLine = unitSummary(listing, false);
+  // "Unit hidden" listings never put a unit number or floor in a message.
+  const unitLine = listing.unitDetailsPrivate ? null : unitSummary(listing, false);
 
   return [
     `Hi ${listing.createdBy.name}, I'm interested in this listing on ${agencyName}:`,
@@ -44,7 +45,8 @@ export function buildListingShareMessage(listing: ListingDTO, url: string, agenc
     .filter(Boolean)
     .join(" • ");
 
-  const unitLine = unitSummary(listing, false);
+  // "Unit hidden" listings never put a unit number or floor in a message.
+  const unitLine = listing.unitDetailsPrivate ? null : unitSummary(listing, false);
 
   return [
     `Check out this listing on ${agencyName}:`,
@@ -63,4 +65,27 @@ export function buildWhatsAppLeadMessage(leadName: string, agencyName: string, p
   return propertyName
     ? `Hi ${first}, thank you for your interest in ${propertyName} with ${agencyName}. How can I help you?`
     : `Hi ${first}, thank you for contacting ${agencyName}. How can I help you?`;
+}
+
+// First message to a lead about a property they asked about: its details, price and the public link.
+// A listing with "Unit hidden" on never gets its unit number or floor in the message.
+export function buildLeadListingMessage(
+  lead: { name: string },
+  listing: { id: number; buildingName: string; area: string; community: string; listingType: "RENT" | "SALE"; rentPrice: number | null; salePrice: number | null; propertyCategory: ListingDTO["propertyCategory"]; bedrooms: ListingDTO["bedrooms"]; sizeSqm: number | null; unitDetailsPrivate: boolean; apartmentNumber: string; floor: string },
+  url: string,
+  agencyName: string
+): string {
+  const first = lead.name.trim().split(/\s+/)[0] || "there";
+  const price = listing.listingType === "RENT" ? `${formatQAR(listing.rentPrice)}/month` : formatQAR(listing.salePrice);
+  const details = [PROPERTY_CATEGORY_LABELS[listing.propertyCategory], listing.bedrooms ? BEDROOM_SHORT_LABELS[listing.bedrooms] : null, listing.sizeSqm ? formatSqm(listing.sizeSqm) : null, price].filter(Boolean).join(" • ");
+  const unit = listing.unitDetailsPrivate ? null : unitSummary(listing, false);
+  return [
+    `Hi ${first}, here are the details of the property you asked about with ${agencyName}:`,
+    "",
+    `${listingCode(listing.id)} - ${listing.buildingName}, ${listing.community}, ${listing.area}`,
+    ...(unit ? [unit] : []),
+    details,
+    "",
+    url,
+  ].join("\n");
 }

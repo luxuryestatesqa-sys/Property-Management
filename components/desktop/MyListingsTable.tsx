@@ -88,7 +88,9 @@ export function RowActions({ listing, onChange }: { listing: ListingDTO; onChang
         aria-label="More actions"
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
-          setMenu({ x: r.right, y: r.bottom + 6 });
+          const MENU_HEIGHT = 110;
+          const fitsBelow = r.bottom + 6 + MENU_HEIGHT <= window.innerHeight;
+          setMenu({ x: r.right, y: fitsBelow ? r.bottom + 6 : Math.max(8, r.top - 6 - MENU_HEIGHT) });
         }}
         className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-muted hover:text-foreground disabled:opacity-50"
       >

@@ -66,7 +66,7 @@ export default function CommandPalette() {
       { id: "n-mine", label: "My Listings", hint: "Manage your own", icon: <IconBuilding size={16} />, href: "/my-listings", group: "Go to" },
       { id: "n-add", label: "Add Property", hint: "Create a new listing", icon: <IconPlus size={16} />, href: "/add", group: "Go to" },
       ...(isAdmin ? [{ id: "n-users", label: "Users", hint: "Team and access", icon: <IconUsers size={16} />, href: "/admin/users", group: "Go to" }] : []),
-      { id: "n-set", label: "Settings", hint: "Account, branding, integrations", icon: <IconSettings size={16} />, href: "/profile", group: "Go to" },
+      { id: "n-set", label: "Settings", hint: "Account, branding, integrations", icon: <IconSettings size={16} />, href: "/settings", group: "Go to" },
     ];
     const filtered = q ? nav.filter((n) => n.label.toLowerCase().includes(q.toLowerCase())) : nav;
     return [...list, ...filtered];

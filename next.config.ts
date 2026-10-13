@@ -2,8 +2,19 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  images: {
+    // Listing photos are served by our own image route; the optimizer resizes them (and caches the result)
+    // so a card downloads a thumbnail, not the full photo.
+    localPatterns: [{ pathname: "/api/listings/**" }],
+    formats: ["image/webp"],
+    minimumCacheTTL: 31536000,
+  },
   turbopack: {
     root: path.join(__dirname),
+  },
+  async redirects() {
+    // Settings used to live at /profile; old bookmarks keep working.
+    return [{ source: "/profile", destination: "/settings", permanent: true }];
   },
   experimental: {
     // proxy.ts (this Next.js version's middleware) buffers every request

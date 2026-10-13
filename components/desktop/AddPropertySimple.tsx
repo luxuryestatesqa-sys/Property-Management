@@ -41,7 +41,7 @@ function Tile({ active, onClick, children }: { active: boolean; onClick: () => v
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-xl border px-4 py-3 text-[14px] font-medium transition-all ${
+      className={`rounded-xl border px-2 py-3 text-[14px] font-medium transition-all sm:px-4 ${
         active ? "border-primary bg-accent-light font-semibold text-primary shadow-sm ring-1 ring-primary/20" : "border-border bg-surface text-slate-700 hover:border-slate-300 hover:bg-slate-50"
       }`}
     >
@@ -173,12 +173,12 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
 
   return (
     <div className="page-in">
-      <div className="pb-7 pt-10">
+      <div className="px-4 pb-5 pt-4 lg:px-0 lg:pb-7 lg:pt-10">
         <h1 className="text-[28px] font-semibold leading-none tracking-[-0.025em]">Add Property</h1>
         <p className="mt-2.5 text-[15px] text-muted">Pick your options below. Only the numbered sections are needed.</p>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-8">
+      <div className="grid grid-cols-1 items-start gap-6 px-4 pb-8 md:px-0 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
         <div className="flex flex-col gap-6">
           {/* 1 ----------------------------------------------------------- */}
           <Section id="sec-type" n={1} title="Property type" problem={shown("sec-type")}>
@@ -199,7 +199,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
 
               <div>
                 <span className={fieldLabel}>Property type</span>
-                <div className="grid grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 min-[1040px]:grid-cols-5">
                   {visibleTypes.map((c) => (
                     <Tile
                       key={c}
@@ -235,11 +235,11 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                   <label className={fieldLabel}>Size</label>
                   <div className="flex items-center rounded-xl border border-border bg-surface px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
-                    <input data-bare type="number" inputMode="numeric" min="1" value={form.sizeSqm} onChange={(e) => update("sizeSqm", e.target.value)} placeholder="120" className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] outline-none" />
+                    <input data-bare type="number" inputMode="numeric" min="1" value={form.sizeSqm} onChange={(e) => update("sizeSqm", e.target.value)} placeholder="e.g. 120" className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] outline-none" />
                     <span className="text-[13px] text-muted">sqm</span>
                   </div>
                   <QuickPick values={SIZE_QUICK} current={form.sizeSqm} onPick={(v) => update("sizeSqm", v)} format={(n) => `${n}`} />
@@ -249,7 +249,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                     <label className={fieldLabel}>
                       Bathrooms <span className="font-normal text-muted">(optional)</span>
                     </label>
-                    <input type="number" inputMode="numeric" min="0" max="20" value={form.bathrooms} onChange={(e) => update("bathrooms", e.target.value)} placeholder="2" className={input} />
+                    <input type="number" inputMode="numeric" min="0" max="20" value={form.bathrooms} onChange={(e) => update("bathrooms", e.target.value)} placeholder="e.g. 2" className={input} />
                   </div>
                 )}
               </div>
@@ -274,7 +274,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                   <label className={fieldLabel}>
                     Rental value <span className="font-normal text-muted">(optional)</span>
                   </label>
-                  <MoneyInput value={form.rentalValue} onChange={(v) => update("rentalValue", v)} suffix="/ month" placeholder="10,000" />
+                  <MoneyInput value={form.rentalValue} onChange={(v) => update("rentalValue", v)} suffix="/ month" placeholder="e.g. 10,000" />
                 </div>
                 <div className="col-span-2 border-t border-slate-100 pt-5">
                   <SaleDetailsFields value={form} onChange={(patch) => (Object.keys(patch) as (keyof typeof patch)[]).forEach((k) => update(k, patch[k] as never))} showErrors={Boolean(shown("sec-price"))} />
@@ -303,14 +303,14 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 {unit?.showFloor && (
                   <div>
                     <label className={fieldLabel}>Floor <span className="font-normal text-muted">(optional)</span></label>
-                    <input type="text" inputMode="numeric" value={form.floor} onChange={(e) => update("floor", e.target.value)} placeholder="12" className={input} />
+                    <input type="text" inputMode="numeric" value={form.floor} onChange={(e) => update("floor", e.target.value)} placeholder="e.g. 12" className={input} />
                   </div>
                 )}
                 <div className={unit?.showFloor ? "" : "col-span-2"}>
                   <label className={fieldLabel}>
                     {unit?.unitLabel ?? "Apartment No."} <span className="font-normal text-muted">(optional)</span>
                   </label>
-                  <input type="text" value={form.apartmentNumber} onChange={(e) => update("apartmentNumber", e.target.value)} placeholder={unit?.unitPlaceholder ?? "1204"} className={input} />
+                  <input type="text" value={form.apartmentNumber} onChange={(e) => update("apartmentNumber", e.target.value)} placeholder={`e.g. ${unit?.unitPlaceholder ?? "1204"}`} className={input} />
                 </div>
               </div>
               <UnitDetailsPrivacyField value={form.unitDetailsPrivate} onChange={(v) => update("unitDetailsPrivate", v)} unitLabel={unit?.unitLabel ?? "Apartment No."} showFloor={Boolean(unit?.showFloor)} />
