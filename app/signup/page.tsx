@@ -5,8 +5,9 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { extractErrorMessage } from "@/lib/errors";
+import AuthShell from "@/components/AuthShell";
 
-const input = "w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary";
+const input = "w-full rounded-xl border border-border px-4 py-3 text-[15px] outline-none";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -48,45 +49,40 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-10 lg:grid lg:grid-cols-[1.1fr_1fr] lg:p-0">
-      <aside className="hidden lg:flex flex-col justify-between p-14 text-white" style={{ background: "var(--gradient-primary)" }}>
-        <div className="text-[18px] font-semibold tracking-tight">Listings Portal</div>
-        <div>
-          <h2 className="text-4xl font-bold leading-tight tracking-tight max-w-md">Run your whole agency from one place.</h2>
-          <ul className="mt-6 flex flex-col gap-3 text-[16px] max-w-md" style={{ color: "rgba(255,255,255,0.78)" }}>
-            <li>Manage listings and publish to property portals</li>
-            <li>Capture, assign and follow up on leads</li>
-            <li>Give every agent their own login and role</li>
-          </ul>
-        </div>
-        <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.6)" }}>Your agency&apos;s data is private to your agency.</p>
-      </aside>
-
-      <div className="mx-auto w-full max-w-sm lg:max-w-md lg:flex lg:flex-col lg:justify-center lg:px-10">
-        <div className="mb-7">
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Create your agency account</h1>
+    <AuthShell
+      wide
+      headline="Run your whole agency from one place."
+      points={[
+        "Manage listings and publish to property portals",
+        "Capture, assign and follow up on leads",
+        "Give every agent their own login and role",
+      ]}
+      footnote="Your agency's data is private to your agency."
+    >
+        <div className="mb-5">
+          <h1 className="text-[26px] font-bold tracking-tight" style={{ color: "var(--primary-dark)" }}>Create your agency account</h1>
           <p className="text-[15px] text-muted mt-1.5">You&apos;ll be the owner and can invite your team afterwards.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm font-medium block mb-1.5">Agency name</label>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="text-[13px] font-medium block mb-1">Agency name</label>
             <input required value={agencyName} onChange={(e) => setAgencyName(e.target.value)} className={input} placeholder="Your Agency Real Estate" maxLength={60} />
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1.5">Your name</label>
+            <label className="text-[13px] font-medium block mb-1">Your name</label>
             <input required value={name} onChange={(e) => setName(e.target.value)} className={input} autoComplete="name" />
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1.5">Email</label>
+            <label className="text-[13px] font-medium block mb-1">Email</label>
             <input required type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} className={input} autoComplete="username" placeholder="you@company.com" />
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1.5">WhatsApp number</label>
+            <label className="text-[13px] font-medium block mb-1">WhatsApp number</label>
             <input required type="tel" autoComplete="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={input} placeholder="e.g. +974 5000 0000" />
           </div>
-          <div>
-            <label className="text-sm font-medium block mb-1.5">Password</label>
+          <div className="sm:col-span-2">
+            <label className="text-[13px] font-medium block mb-1">Password</label>
             <div className="relative">
               <input required type={showPassword ? "text" : "password"} minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={`${input} pr-16`} autoComplete="new-password" placeholder="At least 8 characters" />
               <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted">
@@ -97,20 +93,19 @@ export default function SignupPage() {
           {/* honeypot */}
           <input tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} className="hidden" aria-hidden="true" name="website" />
 
-          {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
+          {error && <div className="sm:col-span-2 rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
 
-          <button type="submit" disabled={loading} className="mt-1 w-full rounded-xl py-3.5 text-base font-semibold text-white active:opacity-80 disabled:opacity-60" style={{ background: "var(--primary)" }}>
+          <button type="submit" disabled={loading} className="sm:col-span-2 mt-1 w-full rounded-xl py-3 text-base font-semibold text-white active:opacity-80 disabled:opacity-60" style={{ background: "var(--primary)" }}>
             {loading ? "Creating..." : "Create agency"}
           </button>
         </form>
 
-        <p className="text-center text-[13px] text-muted mt-5">
+        <p className="text-center text-[14px] text-muted mt-5 pt-5 border-t border-border">
           Already have an account?{" "}
           <Link href="/login" className="font-semibold" style={{ color: "var(--primary)" }}>
             Sign in
           </Link>
         </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

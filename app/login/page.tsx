@@ -4,12 +4,14 @@ import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import AuthShell from "@/components/AuthShell";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,84 +40,81 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-10 lg:grid lg:grid-cols-[1.1fr_1fr] lg:p-0">
-      <aside className="hidden lg:flex flex-col justify-between p-14 text-white" style={{ background: "var(--gradient-primary)" }}>
-        <div className="text-[18px] font-semibold tracking-tight">Listings Portal</div>
-        <div>
-          <h2 className="text-4xl font-bold leading-tight tracking-tight max-w-md">
-            Every listing, every agent, one workspace.
-          </h2>
-          <p className="mt-4 text-[16px] max-w-md leading-relaxed" style={{ color: "rgba(255,255,255,0.78)" }}>
-            Search the whole company inventory, manage your own properties and publish to portals in a few clicks.
-          </p>
-        </div>
-        <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.6)" }}>Agent Listings Portal</p>
-      </aside>
-      <div className="mx-auto w-full max-w-sm lg:max-w-md lg:flex lg:flex-col lg:justify-center lg:px-10">
-        <div className="flex flex-col items-center mb-8 lg:hidden">
-          <p className="text-xl font-bold">Listings Portal</p>
-          <p className="text-sm text-muted">Agent sign in</p>
-        </div>
-        <div className="hidden lg:block mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-[15px] text-muted mt-1.5">Sign in to your agent account to continue.</p>
-        </div>
+    <AuthShell
+      headline="Every listing, every agent, one workspace."
+      points={[
+        "Search the whole company inventory",
+        "Manage your own properties and leads",
+        "Publish to portals in a few clicks",
+      ]}
+      footnote="Agent Listings Portal"
+    >
+      <div className="mb-7">
+        <h1 className="text-[28px] font-bold tracking-tight" style={{ color: "var(--primary-dark)" }}>Welcome back</h1>
+        <p className="text-[15px] text-muted mt-1.5">Sign in to your agent account to continue.</p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1.5">Email</label>
-            <input
-              type="email"
-              required
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
-              placeholder="you@company.com"
-            />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label htmlFor="email" className="text-sm font-medium text-foreground block mb-1.5">Email</label>
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-xl border border-border px-4 py-3.5 text-base outline-none"
+            placeholder="you@company.com"
+          />
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="password" className="text-sm font-medium text-foreground">Password</label>
+            <Link href="/forgot-password" className="text-[13px] font-semibold" style={{ color: "var(--primary)" }}>
+              Forgot password?
+            </Link>
           </div>
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1.5">Password</label>
+          <div className="relative">
             <input
-              type="password"
+              id="password"
+              type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
-              placeholder="••••••••"
+              className="w-full rounded-xl border border-border px-4 py-3.5 pr-16 text-base outline-none"
+              placeholder="Enter your password"
             />
+            <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted">
+              {showPassword ? "Hide" : "Show"}
+            </button>
           </div>
+        </div>
 
-          {error && (
-            <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>
-          )}
+        {error && (
+          <div role="alert" className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>
+        )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 w-full rounded-xl py-3.5 text-base font-semibold text-white active:opacity-80 disabled:opacity-60"
-            style={{ background: "var(--primary)" }}
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-1 w-full rounded-xl py-3.5 text-base font-semibold text-white active:opacity-80 disabled:opacity-60"
+          style={{ background: "var(--primary)" }}
+        >
+          {loading ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
 
-        <p className="text-center text-[13px] text-muted mt-5">
-          <Link href="/forgot-password" className="font-semibold" style={{ color: "var(--primary)" }}>
-            Forgot your password?
+      {process.env.NEXT_PUBLIC_ALLOW_SIGNUP !== "false" && (
+        <p className="text-center text-[14px] text-muted mt-7 pt-6 border-t border-border">
+          New agency?{" "}
+          <Link href="/signup" className="font-semibold" style={{ color: "var(--primary)" }}>
+            Create an account
           </Link>
         </p>
-        {process.env.NEXT_PUBLIC_ALLOW_SIGNUP !== "false" && (
-          <p className="text-center text-[13px] text-muted mt-3">
-            New agency?{" "}
-            <Link href="/signup" className="font-semibold" style={{ color: "var(--primary)" }}>
-              Create an account
-            </Link>
-          </p>
-        )}
-      </div>
-    </div>
+      )}
+    </AuthShell>
   );
 }
 
