@@ -8,6 +8,7 @@ import { extractErrorMessage } from "@/lib/errors";
 import { BEDROOM_LABELS, bedroomOptionsFor, isResidentialCategory } from "@/lib/propertyCategory";
 import { AMENITY_LABELS, amenityOptionsFor, bathroomsFromInputValue, bathroomsToInputValue } from "@/lib/propertyFinder/mapping";
 import { ORYX_AMENITY_CODES, ORYX_MAX_PHOTOS } from "@/lib/feeds/oryxCodes";
+import { formatQAR } from "@/lib/format";
 
 interface Problem {
   level: "error" | "warning" | "info";
@@ -80,7 +81,9 @@ export default function PropertyOryxPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [view, setView] = useState<"summary" | "xml">("summary");
+  const [view, setView] = useState<"preview" | "summary" | "xml">("preview");
+  const [confirming, setConfirming] = useState(false);
+  const [photo, setPhoto] = useState(0);
   const [copied, setCopied] = useState(false);
   const [denied, setDenied] = useState("");
 
@@ -102,8 +105,8 @@ export default function PropertyOryxPage() {
   const dirty = Boolean(form && saved && JSON.stringify(form) !== JSON.stringify(saved));
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => (f ? { ...f, [k]: v } : f));
 
-  async function save() {
-    if (!listing || !form || !saved) return;
+  async function save(): Promise<boolean> {
+    if (!listing || !form || !saved) return false;
     setSaving(true);
     setMessage(null);
     try {
@@ -123,9 +126,13 @@ export default function PropertyOryxPage() {
       if (JSON.stringify(form.amenities) !== JSON.stringify(saved.amenities)) body.amenities = form.amenities;
       const res = await fetch(`/api/listings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => null);
-      if (!res.ok) return setMessage({ ok: false, text: extractErrorMessage(data?.error, "Couldn't save the changes.") });
+      if (!res.ok) {
+        setMessage({ ok: false, text: extractErrorMessage(data?.error, "Couldn't save the changes.") });
+        return false;
+      }
       setMessage({ ok: true, text: review?.enabled ? "Saved. The change goes to Property Oryx the next time it reads your feed." : "Saved." });
       await load();
+      return true;
     } finally {
       setSaving(false);
     }
@@ -145,7 +152,11 @@ export default function PropertyOryxPage() {
     }
   }
 
-  const goTo = (field: string) => document.getElementById(SECTION_OF[field] ?? "oryx-top")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  async function saveAndPublish() {
+    setConfirming(false);
+    if (dirty && !(await save())) return;
+    await setPublished(true);
+  }
 
   if (denied)
     return (
@@ -174,7 +185,30 @@ export default function PropertyOryxPage() {
   const notes = review.problems.filter((p) => p.level === "info");
   const field = (label: string) => review.fields.find((f) => f.label === label);
   const amenityOptions = listing.propertyCategory === "LAND" ? [] : amenityOptionsFor(listing.propertyCategory);
-  const canPublish = errors.length === 0 && !dirty;
+
+  const steps = [
+    { id: "oryx-basics", label: "Basics", hint: "Price, size, rooms" },
+    { id: "oryx-text", label: "Title and description", hint: "What buyers read first" },
+    { id: "oryx-location", label: "Location", hint: "City, community, map pin" },
+    { id: "oryx-photos", label: "Photos", hint: `Up to ${ORYX_MAX_PHOTOS}` },
+    { id: "oryx-agent", label: "Agent", hint: "Contact details" },
+  ].map((st) => {
+    const mine = review.problems.filter((p) => (SECTION_OF[p.field] ?? "oryx-basics") === st.id);
+    const status: "error" | "warning" | "ok" = mine.some((p) => p.level === "error") ? "error" : mine.some((p) => p.level === "warning") ? "warning" : "ok";
+    return { ...st, status, first: mine.find((p) => p.level !== "info")?.message };
+  });
+  const doneCount = steps.filter((st) => st.status !== "error").length;
+  const photos = listing.images.slice(0, ORYX_MAX_PHOTOS).map((i) => i.url);
+  const priceNum = Number(form.price) || 0;
+  const location = [field("Community")?.value, field("City")?.value].filter((v) => v && v !== "—").join(", ");
+  const facts = [
+    residential && form.bedrooms ? ((BEDROOM_LABELS as Record<string, string>)[form.bedrooms] ?? form.bedrooms) : null,
+    residential && form.bathrooms ? `${form.bathrooms} bath` : null,
+    form.sizeSqm ? `${form.sizeSqm} sqm` : null,
+    form.furnished === "FURNISHED" ? "Furnished" : "Unfurnished",
+  ].filter(Boolean) as string[];
+  const primaryLabel = saving ? "Saving…" : publishing ? "Publishing…" : dirty ? "Save and publish" : errors.length ? "Fix the items above to publish" : "Publish to Property Oryx";
+  const primaryDisabled = publishing || saving || (!dirty && errors.length > 0);
 
   return (
     <div className="px-4 pb-40 pt-4 lg:px-0 lg:pb-16 lg:pt-8 page-in" id="oryx-top">
@@ -188,11 +222,11 @@ export default function PropertyOryxPage() {
         </Link>
       </div>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[26px] font-medium tracking-[-0.02em] lg:text-[30px]">Property Oryx</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[26px] font-medium tracking-[-0.02em] lg:text-[30px]">Publish to Property Oryx</h1>
           <p className="mt-1 text-[14px] text-muted">
-            Check and edit everything Oryx will receive for <span className="font-medium text-foreground">{listing.buildingName}</span> · {review.fields.find((f) => f.label === "Reference number")?.value}
+            <span className="font-medium text-foreground">{listing.buildingName}</span> · Ref {field("Reference number")?.value}. Review the details, check the preview, then publish.
           </p>
         </div>
         <span className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium ${review.enabled ? "bg-success-bg" : "bg-surface-muted text-muted"}`} style={review.enabled ? { color: "var(--success)" } : undefined}>
@@ -392,50 +426,63 @@ export default function PropertyOryxPage() {
           </section>
         </div>
 
-        {/* ------------------------------------------------------------- right: status, checks, preview */}
+        {/* ------------------------------------------------------------- right: readiness, publish, preview */}
         <div className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:order-2">
           <section className={card}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-[16px] font-medium">{errors.length ? "Not ready yet" : warnings.length ? "Ready, with a few things to check" : "Ready to publish"}</h2>
-                <p className="mt-0.5 text-[13px] text-muted">{errors.length ? `${errors.length} thing${errors.length === 1 ? "" : "s"} to fix first.` : dirty ? "Save your changes first." : review.enabled ? "This listing is in your Oryx feed." : "Everything Oryx needs is here."}</p>
+                <h2 className="text-[16px] font-medium">{errors.length ? "Not ready yet" : warnings.length ? "Ready, with a few things to check" : review.enabled ? "Live and up to date" : "Ready to publish"}</h2>
+                <p className="mt-0.5 text-[13px] text-muted">{errors.length ? `${errors.length} thing${errors.length === 1 ? "" : "s"} to fix first.` : dirty ? "You have unsaved changes. They are saved when you publish." : review.enabled ? "This listing is in your Oryx feed." : "Everything Oryx needs is here."}</p>
               </div>
-              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${errors.length ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"}`}>{errors.length ? "!" : "✓"}</span>
+              <span className="tnum shrink-0 rounded-full bg-surface-muted px-2.5 py-1 text-[12px] font-medium text-slate-600">
+                {doneCount}/{steps.length}
+              </span>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${(doneCount / steps.length) * 100}%`, background: errors.length ? "var(--primary)" : "var(--success)" }} />
             </div>
 
-            {review.problems.length > 0 && (
-              <ul className="mt-4 flex flex-col gap-1.5">
-                {[...errors, ...warnings].map((p, i) => (
-                  <li key={i}>
-                    <button type="button" onClick={() => goTo(p.field)} className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13.5px] hover:bg-surface-muted">
-                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${p.level === "error" ? "bg-rose-500" : "bg-amber-500"}`} />
-                      <span>{p.message}</span>
-                    </button>
-                  </li>
-                ))}
-                {notes.length > 0 && (
-                  <li>
-                    <details className="rounded-lg px-2.5 py-1.5 text-[13px] text-muted">
-                      <summary className="cursor-pointer">Good to know ({notes.length})</summary>
-                      <ul className="mt-1.5 flex flex-col gap-1.5 pl-1">
-                        {notes.map((p, i) => (
-                          <li key={i}>• {p.message}</li>
-                        ))}
-                      </ul>
-                    </details>
-                  </li>
-                )}
-              </ul>
+            <ul className="mt-3 flex flex-col">
+              {steps.map((st) => (
+                <li key={st.id}>
+                  <button type="button" onClick={() => document.getElementById(st.id)?.scrollIntoView({ behavior: "smooth", block: "center" })} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-muted">
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold ${st.status === "error" ? "bg-rose-100 text-rose-600" : st.status === "warning" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-600"}`}>{st.status === "error" ? "!" : st.status === "warning" ? "•" : "✓"}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-medium">{st.label}</span>
+                      <span className={`block truncate text-[12.5px] ${st.status === "ok" ? "text-muted" : st.status === "error" ? "text-danger" : "text-amber-700"}`}>{st.first ?? st.hint}</span>
+                    </span>
+                    <span className="text-slate-300" aria-hidden>›</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {notes.length > 0 && (
+              <details className="mt-2 rounded-lg px-2 py-1.5 text-[13px] text-muted">
+                <summary className="cursor-pointer">Good to know ({notes.length})</summary>
+                <ul className="mt-1.5 flex flex-col gap-1.5 pl-1">
+                  {notes.map((p, i) => (
+                    <li key={i}>• {p.message}</li>
+                  ))}
+                </ul>
+              </details>
             )}
 
-            <div className="mt-5">
+            <div className="mt-4 flex flex-col gap-2">
               {review.enabled ? (
-                <button type="button" disabled={publishing} onClick={() => setPublished(false)} className="h-12 w-full rounded-xl bg-danger-bg text-[14.5px] font-medium text-danger disabled:opacity-60">
-                  {publishing ? "Updating…" : "Remove from Property Oryx"}
-                </button>
+                <>
+                  {dirty && (
+                    <button type="button" disabled={saving} onClick={save} className="h-12 w-full rounded-xl text-[14.5px] font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                      {saving ? "Saving…" : "Save changes"}
+                    </button>
+                  )}
+                  <button type="button" disabled={publishing} onClick={() => setPublished(false)} className="h-11 w-full rounded-xl bg-danger-bg text-[14px] font-medium text-danger disabled:opacity-60">
+                    {publishing ? "Updating…" : "Remove from Property Oryx"}
+                  </button>
+                </>
               ) : (
-                <button type="button" disabled={publishing || !canPublish} onClick={() => setPublished(true)} className="h-12 w-full rounded-xl text-[14.5px] font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-                  {publishing ? "Publishing…" : dirty ? "Save changes to publish" : errors.length ? "Fix the items above to publish" : "Publish to Property Oryx"}
+                <button type="button" disabled={primaryDisabled} onClick={() => setConfirming(true)} className="h-12 w-full rounded-xl text-[14.5px] font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                  {primaryLabel}
                 </button>
               )}
             </div>
@@ -443,13 +490,70 @@ export default function PropertyOryxPage() {
 
           <section className={card}>
             <div className="mb-3 flex gap-1 rounded-xl bg-surface-muted p-1">
-              {(["summary", "xml"] as const).map((v) => (
+              {([["preview", "Preview"], ["summary", "Data sent"], ["xml", "XML"]] as const).map(([v, l]) => (
                 <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={`flex-1 rounded-lg py-2 text-[13.5px] font-medium ${view === v ? "bg-surface shadow-sm" : "text-muted"}`} style={view === v ? { color: "var(--primary)" } : undefined}>
-                  {v === "summary" ? "What Oryx gets" : "XML"}
+                  {l}
                 </button>
               ))}
             </div>
-            {view === "summary" ? (
+
+            {view === "preview" && (
+              <div>
+                <p className="mb-2 text-[12px] text-muted">How the listing reads on Property Oryx. Updates as you type.</p>
+                <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+                  <div className="relative aspect-[4/3] bg-surface-muted">
+                    {photos.length > 0 ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photos[Math.min(photo, photos.length - 1)]} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-[13px] text-muted">No photos yet</div>
+                    )}
+                    {photos.length > 1 && (
+                      <span className="absolute bottom-2 right-2 rounded-full bg-[rgba(13,31,92,0.6)] px-2.5 py-1 text-[11px] font-medium text-white">
+                        {Math.min(photo, photos.length - 1) + 1} / {photos.length}
+                      </span>
+                    )}
+                  </div>
+                  {photos.length > 1 && (
+                    <div className="no-scrollbar flex gap-1.5 overflow-x-auto p-2">
+                      {photos.map((u, i) => (
+                        <button key={u + i} type="button" onClick={() => setPhoto(i)} aria-label={`Photo ${i + 1}`} className={`h-11 w-14 shrink-0 overflow-hidden rounded-md ring-2 ${i === photo ? "ring-primary" : "ring-transparent"}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={u} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <div className="text-[20px] font-bold">
+                      {priceNum ? formatQAR(priceNum) : "Price not set"}
+                      {rent && priceNum > 0 && <span className="text-[13px] font-medium text-muted"> / month</span>}
+                    </div>
+                    <h3 className="mt-1 text-[16px] font-semibold leading-snug">{form.title || <span className="font-normal text-muted">Add a title</span>}</h3>
+                    {location && <p className="mt-1 text-[13px] text-muted">{location}</p>}
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {facts.map((f) => (
+                        <span key={f} className="rounded-full bg-surface-muted px-2.5 py-1 text-[12px] text-slate-600">
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-3 line-clamp-6 whitespace-pre-line text-[13.5px] leading-relaxed text-slate-700">{form.description || <span className="text-muted">Add a description</span>}</p>
+                    {form.amenities.some((a) => ORYX_AMENITY_CODES[a]) && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {form.amenities.filter((a) => ORYX_AMENITY_CODES[a]).map((a) => (
+                          <span key={a} className="rounded-full bg-accent-light px-2.5 py-1 text-[12px] text-primary">
+                            {AMENITY_LABELS[a] ?? a}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {view === "summary" && (
               <dl className="divide-y divide-border text-[13.5px]">
                 {review.fields.map((f) => (
                   <div key={f.label} className="flex items-start justify-between gap-4 py-2.5">
@@ -461,7 +565,9 @@ export default function PropertyOryxPage() {
                   </div>
                 ))}
               </dl>
-            ) : (
+            )}
+
+            {view === "xml" && (
               <>
                 <pre className="max-h-[420px] overflow-auto rounded-xl bg-slate-900 p-3.5 text-[11.5px] leading-relaxed text-slate-100">{review.xml ?? "Nothing to show yet. Fix the items above first."}</pre>
                 {review.xml && (
@@ -487,13 +593,40 @@ export default function PropertyOryxPage() {
       {dirty && (
         <div className="fixed inset-x-0 bottom-20 z-30 px-4 lg:bottom-6 lg:left-64 lg:right-0 lg:px-8">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
-            <span className="text-[14px]">You have unsaved changes</span>
+            <span className="text-[14px]">Unsaved changes</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => saved && setForm(saved)} className="rounded-lg px-3.5 py-2 text-[13.5px] hover:bg-white/10">
                 Discard
               </button>
-              <button type="button" disabled={saving} onClick={save} className="rounded-lg bg-white px-4 py-2 text-[13.5px] font-medium text-slate-900 disabled:opacity-60">
-                {saving ? "Saving…" : "Save changes"}
+              <button type="button" disabled={saving || publishing} onClick={save} className="rounded-lg bg-white px-4 py-2 text-[13.5px] font-medium text-slate-900 disabled:opacity-60">
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center" role="dialog" aria-modal="true" aria-label="Confirm publish">
+          <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={() => setConfirming(false)} />
+          <div className="relative w-full max-w-md rounded-t-3xl bg-background p-6 lg:rounded-3xl">
+            <h2 className="text-[18px] font-semibold">Publish to Property Oryx?</h2>
+            <p className="mt-2 text-[14px] text-muted">
+              <span className="font-medium text-foreground">{form.title || listing.buildingName}</span> will be added to your Oryx feed{dirty ? ", and your unsaved changes will be saved first" : ""}. You can remove it at any time.
+            </p>
+            {warnings.length > 0 && (
+              <ul className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+                {warnings.map((p, i) => (
+                  <li key={i}>• {p.message}</li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setConfirming(false)} className="h-12 flex-1 rounded-xl bg-surface-muted text-[14.5px] font-medium">
+                Cancel
+              </button>
+              <button type="button" onClick={saveAndPublish} className="h-12 flex-1 rounded-xl text-[14.5px] font-medium text-white" style={{ background: "var(--primary)" }}>
+                Publish
               </button>
             </div>
           </div>
