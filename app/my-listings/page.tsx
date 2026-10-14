@@ -154,21 +154,6 @@ export default function MyListingsPage() {
         </div>
       </div>
 
-      {/* Phones: the numbers scroll sideways */}
-      <div className="kpi-row no-scrollbar flex gap-3 overflow-x-auto px-4 pt-4">
-        {[
-          { label: "Active listings", value: counts.ACTIVE },
-          { label: "Inactive", value: counts.INACTIVE },
-          { label: "Available now", value: listingsByTab.ACTIVE.length === counts.ACTIVE ? listingsByTab.ACTIVE.filter((l) => l.availabilityStatus === "AVAILABLE").length : "—" },
-          { label: "Live on Property Finder", value: listingsByTab.ACTIVE.length === counts.ACTIVE ? listingsByTab.ACTIVE.filter((l) => l.propertyFinderState?.state === "live").length : "—" },
-        ].map((c) => (
-          <div key={c.label} className="min-w-[132px] shrink-0 rounded-2xl border border-border bg-surface px-4 py-3.5">
-            <div className="text-[12px] font-medium text-muted">{c.label}</div>
-            <div className="kpi-num tnum mt-1.5 text-[24px] font-bold leading-none">{loading ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : c.value}</div>
-          </div>
-        ))}
-      </div>
-
       <div className="px-4 py-4">
         {loading ? (
           <div className="flex flex-col gap-3">
