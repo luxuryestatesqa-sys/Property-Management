@@ -53,6 +53,7 @@ interface Detail {
     email: string | null;
     whatsappUsername: string | null;
     source: keyof typeof SOURCE_LABELS;
+    sourceLabel?: string | null;
     channel: keyof typeof CHANNEL_LABELS;
     entityType: string | null;
     pfStatus: string | null;
@@ -374,6 +375,14 @@ export default function LeadDetailPage() {
   const primaryBtn = "rounded-xl px-5 py-2.5 text-[13.5px] font-medium text-white disabled:opacity-50";
   const stageColor = lead.stage.color ?? "var(--primary)";
   const openTasks = lead.tasks.filter((t) => !t.doneAt);
+  const overdueTasks = openTasks.filter((t) => new Date(t.dueAt).getTime() < now).length;
+  // One colour per stage, the same ones the dashboard and the Leads page use.
+  const flowColors = (() => {
+    const palette = ["#2b4fc0", "#06b6d4", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+    let n = -1;
+    return new Map(stages.map((st) => [st.id, st.kind === "WON" ? "#16a34a" : st.kind === "LOST" ? "#f43f5e" : palette[++n % palette.length]]));
+  })();
+  const currentIdx = stages.findIndex((st) => st.id === lead.stageId);
   // Machine-written events stay as quiet one-liners; things people added get a card.
   const QUIET = new Set(["RECEIVED", "ASSIGNED", "UNASSIGNED", "STAGE_CHANGED", "PF_STATUS", "GROUP_CHANGED", "TASK_CREATED", "TASK_DONE", "MERGED", "PROPERTY_LINKED", "VIEWING_BOOKED", "VIEWING_DONE", "VIEWING_CANCELLED"]);
   const LIMIT = 8;
@@ -549,7 +558,13 @@ export default function LeadDetailPage() {
       )}
 
       <div className="px-1 text-[12px] text-muted">
-        Property Finder status: <span className="font-medium">{lead.pfStatus ?? "—"}</span> · Received {fullDateTime(lead.receivedAt)}
+        {/* Property Finder's delivery status only exists for Property Finder enquiries; other sources just say where they came from. */}
+        {lead.source === "PROPERTY_FINDER" ? (
+          <>Property Finder status: <span className="font-medium">{lead.pfStatus ?? "—"}</span></>
+        ) : (
+          <>Source: <span className="font-medium">{lead.sourceLabel ?? SOURCE_LABELS[lead.source]}</span></>
+        )}{" "}
+        · Received {fullDateTime(lead.receivedAt)}
       </div>
         </div>
       </details>
@@ -1104,11 +1119,13 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-light text-[22px] font-medium text-primary">{lead.name.trim().charAt(0).toUpperCase()}</span>
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-[22px] font-semibold text-white shadow-md" style={{ background: `linear-gradient(135deg, ${flowColors.get(lead.stageId) ?? "#2b4fc0"}, ${flowColors.get(lead.stageId) ?? "#2b4fc0"}bb)` }}>{lead.name.trim().charAt(0).toUpperCase()}</span>
             <div className="min-w-0">
-              <h1 className="truncate text-[24px] font-medium leading-tight tracking-[-0.02em] lg:text-[28px]">{lead.name}</h1>
-              <p className="mt-0.5 text-[14px] text-muted">
-                {SOURCE_LABELS[lead.source]} · {CHANNEL_LABELS[lead.channel]} · received {timeAgo(lead.receivedAt)}
+              <h1 className="truncate text-[24px] font-semibold leading-tight tracking-[-0.02em] lg:text-[28px]">{lead.name}</h1>
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-[13.5px] text-muted">
+                <span className="rounded-full px-2.5 py-0.5 text-[12px] font-semibold" style={{ background: "#dbeafe", color: "#1d4ed8" }}>{SOURCE_LABELS[lead.source]}</span>
+                <span className="rounded-full px-2.5 py-0.5 text-[12px] font-semibold" style={{ background: "#cffafe", color: "#0e7490" }}>{CHANNEL_LABELS[lead.channel]}</span>
+                received {timeAgo(lead.receivedAt)}
               </p>
             </div>
           </div>
@@ -1162,6 +1179,49 @@ export default function LeadDetailPage() {
             Not contacted yet · waiting <span className="font-medium">{duration(now - new Date(lead.receivedAt).getTime())}</span>
           </span>
         )}
+      </div>
+
+      {/* Pipeline: every stage in order, the lead's stage lit, one tap to move it */}
+      <div className="mt-4 rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm lg:px-5">
+        <ol className="flex flex-wrap items-center gap-2" aria-label="Lead pipeline">
+          {stages.map((st, i) => {
+            const c = flowColors.get(st.id) ?? "#2b4fc0";
+            const here = st.id === lead.stageId;
+            const passed = i < currentIdx && st.kind === "OPEN";
+            return (
+              <li key={st.id} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => !here && patch({ stageId: st.id })}
+                  aria-current={here ? "step" : undefined}
+                  title={here ? "Current stage" : `Move to ${st.name}`}
+                  className="rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all hover:opacity-90"
+                  style={here ? { background: c, color: "#fff", boxShadow: `0 4px 12px ${c}55` } : passed ? { background: `${c}22`, color: c } : { background: "var(--primary-soft)", color: "var(--text-muted)" }}
+                >
+                  {passed && <span className="mr-1">✓</span>}
+                  {st.name}
+                </button>
+                {i < stages.length - 1 && <span className="text-slate-300" aria-hidden="true">›</span>}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {[
+          { label: "Received", value: timeAgo(lead.receivedAt), hint: new Date(lead.receivedAt).toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric" }), tone: "#2b4fc0" },
+          { label: "First reply", value: responseMs !== null ? duration(responseMs) : "Waiting", hint: responseMs !== null ? "Time to first contact" : `${duration(now - new Date(lead.receivedAt).getTime())} so far`, tone: responseMs !== null ? "#16a34a" : "#f59e0b" },
+          { label: "Follow-ups", value: String(openTasks.length), hint: overdueTasks > 0 ? `${overdueTasks} overdue` : openTasks.length ? "None overdue" : "Nothing planned", tone: overdueTasks > 0 ? "#f43f5e" : "#8b5cf6" },
+          { label: "Activity", value: String(lead.activities.length), hint: "Entries on the timeline", tone: "#06b6d4" },
+        ].map((t) => (
+          <div key={t.label} className="relative overflow-hidden rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm">
+            <span className="absolute inset-x-0 top-0 h-1" style={{ background: t.tone }} />
+            <div className="text-[12.5px] font-medium text-muted">{t.label}</div>
+            <div className="tnum mt-1.5 text-[22px] font-bold leading-none tracking-tight" style={{ color: t.tone }}>{t.value}</div>
+            <div className="mt-1.5 truncate text-[12px] text-muted">{t.hint}</div>
+          </div>
+        ))}
       </div>
 
       {error && <div className="mt-4 rounded-xl bg-danger-bg px-4 py-3 text-[13.5px] text-danger">{error}</div>}

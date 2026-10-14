@@ -62,6 +62,8 @@ export async function advanceOnFirstContact(db: ReturnType<typeof tenantDb>, org
   const next = contactedStageFor(stages);
   if (!next || next.id === first.id) return false;
   await db.lead.update({ where: { id: lead.id }, data: { stageId: next.id } });
-  await db.leadActivity.create({ data: { organizationId: orgId, leadId: lead.id, userId, type: "STAGE_CHANGED", text: `Stage: ${first.name} → ${next.name}`, data: { from: first.id, to: next.id, auto: true }, createdAt: at } });
+  await db.leadActivity.create({ data: { organizationId: orgId, leadId: lead.id, userId, type: "STAGE_CHANGED", text: `Stage: ${first.name} → ${next.name}`, data: { from: first.id, to: next.id, auto: true } } });
+  // (no createdAt: the entry is stamped when it is written, after any manual move that happened while this request ran,
+  // so the timeline order matches what really happened and the newest entry matches the lead's current stage)
   return true;
 }

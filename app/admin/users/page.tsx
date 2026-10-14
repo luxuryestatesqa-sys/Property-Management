@@ -13,6 +13,16 @@ import { useIsDesktop } from "@/lib/useIsDesktop";
 import { ROLE_LABELS } from "@/lib/roles";
 import RowMenu from "@/components/desktop/RowMenu";
 
+// One colour per role, used for the badge and the avatar ring.
+const ROLE_STYLE: Record<string, { bg: string; fg: string }> = {
+  OWNER: { bg: "#fef3c7", fg: "#92400e" },
+  ADMIN: { bg: "#ede9fe", fg: "#5b21b6" },
+  MANAGER: { bg: "#cffafe", fg: "#0e7490" },
+  AGENT: { bg: "#dbeafe", fg: "#1d4ed8" },
+};
+const KPI_ACCENTS = ["#2b4fc0", "#16a34a", "#8b5cf6", "#f59e0b"];
+type UserSort = "name" | "listings" | "newest";
+
 export default function AdminUsersPage() {
   const { data: session } = useSession();
   const confirm = useConfirm();
@@ -25,6 +35,7 @@ export default function AdminUsersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roleTab, setRoleTab] = useState<"ALL" | "ADMIN" | "MANAGER" | "AGENT" | "INACTIVE">("ALL");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<UserSort>("name");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,13 +112,14 @@ export default function AdminUsersPage() {
   }
 
   const needle = search.trim().toLowerCase();
+  const maxListings = Math.max(1, ...users.map((u) => u.activeListingsCount ?? 0));
   const visibleUsers = users.filter((u) => {
     if (roleTab === "ADMIN" && !(u.role === "OWNER" || u.role === "ADMIN")) return false;
     if (roleTab === "MANAGER" && u.role !== "MANAGER") return false;
     if (roleTab === "AGENT" && u.role !== "AGENT") return false;
     if (roleTab === "INACTIVE" && u.status !== "INACTIVE") return false;
     return !needle || [u.name, u.email, u.whatsapp].some((v) => v.toLowerCase().includes(needle));
-  });
+  }).sort((a, b) => (sort === "listings" ? (b.activeListingsCount ?? 0) - (a.activeListingsCount ?? 0) || a.name.localeCompare(b.name) : sort === "newest" ? +new Date(b.createdAt) - +new Date(a.createdAt) : a.name.localeCompare(b.name)));
 
   if (isDesktop) {
     const th = "whitespace-nowrap px-4 py-3";
@@ -139,11 +151,12 @@ export default function AdminUsersPage() {
             { label: "Property Finder linked", value: `${pfLinked}/${users.length}`, hint: users.length - pfLinked > 0 ? `${users.length - pfLinked} not linked yet` : "All linked" },
           ];
           return (
-            <div className="kpi-row stagger mb-7 grid grid-cols-4 gap-4">
-              {cards.map((c) => (
-                <div key={c.label} className="surface-card p-5">
+            <div className="stagger mb-7 grid grid-cols-4 gap-4">
+              {cards.map((c, i) => (
+                <div key={c.label} className="surface-card relative overflow-hidden p-5">
+                  <span className="absolute inset-x-0 top-0 h-1" style={{ background: KPI_ACCENTS[i] }} />
                   <div className="text-[12.5px] font-medium text-muted">{c.label}</div>
-                  <div className="kpi-num tnum mt-2 text-[30px] font-bold leading-none tracking-tight">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-surface-muted" /> : c.value}</div>
+                  <div className="tnum mt-2 text-[30px] font-bold leading-none tracking-tight" style={{ color: KPI_ACCENTS[i] }}>{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-surface-muted" /> : c.value}</div>
                   <div className="mt-2 truncate text-[12px] text-muted">{loading ? " " : c.hint}</div>
                 </div>
               ))}
@@ -175,12 +188,19 @@ export default function AdminUsersPage() {
               </button>
             ))}
           </div>
-          <div className="flex w-72 items-center gap-2 rounded-xl border border-border bg-surface px-3.5 shadow-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
+          <div className="flex items-center gap-2.5">
+          <select value={sort} onChange={(e) => setSort(e.target.value as UserSort)} aria-label="Sort team" className="h-11 rounded-xl border border-border bg-white px-3 text-[13.5px] font-medium shadow-sm">
+            <option value="name">Name A–Z</option>
+            <option value="listings">Most listings</option>
+            <option value="newest">Newest first</option>
+          </select>
+          <div className="flex w-72 items-center gap-2 rounded-xl border border-border bg-white px-3.5 shadow-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" />
             </svg>
             <input data-bare value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email or phone" className="min-w-0 flex-1 bg-transparent py-2.5 text-[14px] outline-none" />
+          </div>
           </div>
         </div>
 
@@ -211,7 +231,7 @@ export default function AdminUsersPage() {
                     <tr key={u.id} className="border-b border-border last:border-b-0 hover:bg-surface-muted/40">
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <Avatar name={u.name} avatarUrl={u.avatarUrl} size={38} />
+                          <span className="rounded-full p-0.5" style={{ boxShadow: `0 0 0 2px ${(ROLE_STYLE[u.role] ?? ROLE_STYLE.AGENT).fg}33` }}><Avatar name={u.name} avatarUrl={u.avatarUrl} size={38} /></span>
                           <div className="min-w-0">
                             <div className="truncate text-[14px] font-semibold">
                               {u.name}
@@ -226,17 +246,24 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: "var(--accent-light)", color: "var(--primary)" }}>
+                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: (ROLE_STYLE[u.role] ?? ROLE_STYLE.AGENT).bg, color: (ROLE_STYLE[u.role] ?? ROLE_STYLE.AGENT).fg }}>
                           {ROLE_LABELS[u.role]}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium" style={{ color: u.status === "ACTIVE" ? "var(--success)" : "var(--muted)" }}>
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: u.status === "ACTIVE" ? "var(--success)" : "var(--muted)" }} />
+                        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold" style={u.status === "ACTIVE" ? { background: "var(--success-bg)", color: "var(--success)" } : { background: "#f1f5f9", color: "#64748b" }}>
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: u.status === "ACTIVE" ? "var(--success)" : "#94a3b8" }} />
                           {u.status === "ACTIVE" ? "Active" : "Inactive"}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-[14px] font-semibold">{u.activeListingsCount ?? 0}</td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex w-28 items-center gap-2.5">
+                          <span className="tnum w-6 text-[14px] font-semibold">{u.activeListingsCount ?? 0}</span>
+                          <span className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--primary-soft)" }}>
+                            <span className="block h-full rounded-full" style={{ width: `${((u.activeListingsCount ?? 0) / maxListings) * 100}%`, background: "linear-gradient(90deg, #2b4fc0, #06b6d4)" }} />
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3.5">
                         <button
                           onClick={() => setPfLinkUser(u)}

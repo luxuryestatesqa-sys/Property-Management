@@ -36,7 +36,7 @@ const initialState = {
   furnished: "FURNISHED" as "FURNISHED" | "UNFURNISHED",
   billsStatus: "INCLUDED" as "INCLUDED" | "EXCLUDED",
   visibility: "SHARED" as "PRIVATE" | "SHARED",
-  unitDetailsPrivate: false,
+  unitDetailsPrivate: true, // floor and unit number stay private unless the agent chooses otherwise
   area: "",
   community: "",
   pfLocationId: null as number | null,
@@ -108,12 +108,12 @@ export default function AddPropertyPage() {
   function validate(): string | null {
     if (!form.propertyCategory) return "Property type is required";
     if (isResidentialCategory(form.propertyCategory) && !form.bedrooms) return "Bedrooms is required";
-    if (!form.sizeSqm) return "Size is required";
+    if (!(Number(form.sizeSqm) > 0)) return "Size is required";
     if (form.images.length === 0) return "At least one photo is required";
     if (!form.area.trim()) return "Location is required";
     if (!form.community.trim()) return "Area / Community is required";
-    if (form.listingType === "RENT" && !form.rentPrice) return "Rent price is required";
-    if (form.listingType === "SALE" && !form.salePrice) return "Sale price is required";
+    if (form.listingType === "RENT" && !(Number(form.rentPrice) > 0)) return "Rent price is required";
+    if (form.listingType === "SALE" && !(Number(form.salePrice) > 0)) return "Sale price is required";
     if (form.listingType === "SALE") return saleDetailsProblem(form);
     return null;
   }
@@ -234,8 +234,15 @@ export default function AddPropertyPage() {
     checklist: [
       { label: "Property type", done: Boolean(form.propertyCategory), target: "sec-type" },
       ...(form.propertyCategory && isResidentialCategory(form.propertyCategory) ? [{ label: "Bedrooms", done: Boolean(form.bedrooms), target: "sec-type" }] : []),
-      { label: "Size", done: Boolean(form.sizeSqm), target: "sec-type" },
-      { label: form.listingType === "RENT" ? "Rent price" : "Sale price", done: Boolean(form.listingType === "RENT" ? form.rentPrice : form.salePrice), target: "sec-price" },
+      { label: "Size", done: Number(form.sizeSqm) > 0, target: "sec-type" },
+      { label: form.listingType === "RENT" ? "Rent price" : "Sale price", done: Number(form.listingType === "RENT" ? form.rentPrice : form.salePrice) > 0, target: "sec-price" },
+      // Property Finder needs these two to publish a sale, so a sale is not "ready" without them.
+      ...(form.listingType === "SALE"
+        ? [
+            { label: "Project status", done: Boolean(form.projectStatus), target: "sec-price" },
+            { label: "Payment methods", done: Boolean(form.paymentMethods) && !saleDetailsProblem(form), target: "sec-price" },
+          ]
+        : []),
       { label: "At least one photo", done: form.images.length > 0, target: "sec-photos" },
       { label: "Location & area", done: Boolean(form.area.trim() && form.community.trim()), target: "sec-where" },
     ],

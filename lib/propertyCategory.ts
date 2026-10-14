@@ -89,7 +89,7 @@ const FROM_TWO_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO" &&
 // Which bedroom counts make sense per property type, so a Villa never offers
 // "Studio" or "1 Bedroom" the way an Apartment does, etc.
 const BEDROOM_OPTIONS_BY_CATEGORY: Partial<Record<PropertyCategory, BedroomCount[]>> = {
-  APARTMENT: UP_TO_THREE_PLUS_MAID_OPTIONS,
+  APARTMENT: ALL_BEDROOM_OPTIONS, // large apartments and duplex-style units (e.g. The Pearl) go past 3 + Maid
   PENTHOUSE: FROM_ONE_BEDROOM_OPTIONS,
   DUPLEX: FROM_ONE_BEDROOM_OPTIONS,
   VILLA: FROM_TWO_BEDROOM_OPTIONS,

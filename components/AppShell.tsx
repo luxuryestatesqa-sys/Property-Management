@@ -2,14 +2,28 @@
 
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ReactNode } from "react";
+import { useEffect, ReactNode } from "react";
 import BottomNav from "./BottomNav";
 import Sidebar from "./Sidebar";
 import CommandPalette from "./CommandPalette";
 import { ConfirmProvider } from "./ConfirmDialog";
 import InstallPrompt from "./InstallPrompt";
 
+// Scrolling the page with a number field in focus makes the browser step its value (5000 -> 4999).
+// Letting go of focus on the first wheel tick makes the page scroll instead and leaves the value alone.
+function useNoWheelStepping() {
+  useEffect(() => {
+    const onWheel = () => {
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement && el.type === "number") el.blur();
+    };
+    document.addEventListener("wheel", onWheel, { passive: true });
+    return () => document.removeEventListener("wheel", onWheel);
+  }, []);
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
+  useNoWheelStepping();
   const pathname = usePathname();
   const { status } = useSession();
   const isPublicShare = pathname.startsWith("/listing/");

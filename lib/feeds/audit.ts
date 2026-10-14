@@ -56,11 +56,26 @@ const KNOWN_PLACES: string[] = (() => {
   return [...names];
 })();
 
+// Names people use for the same place, so a description saying "The Pearl-Qatar" is not flagged on a listing
+// saved under "The Pearl Island". Compared after normalising (lower case, no "the", hyphens as spaces).
+// Add a group here whenever the checker flags two names that mean one place.
+const place = (n: string) => n.toLowerCase().replace(/[-–]/g, " ").replace(/^the\s+/, "").replace(/\s+/g, " ").trim();
+const SAME_PLACE: string[][] = [
+  ["pearl qatar", "pearl island", "pearl", "porto arabia", "qanat quartier", "viva bahriya", "medina centrale", "abraj quartier", "floresta gardens", "east porto drive", "west porto drive"],
+  ["fox hills", "regency residence fox hills", "al erkyah city", "erkyah city"],
+].map((g) => g.map(place));
+const sameName = (a: string, b: string) => {
+  const x = place(a);
+  const y = place(b);
+  return x === y || x.includes(y) || y.includes(x) || SAME_PLACE.some((g) => g.includes(x) && g.includes(y));
+};
+
 export function auditPublicText(listing: AuditListing, agent: AuditAgent): string[] {
   const text = `${listing.title ?? ""}\n${listing.description ?? ""}`;
   if (!text.trim()) return [];
   const issues: string[] = [];
-  const phonesInText = [...new Set(text.match(PHONE) ?? [])];
+  // A real phone number has 7+ digits; "R52-1.15M" (a price range) only has five.
+  const phonesInText = [...new Set((text.match(PHONE) ?? []).filter((m) => digitsOf(m).length >= 7))];
 
   for (const phone of phonesInText) {
     if (!sameNumber(phone, agent.whatsapp)) issues.push(`has a phone number that isn't the agent's (${phone.trim()})`);
@@ -78,13 +93,17 @@ export function auditPublicText(listing: AuditListing, agent: AuditAgent): strin
   if (listing.apartmentNumber.length >= 3 && mentions(text, listing.apartmentNumber)) issues.push("mentions the unit number");
 
   const location = feedLocationFor({ area: listing.area, community: listing.community, pfLocation: listing.pfLocation ?? null });
+  // Every level of the saved location counts ("Pearl / Porto Arabia / East Porto Drive"), not only the last two.
+  const levels = location.path.toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
   const area = location.area.toLowerCase();
   const community = location.community.toLowerCase();
   const wrong = KNOWN_PLACES.filter((place) => {
     const p = place.toLowerCase();
     if (!mentions(text, place)) return false;
+    // The same place under another name (any level of the saved location) is not a different location.
+    if ([area, community, ...levels].some((l) => l && sameName(l, place))) return false;
     // The listing's own area/community, or a name containing/contained by one, is fine.
-    return !(area.includes(p) || community.includes(p) || p.includes(area) || (community !== "" && p.includes(community)));
+    return !(area.includes(p) || community.includes(p) || p.includes(area) || (community !== "" && p.includes(community)) || levels.some((l) => l.includes(p) || p.includes(l)));
   });
   if (wrong.length > 0) {
     issues.push(`talks about ${wrong.join(", ")} but the listing's location is ${location.path.replace(/, /g, " / ")}`);

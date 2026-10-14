@@ -19,3 +19,12 @@ export function useIsDesktop(): boolean {
     () => false
   );
 }
+
+const noop = () => () => {};
+
+// False while the page is being server-rendered and hydrated, true from the first client render after.
+// A page that shows a different tree on phone and desktop can render one neutral placeholder until
+// this is true, so the wrong layout never flashes (and then remounts, scrolling back to the top).
+export function useHydrated(): boolean {
+  return useSyncExternalStore(noop, () => true, () => false);
+}

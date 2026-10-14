@@ -62,15 +62,15 @@ export function PortalsCell({ listing }: { listing: ListingDTO }) {
   );
 }
 
-export function RowActions({ listing, onChange }: { listing: ListingDTO; onChange: () => void }) {
+export function RowActions({ listing, onChange, fill }: { listing: ListingDTO; onChange: () => void; fill?: boolean }) {
   const { busy, deleteError, toggleStatus, deleteListing } = useListingActions(listing, onChange);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   return (
-    <div className="flex items-center justify-end gap-1.5">
+    <div className={`flex items-center gap-1.5 ${fill ? "" : "justify-end"}`}>
       <Link
         href={`/property/${listing.id}?edit=1`}
-        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90"
+        className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 ${fill ? "flex-1" : ""}`}
         style={{ background: "var(--primary)" }}
       >
         <IconEdit size={13} />
@@ -78,7 +78,7 @@ export function RowActions({ listing, onChange }: { listing: ListingDTO; onChang
       </Link>
       <Link
         href={`/property/${listing.id}/portals`}
-        className="rounded-lg bg-surface-muted px-3 py-2 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-border"
+        className={`rounded-lg bg-surface-muted px-3 py-2 text-center text-[12.5px] font-semibold text-foreground transition-colors hover:bg-border ${fill ? "flex-1" : ""}`}
       >
         Publish
       </Link>

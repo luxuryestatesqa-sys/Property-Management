@@ -31,28 +31,41 @@ interface Props {
   onSubmit: () => void;
 }
 
-const input = "w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-[15px] outline-none";
+const input = "w-full rounded-xl border border-border bg-white px-4 py-3.5 text-[15px] outline-none";
+// Keeps what is typed to a plain positive number: no minus sign, "e", or letters.
+const positive = (v: string, decimals = false) => {
+  const cleaned = v.replace(decimals ? /[^\d.]/g : /\D/g, "");
+  const [whole, ...rest] = cleaned.split(".");
+  return rest.length ? `${whole}.${rest.join("")}` : whole;
+};
+const isPositive = (v: string) => Number(v) > 0;
 const fieldLabel = "mb-2 block text-[13.5px] font-semibold text-slate-700";
-const COMMON_TYPES: PropertyCategory[] = ["APARTMENT", "VILLA", "TOWNHOUSE", "PENTHOUSE", "OFFICE"];
 
-function Tile({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+// A native select (best on phones too) styled like the other fields, with our own chevron.
+function Dropdown({ id, value, onChange, placeholder, children }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`rounded-xl border px-2 py-3 text-[14px] font-medium transition-all sm:px-4 ${
-        active ? "border-primary bg-accent-light font-semibold text-primary shadow-sm ring-1 ring-primary/20" : "border-border bg-surface text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-      }`}
-    >
-      {children}
-    </button>
+    <div className="relative">
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${input} cursor-pointer appearance-none pr-11 font-medium ${value ? "text-foreground" : "text-muted"}`}
+      >
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {children}
+      </select>
+      <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </div>
   );
 }
 
 function MoneyInput({ value, onChange, suffix, placeholder, big }: { value: string; onChange: (v: string) => void; suffix?: string; placeholder?: string; big?: boolean }) {
   return (
-    <div className="flex items-center rounded-xl border border-border bg-surface px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
+    <div className="flex items-center rounded-xl border border-border bg-white px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
       <span className="mr-2 text-[14px] font-medium text-muted">QAR</span>
       <input
         data-bare
@@ -60,7 +73,8 @@ function MoneyInput({ value, onChange, suffix, placeholder, big }: { value: stri
         inputMode="numeric"
         min="1"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => ["-", "+", "e", "E"].includes(e.key) && e.preventDefault()}
+        onChange={(e) => onChange(positive(e.target.value))}
         placeholder={placeholder}
         className={`tnum min-w-0 flex-1 bg-transparent outline-none ${big ? "py-4 text-[26px] font-semibold tracking-tight" : "py-3.5 text-[15px]"}`}
       />
@@ -135,7 +149,6 @@ function Extra({ title, summary, children, defaultOpen }: { title: string; summa
 
 export default function AddPropertySimple({ form, setForm, update, aside, error, submitting, aiBusy, aiError, generateWithAi, onSubmit }: Props) {
   const [showErrors, setShowErrors] = useState(false);
-  const [moreTypes, setMoreTypes] = useState(false);
 
   const category = form.propertyCategory as PropertyCategory | "";
   const unit = category ? unitLabelFor(category) : null;
@@ -145,8 +158,8 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
 
   // What is still missing in each numbered section (same rules the server checks).
   const problems: Record<string, string | null> = {
-    "sec-type": !category ? "Choose a property type" : residential && !form.bedrooms ? "Choose the number of bedrooms" : !form.sizeSqm ? "Enter the size in sqm" : null,
-    "sec-price": isRent ? (form.rentPrice ? null : "Enter the monthly rent") : form.salePrice ? saleDetailsProblem(form) : "Enter the sale price",
+    "sec-type": !category ? "Choose a property type" : residential && !form.bedrooms ? "Choose the number of bedrooms" : !isPositive(form.sizeSqm) ? "Enter the size in sqm" : null,
+    "sec-price": isRent ? (isPositive(form.rentPrice) ? null : "Enter the monthly rent") : isPositive(form.salePrice) ? saleDetailsProblem(form) : "Enter the sale price",
     "sec-photos": form.images.length === 0 ? "Add at least one photo" : null,
     "sec-where": !form.area.trim() || !form.community.trim()
       ? "Choose the location"
@@ -169,7 +182,6 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
   }
 
   const shown = (id: string) => (showErrors ? problems[id] : null);
-  const visibleTypes = moreTypes || (category && !COMMON_TYPES.includes(category)) ? PROPERTY_CATEGORY_OPTIONS : COMMON_TYPES;
 
   return (
     <div className="page-in">
@@ -197,49 +209,48 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 ))}
               </div>
 
-              <div>
-                <span className={fieldLabel}>Property type</span>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 min-[1040px]:grid-cols-5">
-                  {visibleTypes.map((c) => (
-                    <Tile
-                      key={c}
-                      active={category === c}
-                      onClick={() =>
-                        setForm((prev) => {
-                          const stillValid = isResidentialCategory(c) && bedroomOptionsFor(c).includes(prev.bedrooms as BedroomCount);
-                          return { ...prev, propertyCategory: c, bedrooms: stillValid ? prev.bedrooms : "", amenities: c === "LAND" ? [] : prev.amenities };
-                        })
-                      }
-                    >
-                      {PROPERTY_CATEGORY_LABELS[c]}
-                    </Tile>
-                  ))}
-                  {!moreTypes && visibleTypes === COMMON_TYPES && (
-                    <button type="button" onClick={() => setMoreTypes(true)} className="rounded-xl border border-dashed border-slate-300 px-4 py-3 text-[14px] font-medium text-slate-500 hover:bg-slate-50">
-                      More…
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {residential && category && (
+              <div className={`grid grid-cols-1 gap-5 ${residential && category ? "sm:grid-cols-2" : ""}`}>
                 <div>
-                  <span className={fieldLabel}>Bedrooms</span>
-                  <div className="grid grid-cols-4 gap-2.5">
-                    {bedroomOptionsFor(category).map((b) => (
-                      <Tile key={b} active={form.bedrooms === b} onClick={() => update("bedrooms", b)}>
-                        {BEDROOM_LABELS[b]}
-                      </Tile>
+                  <label htmlFor="add-category" className={fieldLabel}>Property type</label>
+                  <Dropdown
+                    id="add-category"
+                    value={category}
+                    placeholder="Select property type"
+                    onChange={(v) =>
+                      setForm((prev) => {
+                        const c = v as PropertyCategory;
+                        const stillValid = isResidentialCategory(c) && bedroomOptionsFor(c).includes(prev.bedrooms as BedroomCount);
+                        return { ...prev, propertyCategory: c, bedrooms: stillValid ? prev.bedrooms : "", amenities: c === "LAND" ? [] : prev.amenities };
+                      })
+                    }
+                  >
+                    {PROPERTY_CATEGORY_OPTIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {PROPERTY_CATEGORY_LABELS[c]}
+                      </option>
                     ))}
-                  </div>
+                  </Dropdown>
                 </div>
-              )}
+
+                {residential && category && (
+                  <div>
+                    <label htmlFor="add-bedrooms" className={fieldLabel}>Bedrooms</label>
+                    <Dropdown id="add-bedrooms" value={form.bedrooms} placeholder="Select bedrooms" onChange={(v) => update("bedrooms", v as BedroomCount)}>
+                      {bedroomOptionsFor(category).map((b) => (
+                        <option key={b} value={b}>
+                          {BEDROOM_LABELS[b]}
+                        </option>
+                      ))}
+                    </Dropdown>
+                  </div>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                   <label className={fieldLabel}>Size</label>
-                  <div className="flex items-center rounded-xl border border-border bg-surface px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
-                    <input data-bare type="number" inputMode="numeric" min="1" value={form.sizeSqm} onChange={(e) => update("sizeSqm", e.target.value)} placeholder="e.g. 120" className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] outline-none" />
+                  <div className="flex items-center rounded-xl border border-border bg-white px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
+                    <input data-bare type="number" inputMode="decimal" min="1" value={form.sizeSqm} onKeyDown={(e) => ["-", "+", "e", "E"].includes(e.key) && e.preventDefault()} onChange={(e) => update("sizeSqm", positive(e.target.value, true))} placeholder="e.g. 120" className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] outline-none" />
                     <span className="text-[13px] text-muted">sqm</span>
                   </div>
                   <QuickPick values={SIZE_QUICK} current={form.sizeSqm} onPick={(v) => update("sizeSqm", v)} format={(n) => `${n}`} />
@@ -249,7 +260,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                     <label className={fieldLabel}>
                       Bathrooms <span className="font-normal text-muted">(optional)</span>
                     </label>
-                    <input type="number" inputMode="numeric" min="0" max="20" value={form.bathrooms} onChange={(e) => update("bathrooms", e.target.value)} placeholder="e.g. 2" className={input} />
+                    <input type="number" inputMode="numeric" min="0" max="20" value={form.bathrooms} onKeyDown={(e) => ["-", "+", "e", "E", "."].includes(e.key) && e.preventDefault()} onChange={(e) => update("bathrooms", positive(e.target.value).slice(0, 2))} placeholder="e.g. 2" className={input} />
                   </div>
                 )}
               </div>
@@ -327,7 +338,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                       <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} />
                     </div>
                     <input type="text" value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="e.g. Spacious 2BR with Marina View" maxLength={50} className={input} />
-                    <div className="mt-1 text-right text-[12px] text-muted">{form.title.length}/50</div>
+                    <div className={`mt-1 text-right text-[12px] ${form.title.length >= 45 ? "font-semibold text-danger" : "text-muted"}`}>{form.title.length >= 50 ? "Limit reached · " : ""}{form.title.length}/50</div>
                   </div>
                   <div>
                     <div className="mb-2 flex items-center justify-between">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { memo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ListingDTO } from "@/lib/types";
-import { formatQAR, formatSqm, listingCode } from "@/lib/format";
+import { formatQAR, formatSqm, listingCode, buildingTitle } from "@/lib/format";
 import { AVAILABILITY_LABELS, AVAILABILITY_COLORS, availabilityOptionsFor } from "@/lib/availability";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
 import { useListingActions } from "@/components/useListingActions";
@@ -24,7 +24,7 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
     listing.sizeSqm ? formatSqm(listing.sizeSqm) : null,
   ].filter(Boolean);
   const unitText = unitSummary(listing);
-  const unitLine = unitText ? `${listing.buildingName} · ${unitText}` : listing.buildingName;
+  const unitLine = unitText ? `${buildingTitle(listing.buildingName)} · ${unitText}` : buildingTitle(listing.buildingName);
   const active = listing.status === "ACTIVE";
 
   const item = "flex w-full items-center gap-3.5 px-5 py-3.5 text-left text-[15px] font-medium active:bg-surface-muted";

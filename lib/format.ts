@@ -34,3 +34,9 @@ export function formatTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleTimeString("en-US", { timeZone: "Asia/Qatar", hour: "numeric", minute: "2-digit", hour12: true });
 }
+
+// A bare building number or code ("R 47", "B12") reads as a mystery on a card, so label it.
+export function buildingTitle(name: string): string {
+  const n = (name ?? "").trim();
+  return /^[A-Za-z]{0,3}[\s-]?\d{1,4}[A-Za-z]?$/.test(n) ? `Building ${n}` : n;
+}

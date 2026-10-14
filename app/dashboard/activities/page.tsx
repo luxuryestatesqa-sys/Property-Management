@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -16,7 +16,6 @@ const today = () => ymd(new Date());
 const shift = (day: string, n: number) => ymd(new Date(new Date(`${day}T12:00:00+03:00`).getTime() + n * 86400000));
 const monthStart = (day: string) => `${day.slice(0, 8)}01`;
 const dayLabel = (day: string) => new Date(`${day}T12:00:00+03:00`).toLocaleDateString("en-GB", { timeZone: TZ, day: "numeric", month: "short", year: "numeric" });
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: TZ, day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
 const timeOnly = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true });
 
 const PRESETS = [
@@ -58,17 +57,31 @@ function Icon({ d, size = 15 }: { d: string; size?: number }) {
   );
 }
 
+// One colour per kind of activity (same palette as the dashboard), so a row can be read at a glance.
+const TYPE_COLORS: Record<string, string> = {
+  lead_created: "#2b4fc0", lead_assigned: "#8b5cf6", stage_changed: "#f59e0b", note_added: "#64748b", call_logged: "#06b6d4",
+  whatsapp_sent: "#16a34a", document_uploaded: "#0ea5e9", voice_note: "#ec4899", followup_set: "#f59e0b", followup_done: "#16a34a",
+  viewing_scheduled: "#ec4899", viewing_completed: "#16a34a", viewing_cancelled: "#f43f5e", property_linked: "#2b4fc0", group_changed: "#14b8a6",
+  lead_merged: "#8b5cf6", lead_deleted: "#f43f5e", listing_created: "#8b5cf6", listing_edited: "#6366f1", listing_status_changed: "#f59e0b",
+  listing_published: "#16a34a", listing_unpublished: "#f97316", listing_portal_error: "#f43f5e", listing_activated: "#16a34a", listing_deactivated: "#f43f5e",
+  user_login: "#14b8a6", user_added: "#0ea5e9", role_changed: "#8b5cf6",
+};
+const typeColor = (t: string) => TYPE_COLORS[t] ?? "#2b4fc0";
+
 function TypeBadge({ type }: { type: string }) {
   const info = TYPE_INFO.get(type);
+  const c = typeColor(type);
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-medium text-text-body">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-elevated text-text-muted shadow-[0_2px_8px_rgba(13,31,92,0.08)]">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: `${c}1f`, color: c }}>
         <Icon d={info?.icon ?? "M12 5v14"} size={14} />
       </span>
-      {typeLabel(type)}
+      <span className="rounded-full px-2 py-0.5 text-[12px] font-semibold" style={{ background: `${c}14`, color: c }}>{typeLabel(type)}</span>
     </span>
   );
 }
+
+const MIX: readonly (readonly [string, string])[] = [["calls", "#06b6d4"], ["whatsapp", "#16a34a"], ["notes", "#64748b"], ["viewings", "#ec4899"], ["stages", "#f59e0b"], ["listings", "#8b5cf6"], ["other", "#94a3b8"]];
 
 interface Option {
   value: string;
@@ -77,91 +90,61 @@ interface Option {
   avatar?: { name: string; avatarUrl: string | null };
 }
 
-// A multi-select dropdown: a button showing what is chosen, a searchable list with check marks.
-function MultiPick({ label, options, value, onChange, width = 260 }: { label: string; options: Option[]; value: string[]; onChange: (v: string[]) => void; width?: number }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-  const shown = options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase()));
-  const groups = [...new Set(shown.map((o) => o.group ?? ""))];
-  const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
-  return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open} className={`flex h-11 items-center gap-2 rounded-xl border bg-surface-elevated px-3.5 text-[13.5px] font-medium shadow-sm transition-colors ${value.length ? "border-primary text-primary" : "border-border text-text-body"}`}>
-        {label}
-        {value.length > 0 && <span className="tnum rounded-full bg-primary px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-white">{value.length}</span>}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <div role="listbox" aria-multiselectable className="glass absolute left-0 top-12 z-40 overflow-hidden rounded-2xl border border-border shadow-[0_18px_50px_-12px_rgba(13,31,92,0.25)]" style={{ width }}>
-          {options.length > 8 && (
-            <div className="border-b border-border p-2">
-              <input data-bare autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${label.toLowerCase()}…`} className="w-full rounded-lg bg-surface-muted px-3 py-2 text-[13.5px] outline-none" />
-            </div>
-          )}
-          <div className="max-h-72 overflow-y-auto p-1.5">
-            {shown.length === 0 && <p className="px-3 py-4 text-center text-[13px] text-muted">Nothing found</p>}
-            {groups.map((g) => (
-              <div key={g}>
-                {g && <div className="label-caps px-3 pb-1 pt-2.5">{g}</div>}
-                {shown
-                  .filter((o) => (o.group ?? "") === g)
-                  .map((o) => {
-                    const on = value.includes(o.value);
-                    return (
-                      <button key={o.value} type="button" role="option" aria-selected={on} onClick={() => toggle(o.value)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13.5px] hover:bg-primary-soft">
-                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${on ? "border-primary bg-primary text-white" : "border-slate-300 bg-white"}`}>{on && <Icon d="M5 12.5l4.5 4.5L19 7.5" size={11} />}</span>
-                        {o.avatar && <Avatar name={o.avatar.name} avatarUrl={o.avatar.avatarUrl} size={22} />}
-                        <span className="truncate">{o.label}</span>
-                      </button>
-                    );
-                  })}
-              </div>
-            ))}
-          </div>
-          {value.length > 0 && (
-            <button type="button" onClick={() => onChange([])} className="w-full border-t border-border py-2.5 text-[12.5px] font-semibold text-primary hover:bg-primary-soft">
-              Clear
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const Kpi = ({ label, value }: { label: string; value: number | string }) => (
-  <div className="rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm lg:p-5">
+const Kpi = ({ label, value, accent }: { label: string; value: number | string; accent: string }) => (
+  <div className="relative overflow-hidden rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm lg:p-5">
+    <span className="absolute inset-x-0 top-0 h-1" style={{ background: accent }} />
     <div className="text-[12.5px] font-medium text-muted">{label}</div>
-    <div className="kpi-num tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2 lg:text-[30px]">{value}</div>
+    <div className="tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2 lg:text-[30px]" style={{ color: accent }}>{value}</div>
   </div>
 );
 
-// Activities per day: quiet blue-grey bars; today (or the day being looked at) is the accent.
-function DayBars({ data, from, to, highlight }: { data: { day: string; n: number }[]; from: string; to: string; highlight: string }) {
-  const days: string[] = [];
-  for (let d = from, i = 0; d <= to && i < 120; d = shift(d, 1), i++) days.push(d);
-  const map = new Map(data.map((x) => [x.day, x.n]));
-  const max = Math.max(1, ...days.map((d) => map.get(d) ?? 0));
+// A month calendar: click a day to see just that day, click it again to go back. Days with activity get a dot.
+function Calendar({ month, setMonth, from, to, counts, onPick }: { month: string; setMonth: (m: string) => void; from: string; to: string; counts: Map<string, number>; onPick: (day: string) => void }) {
+  const t = today();
+  const first = `${month}-01`;
+  const lead = (new Date(`${first}T12:00:00+03:00`).getUTCDay() + 6) % 7; // Monday first
+  const [y, m] = month.split("-").map(Number);
+  const length = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`)];
+  const stepMonth = (n: number) => setMonth(ymd(new Date(Date.UTC(y, m - 1 + n, 15, 12))).slice(0, 7));
+  const title = new Date(`${first}T12:00:00+03:00`).toLocaleDateString("en-GB", { timeZone: TZ, month: "long", year: "numeric" });
+  const single = from === to;
   return (
     <div>
-      <div className="flex h-24 items-end gap-[3px]" role="img" aria-label="Activities per day">
-        {days.map((d) => {
-          const n = map.get(d) ?? 0;
-          return <div key={d} title={`${dayLabel(d)}: ${n}`} className="min-w-[3px] flex-1 rounded-t" style={{ height: `${Math.max(n ? 6 : 2, (n / max) * 100)}%`, background: d === highlight ? "var(--primary)" : "#d5dbea" }} />;
-        })}
+      <div className="flex items-center justify-between">
+        <span className="text-[15px] font-semibold text-text">{title}</span>
+        <div className="flex gap-1">
+          <button type="button" onClick={() => stepMonth(-1)} aria-label="Previous month" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-primary-soft"><Icon d="m15 6-6 6 6 6" size={16} /></button>
+          <button type="button" onClick={() => stepMonth(1)} aria-label="Next month" disabled={month >= t.slice(0, 7)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-primary-soft disabled:opacity-30"><Icon d="m9 6 6 6-6 6" size={16} /></button>
+        </div>
       </div>
-      <div className="mt-1.5 flex justify-between text-[11px] text-muted">
-        <span>{dayLabel(days[0] ?? from)}</span>
-        <span>{dayLabel(days[days.length - 1] ?? to)}</span>
+      <div className="mt-3 grid grid-cols-7 gap-y-1 text-center">
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+          <span key={i} className="pb-1 text-[11.5px] font-medium text-muted">{d}</span>
+        ))}
+        {cells.map((d, i) => {
+          if (!d) return <span key={`e${i}`} />;
+          const future = d > t;
+          const selected = single && d === from;
+          const inRange = !single && d >= from && d <= to;
+          const n = counts.get(d) ?? 0;
+          return (
+            <button
+              key={d}
+              type="button"
+              disabled={future}
+              onClick={() => onPick(d)}
+              title={n ? `${n} activit${n === 1 ? "y" : "ies"}` : undefined}
+              aria-label={`${new Date(`${d}T12:00:00+03:00`).toLocaleDateString("en-GB", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" })}${n ? `, ${n} activit${n === 1 ? "y" : "ies"}` : ""}`}
+              aria-pressed={selected}
+              className={`relative mx-auto flex h-9 w-9 flex-col items-center justify-center rounded-full text-[13px] transition-colors ${selected ? "font-semibold text-white" : inRange ? "bg-primary-soft font-medium text-primary" : future ? "text-muted opacity-40" : "text-text-body hover:bg-primary-soft"}`}
+              style={selected ? { background: "linear-gradient(135deg, #2b4fc0, #06b6d4)" } : d === t && !inRange ? { boxShadow: "inset 0 0 0 1.5px var(--primary)" } : undefined}
+            >
+              {Number(d.slice(8))}
+              {n > 0 && <span className="absolute bottom-[3px] h-1 w-1 rounded-full" style={{ background: selected ? "#fff" : "#06b6d4" }} />}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -173,11 +156,6 @@ function ActivitiesInner() {
   const sp = useSearchParams();
   const { data: session, status } = useSession();
 
-  // Phones and small tablets use Properties instead (this page is for 768px and up).
-  useEffect(() => {
-    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 768px)").matches) router.replace("/");
-  }, [router]);
-
   // The URL is the source of truth for every filter, so a filtered view can be bookmarked or shared.
   const range = sp.get("range") ?? (sp.get("from") || sp.get("to") ? "custom" : "7d");
   const resolved = range === "custom" ? { from: sp.get("from") ?? shift(today(), -6), to: sp.get("to") ?? today() } : presetRange(range);
@@ -187,7 +165,6 @@ function ActivitiesInner() {
   const stage = sp.get("stage") ?? "";
   const property = sp.get("property") ?? "";
   const lead = sp.get("lead") ?? "";
-  const view = sp.get("view") === "timeline" ? "timeline" : "table";
 
   const set = useCallback(
     (patch: Record<string, string | null>) => {
@@ -223,7 +200,8 @@ function ActivitiesInner() {
   const [sortDate, setSortDate] = useState<"newest" | "oldest">("newest");
   const [propertyDraft, setPropertyDraft] = useState(property);
   const [leadDraft, setLeadDraft] = useState(lead);
-  const [customOpen, setCustomOpen] = useState(range === "custom");
+  const [showFilters, setShowFilters] = useState(false); // phones: calendar and filters open on demand
+  const [month, setMonth] = useState(() => resolved.to.slice(0, 7));
 
   useEffect(() => setPropertyDraft(property), [property]);
   useEffect(() => setLeadDraft(lead), [lead]);
@@ -269,20 +247,10 @@ function ActivitiesInner() {
 
   const manager = summary?.meta.canSeeAll ?? ["OWNER", "ADMIN", "MANAGER"].includes(session?.user?.role ?? "");
   const agentOptions: Option[] = [...(summary?.meta.agents ?? []).map((a) => ({ value: a.id, label: a.name, avatar: { name: a.name, avatarUrl: a.avatarUrl } })), { value: "system", label: "System / Unassigned" }];
-  const typeOptions: Option[] = ACTIVITY_TYPES.map((t) => ({ value: t.type, label: t.label, group: t.group }));
   const sourceOptions: Option[] = SOURCE_FILTERS.map((s) => ({ value: s.key, label: s.label }));
   const agentAvatar = useMemo(() => new Map((summary?.meta.agents ?? []).map((a) => [a.id, a])), [summary]);
 
   const filtersActive = agents.length + types.length + sources.length > 0 || Boolean(stage || property || lead) || range !== "7d";
-  const chips: { label: string; clear: () => void }[] = [
-    ...(range === "custom" ? [{ label: `${dayLabel(resolved.from)} – ${dayLabel(resolved.to)}`, clear: () => set({ range: null, from: null, to: null }) }] : range !== "7d" ? [{ label: PRESETS.find((p) => p.key === range)?.label ?? range, clear: () => set({ range: null, from: null, to: null }) }] : []),
-    ...agents.map((a) => ({ label: a === "system" ? "System" : agentOptions.find((o) => o.value === a)?.label ?? "Agent", clear: () => set({ agents: agents.filter((x) => x !== a).join(",") || null }) })),
-    ...types.map((t) => ({ label: typeLabel(t), clear: () => set({ types: types.filter((x) => x !== t).join(",") || null }) })),
-    ...(stage ? [{ label: `Stage: ${stage}`, clear: () => set({ stage: null }) }] : []),
-    ...sources.map((s) => ({ label: SOURCE_FILTERS.find((x) => x.key === s)?.label ?? s, clear: () => set({ sources: sources.filter((x) => x !== s).join(",") || null }) })),
-    ...(property ? [{ label: `Property: ${property}`, clear: () => set({ property: null }) }] : []),
-    ...(lead ? [{ label: `Lead: ${lead}`, clear: () => set({ lead: null }) }] : []),
-  ];
   const clearAll = () => set({ range: null, from: null, to: null, agents: null, types: null, stage: null, sources: null, property: null, lead: null });
 
   // leaderboard sorting
@@ -330,100 +298,252 @@ function ActivitiesInner() {
   const LeadCell = ({ r }: { r: ActivityRow }) => (r.leadId && r.leadName ? <Link href={`/leads/${r.leadId}`} onClick={(e) => e.stopPropagation()} className="font-medium text-text hover:text-primary">{r.leadName}</Link> : <span className="text-muted">{r.type === "lead_deleted" ? r.note ?? "Deleted lead" : "—"}</span>);
   const PropCell = ({ r }: { r: ActivityRow }) => (r.listingId ? <Link href={`/property/${r.listingId}`} onClick={(e) => e.stopPropagation()} className="font-medium text-text hover:text-primary">{listingCode(r.listingId)}{r.listingName ? ` · ${r.listingName}` : ""}</Link> : <span className="text-muted">—</span>);
 
-  return (
-    <div className="page-in pb-12">
-      <div className="flex flex-wrap items-end justify-between gap-4 pb-6 pt-10">
-        <div>
-          <h1 className="text-[28px] font-semibold leading-none tracking-[-0.025em]">Activities</h1>
-          <p className="mt-2.5 text-[15px] text-muted">{manager ? "Everything your team did: leads, listings and users." : "Everything you did: leads, listings and your account."}</p>
-        </div>
-        <a href={`/api/activities/export?${apiQs}`} className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface-elevated px-4 text-[13.5px] font-semibold shadow-sm transition-colors hover:bg-primary-soft">
-          <Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" />
-          Export CSV
-        </a>
-      </div>
+  const activePreset = PRESETS.find((p) => { const r = presetRange(p.key); return r.from === resolved.from && r.to === resolved.to; })?.key;
+  const dayCounts = useMemo(() => new Map((summary?.perDay ?? []).map((x) => [x.day, x.n])), [summary]);
+  const pickDay = (d: string) => (resolved.from === d && resolved.to === d ? set({ range: null, from: null, to: null }) : set({ range: "custom", from: d, to: d }));
+  const toggleIn = (list: string[], key: string, v: string) => set({ [key]: (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]).join(",") || null });
+  const filterCount = agents.length + types.length + sources.length + (stage ? 1 : 0) + (property ? 1 : 0) + (lead ? 1 : 0);
+  const typeGroups = (["Lead", "Listing", "User"] as const).map((g) => ({ group: g, items: ACTIVITY_TYPES.filter((t) => t.group === g) }));
+  const box = (on: boolean, c = "#2b4fc0") => (
+    <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border" style={on ? { background: c, borderColor: c, color: "#fff" } : { borderColor: "#cbd5e1", background: "#fff" }}>
+      {on && <Icon d="M5 12.5l4.5 4.5L19 7.5" size={12} />}
+    </span>
+  );
+  const panel = "rounded-2xl border border-border bg-surface-elevated shadow-sm";
 
-      {/* filters */}
-      <div className="glass sticky top-0 z-30 -mx-2 mb-4 rounded-2xl px-2 py-3">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex rounded-xl border border-border bg-surface-elevated p-1 shadow-sm" role="group" aria-label="Date range">
-            {PRESETS.map((p) => (
-              <button key={p.key} type="button" onClick={() => { setCustomOpen(false); set({ range: p.key === "7d" ? null : p.key, from: null, to: null }); }} aria-pressed={range === p.key} className={`whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${range === p.key ? "bg-primary-soft text-primary" : "text-muted hover:text-foreground"}`}>
-                {p.label}
-              </button>
-            ))}
-            <button type="button" onClick={() => { setCustomOpen((o) => !o); if (range !== "custom") set({ range: "custom", from: resolved.from, to: resolved.to }); }} aria-pressed={range === "custom"} className={`whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${range === "custom" ? "bg-primary-soft text-primary" : "text-muted hover:text-foreground"}`}>
-              Custom
-            </button>
-          </div>
-          {customOpen && (
-            <div className="flex items-center gap-2">
-              <input type="date" aria-label="From" value={resolved.from} max={resolved.to} onChange={(e) => e.target.value && set({ range: "custom", from: e.target.value, to: resolved.to })} className={`${input} w-[150px]`} />
-              <span className="text-muted">to</span>
-              <input type="date" aria-label="To" value={resolved.to} min={resolved.from} max={today()} onChange={(e) => e.target.value && set({ range: "custom", from: resolved.from, to: e.target.value })} className={`${input} w-[150px]`} />
-            </div>
-          )}
-          {manager && <MultiPick label="Agent" options={agentOptions} value={agents} onChange={(v) => set({ agents: v.join(",") || null })} />}
-          <MultiPick label="Activity type" options={typeOptions} value={types} onChange={(v) => set({ types: v.join(",") || null })} width={280} />
-          <select aria-label="Stage" value={stage} onChange={(e) => set({ stage: e.target.value || null })} className="h-11 rounded-xl border border-border bg-surface-elevated px-3 text-[13.5px] font-medium shadow-sm">
-            <option value="">Any stage</option>
-            {(summary?.meta.stages ?? []).map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <MultiPick label="Source" options={sourceOptions} value={sources} onChange={(v) => set({ sources: v.join(",") || null })} width={220} />
+  return (
+    <div className="page-in px-4 pb-24 lg:px-0 lg:pb-12">
+      <div className="flex flex-wrap items-end justify-between gap-3 pb-4 pt-4 lg:gap-4 lg:pb-6 lg:pt-10">
+        <div>
+          <h1 className="text-xl font-bold leading-none lg:text-[28px] lg:font-semibold lg:tracking-[-0.025em]">Activities</h1>
+          <div className="mt-3 h-1 w-14 rounded-full" style={{ background: "linear-gradient(90deg, #2b4fc0, #06b6d4, #16a34a, #f59e0b, #ec4899)" }} />
+          <p className="mt-3 text-[13px] text-muted lg:text-[15px]">{manager ? "Everything your team did: leads, listings and users." : "Everything you did: leads, listings and your account."}</p>
         </div>
-        <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
-          <div className="min-w-[200px] flex-1">
-            <input value={propertyDraft} onChange={(e) => setPropertyDraft(e.target.value)} placeholder="Property: listing ID or building" aria-label="Search property" className={input} />
-          </div>
-          <div className="min-w-[200px] flex-1">
-            <input value={leadDraft} onChange={(e) => setLeadDraft(e.target.value)} placeholder="Lead: name or phone" aria-label="Search lead" className={input} />
-          </div>
-          {filtersActive && (
-            <button type="button" onClick={clearAll} className="h-11 rounded-xl px-4 text-[13.5px] font-semibold text-primary hover:bg-primary-soft">
-              Clear all
-            </button>
-          )}
-        </div>
-        {chips.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Active filters">
-            {chips.map((c, i) => (
-              <span key={`${c.label}-${i}`} className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft py-1 pl-3 pr-1.5 text-[12.5px] font-medium text-primary">
-                {c.label}
-                <button type="button" onClick={c.clear} aria-label={`Remove ${c.label}`} className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-white/70">
-                  <Icon d="M6 6l12 12M18 6 6 18" size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <a href={`/api/activities/export?${apiQs}`} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-surface-elevated px-3.5 text-[13.5px] font-semibold shadow-sm transition-colors hover:bg-primary-soft lg:h-11 lg:px-4">
+          <Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+          <span className="hidden sm:inline">Export </span>CSV
+        </a>
       </div>
 
       {error && <div className="mb-4 rounded-xl bg-danger-bg px-4 py-3 text-sm text-danger">{error}</div>}
 
-      {/* summary */}
-      <div className="kpi-row grid grid-cols-6 gap-3 lg:gap-4 max-[1100px]:grid-cols-3">
+      {/* numbers for the chosen period */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4 xl:grid-cols-6">
         {summary
           ? [
-              ["Total activities", summary.kpis.total],
-              ["Calls", summary.kpis.calls],
-              ["WhatsApp messages", summary.kpis.whatsapp],
-              ["Viewings", summary.kpis.viewings],
-              ["Stage changes", summary.kpis.stages],
-              ["Listings published", summary.kpis.published],
-            ].map(([l, v]) => <Kpi key={l as string} label={l as string} value={(v as number).toLocaleString()} />)
+              ["Total activities", summary.kpis.total, "#2b4fc0"],
+              ["Calls", summary.kpis.calls, "#06b6d4"],
+              ["WhatsApp messages", summary.kpis.whatsapp, "#16a34a"],
+              ["Viewings", summary.kpis.viewings, "#ec4899"],
+              ["Stage changes", summary.kpis.stages, "#f59e0b"],
+              ["Listings published", summary.kpis.published, "#8b5cf6"],
+            ].map(([l, v, c]) => <Kpi key={l as string} label={l as string} value={(v as number).toLocaleString()} accent={c as string} />)
           : [1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-2xl" />)}
       </div>
 
-      {summary && (
-        <div className="mt-5 grid gap-4">
-          {manager && (
-            <section className="surface-card overflow-hidden">
-              <h2 className="label-caps px-5 pt-5">Agent leaderboard</h2>
-              <div className="mt-3 overflow-x-auto">
+      {/* phones and tablets: one tap opens the calendar and filters */}
+      <button type="button" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters} className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface-elevated px-4 py-3 text-left shadow-sm lg:hidden">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Icon d="M3 4h18l-7 9v6l-4 2v-8z" size={17} />
+          <span className="min-w-0">
+            <span className="block text-[14px] font-semibold">Calendar and filters{filterCount > 0 ? ` (${filterCount})` : ""}</span>
+            <span className="block truncate text-[12.5px] text-muted">{resolved.from === resolved.to ? dayLabel(resolved.from) : `${dayLabel(resolved.from)} – ${dayLabel(resolved.to)}`}</span>
+          </span>
+        </span>
+        <Icon d={showFilters ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} size={16} />
+      </button>
+
+      <div className="mt-4 grid items-start gap-6 lg:mt-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
+        {/* left: calendar + filters */}
+        <aside className={`${showFilters ? "flex" : "hidden"} flex-col gap-6 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1`}>
+          <section>
+            <h2 className="mb-3 hidden text-[18px] font-semibold lg:block">Calendar</h2>
+            <div className={`${panel} p-4`}>
+              <Calendar month={month} setMonth={setMonth} from={resolved.from} to={resolved.to} counts={dayCounts} onPick={pickDay} />
+              <div className="mt-4 flex flex-wrap gap-1.5 border-t border-border pt-3">
+                {PRESETS.map((p) => (
+                  <button key={p.key} type="button" onClick={() => { setMonth(presetRange(p.key).to.slice(0, 7)); set({ range: p.key === "7d" ? null : p.key, from: null, to: null }); }} aria-pressed={activePreset === p.key} className={`rounded-full px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${activePreset === p.key ? "text-white" : "bg-primary-soft text-primary hover:bg-primary-soft/70"}`} style={activePreset === p.key ? { background: "linear-gradient(135deg, #2b4fc0, #06b6d4)" } : undefined}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[18px] font-semibold">Filters ({filterCount})</h2>
+              {filterCount > 0 && (
+                <button type="button" onClick={() => set({ agents: null, types: null, stage: null, sources: null, property: null, lead: null })} className="text-[13px] font-semibold text-primary hover:underline">
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className={`${panel} divide-y divide-border`}>
+              <div className="flex flex-col gap-2 p-4">
+                <input value={leadDraft} onChange={(e) => setLeadDraft(e.target.value)} placeholder="Search lead name or phone" aria-label="Search lead" className={input} />
+                <input value={propertyDraft} onChange={(e) => setPropertyDraft(e.target.value)} placeholder="Search property ID or building" aria-label="Search property" className={input} />
+              </div>
+
+              {manager && (
+                <div className="p-4">
+                  <h3 className="label-caps mb-2 !text-[11px]">By agent</h3>
+                  <ul className="flex flex-col">
+                    {agentOptions.map((o) => (
+                      <li key={o.value}>
+                        <button type="button" role="checkbox" aria-checked={agents.includes(o.value)} onClick={() => toggleIn(agents, "agents", o.value)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 text-left text-[14px] hover:bg-primary-soft">
+                          {o.avatar ? <Avatar name={o.avatar.name} avatarUrl={o.avatar.avatarUrl} size={22} /> : <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-surface-muted text-[9px] font-bold text-muted">SYS</span>}
+                          <span className="flex-1 truncate">{o.label}</span>
+                          {box(agents.includes(o.value))}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="p-4">
+                <h3 className="label-caps mb-2 !text-[11px]">By activity type</h3>
+                {typeGroups.map((g) => (
+                  <div key={g.group} className="mb-2 last:mb-0">
+                    <div className="px-1 pb-1 pt-2 text-[11.5px] font-semibold text-muted">{g.group === "User" ? "Team" : g.group + "s"}</div>
+                    <ul className="flex flex-col">
+                      {g.items.map((t) => {
+                        const c = typeColor(t.type);
+                        return (
+                          <li key={t.type}>
+                            <button type="button" role="checkbox" aria-checked={types.includes(t.type)} onClick={() => toggleIn(types, "types", t.type)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 text-left text-[14px] hover:bg-primary-soft">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: `${c}1f`, color: c }}><Icon d={t.icon} size={13} /></span>
+                              <span className="flex-1 truncate">{t.label}</span>
+                              {box(types.includes(t.type), c)}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4">
+                <h3 className="label-caps mb-2 !text-[11px]">By source</h3>
+                <ul className="flex flex-col">
+                  {sourceOptions.map((o) => (
+                    <li key={o.value}>
+                      <button type="button" role="checkbox" aria-checked={sources.includes(o.value)} onClick={() => toggleIn(sources, "sources", o.value)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 text-left text-[14px] hover:bg-primary-soft">
+                        <span className="flex-1">{o.label}</span>
+                        {box(sources.includes(o.value))}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-4">
+                <h3 className="label-caps mb-2 !text-[11px]">Lead stage</h3>
+                <select aria-label="Stage" value={stage} onChange={(e) => set({ stage: e.target.value || null })} className={input}>
+                  <option value="">Any stage</option>
+                  {(summary?.meta.stages ?? []).map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        {/* right: timeline */}
+        <section className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-[17px] font-semibold lg:text-[18px]">
+              Timeline <span className="ml-1 text-[14px] font-normal text-muted">{loading ? "Loading…" : `${total.toLocaleString()} ${total === 1 ? "activity" : "activities"} · ${resolved.from === resolved.to ? dayLabel(resolved.from) : `${dayLabel(resolved.from)} – ${dayLabel(resolved.to)}`}`}</span>
+            </h2>
+            <button type="button" onClick={() => setSortDate((x) => (x === "newest" ? "oldest" : "newest"))} className="ml-auto h-9 shrink-0 whitespace-nowrap rounded-xl border border-border bg-surface-elevated px-3.5 text-[13px] font-medium shadow-sm">
+              {sortDate === "newest" ? "Newest first ↓" : "Oldest first ↑"}
+            </button>
+          </div>
+
+          <div className={`${panel} overflow-hidden p-4 sm:p-5`}>
+            {loading && rows.length === 0 ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-14 animate-pulse rounded-xl" />
+                ))}
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="px-6 py-16 text-center">
+                <p className="text-[17px] font-semibold">No activities for these filters</p>
+                <p className="mt-1.5 text-[14px] text-muted">Try another day or remove a filter.</p>
+                {filtersActive && (
+                  <button type="button" onClick={clearAll} className="mt-5 rounded-xl px-5 py-2.5 text-[14px] font-semibold text-white" style={{ background: "var(--primary)" }}>
+                    Reset everything
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className={`flex flex-col gap-8 transition-opacity ${loading ? "opacity-60" : ""}`}>
+                {grouped.map((g) => (
+                  <div key={g.day} className="grid gap-x-5 min-[1500px]:grid-cols-[150px_minmax(0,1fr)]">
+                    <div className="flex flex-wrap items-baseline gap-x-3 pb-3 min-[1500px]:sticky min-[1500px]:top-4 min-[1500px]:block min-[1500px]:self-start">
+                      <div className="text-[13px] font-bold uppercase tracking-wide text-text">{new Date(`${g.day}T12:00:00+03:00`).toLocaleDateString("en-GB", { timeZone: TZ, day: "2-digit", month: "short", year: "numeric" })}</div>
+                      <div className="text-[13px] text-muted">{g.label === "Today" || g.label === "Yesterday" ? g.label : new Date(`${g.day}T12:00:00+03:00`).toLocaleDateString("en-GB", { timeZone: TZ, weekday: "long" })}</div>
+                      <button type="button" onClick={() => pickDay(g.day)} className="mt-1.5 inline-flex items-center gap-1.5 text-[13px] font-semibold hover:underline" style={{ color: "#0891b2" }}>
+                        <Icon d="M3 3v18h18M7 15l4-4 3 3 5-6" size={13} />
+                        {(dayCounts.get(g.day) ?? g.items.length).toLocaleString()} activities
+                      </button>
+                    </div>
+                    <ol className="relative flex min-w-0 flex-col">
+                      <span aria-hidden className="absolute bottom-3 left-[19px] top-3 w-px bg-border sm:left-[95px]" />
+                      {g.items.map((r) => {
+                        const c = typeColor(r.type);
+                        const a = r.agentId ? agentAvatar.get(r.agentId) : null;
+                        const subject = r.leadName ?? (r.listingName ? `${listingCode(r.listingId!)} · ${r.listingName}` : null);
+                        const detail = describe(r);
+                        // No lead or property (a sign-in, a new user): the sentence itself is the title.
+                        const title = subject ?? (detail || typeLabel(r.type));
+                        const showDetail = subject && detail && !(/^(added|imported)\b.*\bby /i.test(detail) && detail.includes(who(r)));
+                        const showPill = !(title === typeLabel(r.type));
+                        return (
+                          <li key={r.id} className="relative flex min-w-0 gap-3.5 py-2.5">
+                            <span className="tnum hidden w-[62px] shrink-0 pt-2.5 text-right text-[12.5px] text-muted sm:block">{timeOnly(r.createdAt)}</span>
+                            <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-sm" style={{ background: c }}>
+                              <Icon d={TYPE_INFO.get(r.type)?.icon ?? "M12 5v14"} size={16} />
+                            </span>
+                            <button type="button" onClick={() => setOpen(r)} className="min-w-0 flex-1 rounded-xl px-2 py-1 text-left transition-colors hover:bg-surface">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-[15px] font-semibold text-text">{title}</span>
+                                {showPill && <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${c}14`, color: c }}>{typeLabel(r.type)}</span>}
+                              </div>
+                              {showDetail && <div className="mt-0.5 line-clamp-2 text-[13px] text-text-body">{detail}</div>}
+                              <div className="mt-1 flex items-center gap-1.5 text-[12.5px] text-muted">
+                                {r.agentId ? <Avatar name={who(r)} avatarUrl={a?.avatarUrl ?? null} size={16} /> : <Icon d="M12 8v4l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z" size={13} />}
+                                by {who(r)}
+                                <span className="sm:hidden"> · {timeOnly(r.createdAt)}</span>
+                              </div>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {rows.length < total && (
+              <div className="mt-6 flex flex-col items-center gap-1.5 border-t border-border pt-5">
+                <span className="text-[12.5px] text-muted">Showing {rows.length.toLocaleString()} of {total.toLocaleString()}</span>
+                <button type="button" onClick={loadMore} disabled={more} className="rounded-xl px-5 py-2.5 text-[13.5px] font-semibold text-white disabled:opacity-60" style={{ background: "linear-gradient(135deg, #2b4fc0, #06b6d4)" }}>
+                  {more ? "Loading…" : sortDate === "newest" ? "Load older activities" : "Load newer activities"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {manager && summary && (
+            <details className="mt-6 overflow-hidden rounded-2xl border border-border bg-surface-elevated shadow-sm">
+              <summary className="cursor-pointer select-none px-5 py-4 text-[15px] font-semibold">Agent leaderboard <span className="ml-1 text-[13px] font-normal text-muted">for this period</span></summary>
+              <div className="overflow-x-auto border-t border-border">
                 <table className="w-full min-w-[760px] text-[13.5px]">
                   <thead>
                     <tr>
@@ -443,146 +563,37 @@ function ActivitiesInner() {
                   <tbody>
                     {board.length === 0 && (
                       <tr>
-                        <td colSpan={11} className="px-5 py-8 text-center text-muted">
-                          No activity in this range.
-                        </td>
+                        <td colSpan={11} className="px-5 py-8 text-center text-muted">No activity in this range.</td>
                       </tr>
                     )}
                     {board.map((b) => (
                       <tr key={b.agentId ?? "system"} className={`cursor-pointer border-t border-border ${agents.length === 1 && agents[0] === (b.agentId ?? "system") ? "is-selected" : ""}`} onClick={() => set({ agents: b.agentId ?? "system" })}>
-                        <td className="whitespace-nowrap px-3 py-2.5 font-medium text-text">{b.name}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.calls}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.whatsapp}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.notes}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.viewings}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.stages}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.listings}</td>
-                        <td className="tnum px-3 py-2.5 text-right">{b.other}</td>
-                        <td className="tnum px-3 py-2.5 text-right font-semibold text-primary-dark">{b.total}</td>
-                        <td className="tnum px-3 py-2.5 text-right text-muted" title="Won leads are part of Stages">{b.won}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5 font-medium text-text">
+                          {b.name}
+                          <div className="mt-1.5 flex h-1.5 w-32 overflow-hidden rounded-full" style={{ background: "var(--primary-soft)" }} title="Mix of activity types">
+                            {MIX.map(([k, col]) => (
+                              <span key={k} style={{ width: `${b.total ? ((b as unknown as Record<string, number>)[k] / b.total) * 100 : 0}%`, background: col }} />
+                            ))}
+                          </div>
+                        </td>
+                        {MIX.map(([k, col]) => {
+                          const n = (b as unknown as Record<string, number>)[k];
+                          return (
+                            <td key={k} className="tnum px-3 py-2.5 text-right font-medium" style={{ color: n ? col : "var(--text-muted)", opacity: n ? 1 : 0.5 }}>{n}</td>
+                          );
+                        })}
+                        <td className="px-3 py-2.5 text-right"><span className="tnum inline-block min-w-[2.2rem] rounded-full px-2 py-0.5 text-center font-semibold text-white" style={{ background: "linear-gradient(135deg, #2b4fc0, #06b6d4)" }}>{b.total}</span></td>
+                        <td className="tnum px-3 py-2.5 text-right font-medium" style={{ color: b.won ? "#16a34a" : "var(--text-muted)" }} title="Won leads are part of Stages">{b.won}</td>
                         <td className="tnum px-3 py-2.5 text-right">{b.agentId ? formatMinutes(b.avgFirstResponseMinutes) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="px-5 pb-4 pt-2 text-[12px] text-muted">Calls + WhatsApp + Notes + Viewings + Stages + Listings + Other = Total. Won is part of Stages. Click an agent to filter the page to them.</p>
-            </section>
+              <p className="border-t border-border px-5 pb-4 pt-2 text-[12px] text-muted">Calls + WhatsApp + Notes + Viewings + Stages + Listings + Other = Total. Won is part of Stages. Click an agent to filter the timeline to them.</p>
+            </details>
           )}
-          <section className="surface-card p-5">
-            <h2 className="label-caps">Activities per day</h2>
-            <div className="mt-4">
-              <DayBars data={summary.perDay} from={resolved.from} to={resolved.to} highlight={today()} />
-            </div>
-          </section>
-        </div>
-      )}
-
-      {/* list */}
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <h2 className="text-[16px] font-semibold">
-          {loading ? "Loading…" : `${total.toLocaleString()} ${total === 1 ? "activity" : "activities"}`}
-        </h2>
-        <div className="flex items-center gap-2.5">
-          <button type="button" onClick={() => setSortDate((s) => (s === "newest" ? "oldest" : "newest"))} className="h-10 rounded-xl border border-border bg-surface-elevated px-3.5 text-[13px] font-medium shadow-sm">
-            Date: {sortDate === "newest" ? "newest first ↓" : "oldest first ↑"}
-          </button>
-          <div className="flex rounded-xl border border-border bg-surface-elevated p-1 shadow-sm" role="group" aria-label="Layout">
-            {(["table", "timeline"] as const).map((v) => (
-              <button key={v} type="button" aria-pressed={view === v} onClick={() => set({ view: v === "table" ? null : v })} className={`rounded-lg px-3.5 py-1.5 text-[13px] font-medium capitalize ${view === v ? "bg-primary-soft text-primary" : "text-muted"}`}>
-                {v}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3">
-        {loading && rows.length === 0 ? (
-          <div className="space-y-2.5">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-14 animate-pulse rounded-xl" />
-            ))}
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="surface-card px-6 py-16 text-center">
-            <p className="text-[17px] font-semibold">No activities for these filters</p>
-            <p className="mt-1.5 text-[14px] text-muted">Try a wider date range or remove a filter.</p>
-            {filtersActive && (
-              <button type="button" onClick={clearAll} className="mt-5 rounded-xl px-5 py-2.5 text-[14px] font-semibold text-white" style={{ background: "var(--primary)" }}>
-                Clear filters
-              </button>
-            )}
-          </div>
-        ) : view === "table" ? (
-          <div className="surface-card overflow-x-auto">
-            <table className="w-full min-w-[820px] text-[13px]">
-              <thead>
-                <tr>
-                  {["Date & time", "Agent", "Type", "Lead", "Property", "Details", "Source"].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-4 py-3 text-left">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} tabIndex={0} onClick={() => setOpen(r)} onKeyDown={(e) => e.key === "Enter" && setOpen(r)} className="cursor-pointer border-t border-border">
-                    <td className="tnum whitespace-nowrap px-4 py-3 text-muted">{when(r.createdAt)}</td>
-                    <td className="px-4 py-3">
-                      <AgentCell r={r} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <TypeBadge type={r.type} />
-                    </td>
-                    <td className="max-w-[140px] truncate px-4 py-3">
-                      <LeadCell r={r} />
-                    </td>
-                    <td className="max-w-[160px] truncate px-4 py-3">
-                      <PropCell r={r} />
-                    </td>
-                    <td className="max-w-[210px] truncate px-4 py-3 text-text-body">{describe(r) || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">{r.source ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {grouped.map((g) => (
-              <section key={g.day}>
-                <h3 className="label-caps mb-2.5 !text-[11.5px]">{g.label}</h3>
-                <ul className="surface-card divide-y divide-border">
-                  {g.items.map((r) => (
-                    <li key={r.id}>
-                      <button type="button" onClick={() => setOpen(r)} className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-surface">
-                        <span className="tnum w-[70px] shrink-0 text-[12.5px] text-muted">{timeOnly(r.createdAt)}</span>
-                        <TypeBadge type={r.type} />
-                        <span className="min-w-0 flex-1 truncate text-[13.5px] text-text-body">
-                          <b className="font-semibold text-text">{r.leadName ?? (r.listingName ? `${listingCode(r.listingId!)} ${r.listingName}` : "")}</b>
-                          {describe(r) ? ` · ${describe(r)}` : ""}
-                        </span>
-                        <span className="shrink-0 text-[12.5px] text-muted">{who(r)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        )}
-        {rows.length < total && (
-          <div className="mt-5 flex flex-col items-center gap-1.5">
-            <span className="text-[12.5px] text-muted">
-              Showing {rows.length.toLocaleString()} of {total.toLocaleString()}
-            </span>
-            <button type="button" onClick={loadMore} disabled={more} className="rounded-xl border border-border bg-surface-elevated px-5 py-2.5 text-[13.5px] font-medium shadow-sm hover:bg-primary-soft disabled:opacity-60">
-              {more ? "Loading…" : "Load more"}
-            </button>
-          </div>
-        )}
+        </section>
       </div>
 
       {/* detail drawer */}

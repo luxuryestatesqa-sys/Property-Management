@@ -34,6 +34,26 @@ interface Data {
 }
 
 const card = "rounded-2xl border border-border bg-surface shadow-sm";
+const PALETTE = ["#2b4fc0", "#06b6d4", "#16a34a", "#8b5cf6", "#f59e0b", "#ec4899", "#14b8a6", "#6366f1"];
+const CHANNEL_STYLE: Record<string, { bg: string; fg: string }> = {
+  WHATSAPP: { bg: "#dcfce7", fg: "#15803d" },
+  CALL: { bg: "#cffafe", fg: "#0e7490" },
+  EMAIL: { bg: "#e0e7ff", fg: "#4338ca" },
+  FORM: { bg: "#fce7f3", fg: "#be185d" },
+  OTHER: { bg: "#f1f5f9", fg: "#475569" },
+};
+const HOUR = 3600_000;
+const digitsOf = (v: string) => v.replace(/\D/g, "");
+const hasText = (v: string) => /[\p{L}\p{N}]/u.test(v);
+
+// WhatsApp profile names arrive as they are: empty, "!", "...", an emoji, or the phone number itself.
+function leadLabel(l: { name: string; phone: string | null; channel: string }) {
+  const n = l.name.trim();
+  if (!n || !hasText(n) || (l.phone && digitsOf(n) === digitsOf(l.phone) && digitsOf(n).length > 6)) return l.channel === "WHATSAPP" ? "Unknown (WhatsApp)" : "Unknown name";
+  return n;
+}
+// A bare Property Finder reference code (long, upper case) is not a property name.
+const isRawRef = (v: string | null) => Boolean(v && /^[A-Z0-9]{14,}$/.test(v));
 
 export default function AssignmentPage() {
   const { data: session, status } = useSession();
@@ -44,16 +64,18 @@ export default function AssignmentPage() {
   const [agentId, setAgentId] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [q, setQ] = useState("");
+  const [nowMs] = useState(() => Date.now());
 
-  const load = useCallback(async () => {
+  const load_ = useCallback(async () => {
     const res = await fetch("/api/leads/assignment");
     if (res.status === 403) return setDenied(true);
     if (res.ok) setData(await res.json());
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") load();
-  }, [status, load]);
+    if (status === "authenticated") load_();
+  }, [status, load_]);
 
   async function post(url: string, body: unknown, method = "POST") {
     setBusy(true);
@@ -76,8 +98,37 @@ export default function AssignmentPage() {
     if (d) {
       setMsg({ ok: true, text: `Assigned ${d.assigned} lead${d.assigned === 1 ? "" : "s"}.` });
       setPicked(new Set());
-      await load();
+      await load_();
     }
+  }
+  // Spread the selected leads over the agents, always giving the next one to whoever has the fewest open leads.
+  async function spreadEvenly() {
+    const team = data?.workload ?? [];
+    if (!team.length || picked.size === 0) return;
+    const load = new Map(team.map((a) => [a.id, a.open]));
+    const plan = new Map<string, string[]>();
+    const people = new Map<string, string[]>();
+    for (const l of data?.unassigned ?? []) {
+      if (!picked.has(l.id)) continue;
+      const key = l.phone && digitsOf(l.phone).length >= 7 ? digitsOf(l.phone) : l.id;
+      people.set(key, [...(people.get(key) ?? []), l.id]);
+    }
+    for (const ids of people.values()) {
+      const [next] = [...load.entries()].sort((x, y) => x[1] - y[1]);
+      load.set(next[0], next[1] + ids.length);
+      plan.set(next[0], [...(plan.get(next[0]) ?? []), ...ids]);
+    }
+    let done = 0;
+    for (const [agent, ids] of plan) {
+      const d = await post("/api/leads/assignment", { action: "assign", leadIds: ids, agentId: agent });
+      if (!d) break;
+      done += d.assigned ?? ids.length;
+    }
+    if (done) {
+      setMsg({ ok: true, text: `Spread ${done} lead${done === 1 ? "" : "s"} across ${plan.size} agent${plan.size === 1 ? "" : "s"}.` });
+      setPicked(new Set());
+    }
+    await load_();
   }
   if (status === "loading") return null;
   if (denied || (status === "authenticated" && !isManager))
@@ -93,6 +144,25 @@ export default function AssignmentPage() {
   const agents = data?.workload ?? [];
   const allPicked = data && data.unassigned.length > 0 && picked.size === data.unassigned.length;
   const maxOpen = Math.max(1, ...agents.map((a) => a.open));
+  const leastBusy = agents.length > 1 ? [...agents].sort((x, y) => x.open - y.open)[0] : null;
+  const colorOf = new Map(agents.map((a, i) => [a.id, PALETTE[i % PALETTE.length]]));
+  const needle = q.trim().toLowerCase();
+  // The same phone can enquire several times (or arrive twice). They are one person, so they show as one row
+  // and are always selected and given to an agent together.
+  const byPerson = new Map<string, Unassigned[]>();
+  for (const l of data?.unassigned ?? []) {
+    const key = l.phone && digitsOf(l.phone).length >= 7 ? digitsOf(l.phone) : l.id;
+    byPerson.set(key, [...(byPerson.get(key) ?? []), l]);
+  }
+  const clusters = [...byPerson.entries()].map(([key, leads]) => ({ key, leads, lead: leads[0], ids: leads.map((x) => x.id) }));
+  const rows = clusters.filter((c) => !needle || c.leads.some((l) => [l.name, l.phone ?? "", l.listing ?? "", l.listingReference ?? "", l.region ?? ""].some((v) => v.toLowerCase().includes(needle))));
+  const teamNames = new Set(agents.map((a) => a.name.trim().toLowerCase()));
+  const oldest = data && data.unassigned.length ? Math.min(...data.unassigned.map((l) => new Date(l.receivedAt).getTime())) : null;
+  const openTotal = agents.reduce((n, a) => n + a.open, 0);
+  const waitTone = (iso: string) => {
+    const h = (nowMs - new Date(iso).getTime()) / HOUR;
+    return h > 72 ? { bg: "#fee2e2", fg: "#b91c1c" } : h > 24 ? { bg: "#fef3c7", fg: "#b45309" } : { bg: "#f1f5f9", fg: "#64748b" };
+  };
 
   return (
     <div className="px-4 pb-24 lg:px-0 lg:pb-12 page-in">
@@ -122,17 +192,42 @@ export default function AssignmentPage() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6">
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {[
+          { label: "People waiting", value: data ? String(clusters.length) : "–", hint: data && data.unassigned.length ? `${data.unassigned.length} enquiries · oldest ${timeAgo(new Date(oldest ?? 0).toISOString())}` : "Inbox is clear", tone: data && data.unassigned.length ? "#f59e0b" : "#16a34a" },
+          { label: "Active agents", value: data ? String(agents.length) : "–", hint: leastBusy ? `${leastBusy.name} is least busy` : "Who can take leads", tone: "#2b4fc0" },
+          { label: "Open leads", value: data ? String(openTotal) : "–", hint: "Across the whole team", tone: "#06b6d4" },
+          { label: "Average per agent", value: data && agents.length ? (openTotal / agents.length).toFixed(1) : "–", hint: "Open leads each", tone: "#8b5cf6" },
+        ].map((t) => (
+          <div key={t.label} className="relative overflow-hidden rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm lg:p-5">
+            <span className="absolute inset-x-0 top-0 h-1" style={{ background: t.tone }} />
+            <div className="text-[12.5px] font-medium text-muted">{t.label}</div>
+            <div className="tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2" style={{ color: t.tone }}>{t.value}</div>
+            <div className="mt-1.5 truncate text-[12px] text-muted lg:mt-2">{t.hint}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-6">
         {/* Unassigned inbox */}
         <section className={`${card} min-w-0 overflow-hidden`}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
             <div>
               <h2 className="text-[16px] font-semibold">Unassigned inbox</h2>
-              <p className="text-[12.5px] text-muted">{data ? `${data.unassigned.length} waiting for an agent` : "Loading…"}</p>
+              <p className="text-[12.5px] text-muted">{data ? (needle ? `${rows.length} of ${clusters.length} people waiting for an agent` : `${clusters.length} ${clusters.length === 1 ? "person" : "people"} waiting for an agent${data.unassigned.length !== clusters.length ? ` · ${data.unassigned.length} enquiries` : ""}`) : "Loading…"}</p>
             </div>
+            {data && data.unassigned.length > 0 && picked.size === 0 && (
+              <div className="flex min-w-[220px] items-center gap-2 rounded-xl border border-border bg-white px-3 shadow-sm focus-within:border-primary">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input data-bare value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, phone or property" aria-label="Search unassigned leads" className="h-10 min-w-0 flex-1 bg-transparent text-[13.5px] outline-none" />
+              </div>
+            )}
             {picked.size > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[13px] font-medium">{picked.size} selected</span>
+                <span className="rounded-full px-2.5 py-1 text-[12.5px] font-semibold text-white" style={{ background: "linear-gradient(135deg, #2b4fc0, #06b6d4)" }}>{picked.size} selected</span>
                 <select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="rounded-lg border border-border bg-surface px-3 py-2 text-[13.5px] outline-none">
                   <option value="">Choose agent…</option>
                   {agents.map((a) => (
@@ -143,6 +238,14 @@ export default function AssignmentPage() {
                 </select>
                 <button type="button" onClick={assign} disabled={busy || !agentId} className="rounded-lg px-4 py-2 text-[13.5px] font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
                   Assign
+                </button>
+                {agents.length > 1 && (
+                  <button type="button" onClick={spreadEvenly} disabled={busy} title="Gives each lead to whoever has the fewest open leads at that moment" className="rounded-lg border border-border bg-white px-3.5 py-2 text-[13.5px] font-semibold hover:bg-primary-soft disabled:opacity-50">
+                    Spread evenly
+                  </button>
+                )}
+                <button type="button" onClick={() => setPicked(new Set())} className="rounded-lg px-2.5 py-2 text-[13px] font-medium text-muted hover:text-foreground">
+                  Clear
                 </button>
               </div>
             )}
@@ -176,38 +279,62 @@ export default function AssignmentPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.unassigned.map((l) => (
-                    <tr key={l.id} className="border-b border-border last:border-b-0 hover:bg-accent-light/40">
-                      <td className="px-5 py-3.5">
-                        <input
-                          type="checkbox"
-                          aria-label={`Select ${l.name}`}
-                          checked={picked.has(l.id)}
-                          onChange={() =>
-                            setPicked((p) => {
-                              const n = new Set(p);
-                              if (n.has(l.id)) n.delete(l.id);
-                              else n.add(l.id);
-                              return n;
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="px-3 py-3.5">
-                        <Link href={`/leads/${l.id}`} className="text-[14px] font-semibold hover:text-primary">
-                          {l.name}
-                        </Link>
-                        <div className="text-[12.5px] text-muted">
-                          {l.phone ?? "No phone"} · {CHANNEL_LABELS[l.channel]}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3.5 text-[13px]">
-                        <div className="font-medium">{l.listing ?? l.listingReference ?? "General enquiry"}</div>
-                        <div className="text-[12px] text-muted">{l.region ?? "—"}</div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-3.5 text-[13px] text-muted">{timeAgo(l.receivedAt)}</td>
+                  {rows.map((c) => {
+                    const l = c.lead;
+                    const on = c.ids.every((id) => picked.has(id));
+                    const junk = !hasText(l.name.trim()) && l.name.trim() !== "";
+                    const isTeam = teamNames.has(l.name.trim().toLowerCase());
+                    const raw = isRawRef(l.listingReference);
+                    return (
+                      <tr key={c.key} className={`border-b border-border last:border-b-0 hover:bg-accent-light/40 ${on ? "bg-accent-light/60" : ""}`}>
+                        <td className="px-5 py-3.5">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${leadLabel(l)}`}
+                            checked={on}
+                            onChange={() =>
+                              setPicked((p) => {
+                                const n = new Set(p);
+                                for (const id of c.ids) {
+                                  if (on) n.delete(id);
+                                  else n.add(id);
+                                }
+                                return n;
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Link href={`/leads/${l.id}`} className="text-[14px] font-semibold hover:text-primary">
+                              {leadLabel(l)}
+                            </Link>
+                            {c.leads.length > 1 && (
+                              <span title={`${c.leads.length} enquiries from this number`} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#ede9fe", color: "#5b21b6" }}>
+                                ×{c.leads.length}
+                              </span>
+                            )}
+                            {isTeam && <span title="This name matches someone on your team, so it may have been imported by mistake" className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#fef3c7", color: "#b45309" }}>Team member?</span>}
+                            {junk && <span title="The name has no letters or numbers, so this may be spam" className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#fee2e2", color: "#b91c1c" }}>Check lead</span>}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2 text-[12.5px] text-muted">
+                            {l.phone ?? "No phone"}
+                            <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: (CHANNEL_STYLE[l.channel] ?? CHANNEL_STYLE.OTHER).bg, color: (CHANNEL_STYLE[l.channel] ?? CHANNEL_STYLE.OTHER).fg }}>{CHANNEL_LABELS[l.channel]}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3.5 text-[13px]">
+                          <div className="font-medium" title={raw ? (l.listingReference ?? undefined) : undefined}>{l.listing ?? (raw ? "Property Finder listing" : l.listingReference) ?? "General enquiry"}</div>
+                          <div className="text-[12px] text-muted">{l.region ?? (raw && !l.listing ? `Ref ${l.listingReference!.slice(0, 6)}…` : "—")}</div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3.5 text-[13px]"><span className="rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: waitTone(l.receivedAt).bg, color: waitTone(l.receivedAt).fg }}>{timeAgo(l.receivedAt)}</span></td>
+                      </tr>
+                    );
+                  })}
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-10 text-center text-[13.5px] text-muted">No waiting leads match “{q}”.</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -224,15 +351,18 @@ export default function AssignmentPage() {
                 <div className="flex items-center gap-2.5">
                   <Avatar name={a.name} avatarUrl={a.avatarUrl} size={28} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-medium">{a.name}</div>
+                    <div className="flex items-center gap-2 truncate text-[13.5px] font-medium">
+                      {a.name}
+                      {leastBusy?.id === a.id && <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold" style={{ background: "#dcfce7", color: "#15803d" }}>Least busy</span>}
+                    </div>
                     <div className="text-[11.5px] text-muted">
                       {a.total} total · {a.won} won · {a.avgResponseMinutes === null ? "no response data" : `avg response ${a.avgResponseMinutes < 60 ? `${a.avgResponseMinutes} min` : `${Math.round(a.avgResponseMinutes / 60)} h`}`}
                     </div>
                   </div>
-                  <span className="tnum text-[15px] font-semibold">{a.open}</span>
+                  <span className="tnum text-[15px] font-bold" style={{ color: colorOf.get(a.id) }}>{a.open}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                  <div className="h-full rounded-full" style={{ width: `${(a.open / maxOpen) * 100}%`, background: "var(--brand-gradient, var(--primary))" }} />
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(a.open / maxOpen) * 100}%`, background: `linear-gradient(90deg, ${colorOf.get(a.id)}, ${colorOf.get(a.id)}bb)` }} />
                 </div>
               </li>
             ))}

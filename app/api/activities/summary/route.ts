@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const wonStages = Prisma.sql`SELECT "name" FROM "LeadStage" WHERE "organizationId" = ${orgId!} AND "kind"::text = 'WON'`;
   const range = [f.from ? Prisma.sql`l2."firstContactedAt" >= ${qatarStart(f.from)}` : null, f.to ? Prisma.sql`l2."firstContactedAt" < ${qatarEndExclusive(f.to)}` : null].filter((x): x is Prisma.Sql => x !== null);
 
-  const [kpiRows, board, response, perDay, users, stages] = await Promise.all([
+  const [kpiRows, board, response, perDay, users, stages, usedStages] = await Promise.all([
     prisma.$queryRaw<Record<string, number>[]>(Prisma.sql`
       SELECT count(*)::int AS total,
         count(*) FILTER (WHERE a."type" = 'call_logged')::int AS calls,
@@ -49,6 +49,8 @@ export async function GET(req: NextRequest) {
       FROM ${ACTIVITY_FROM} WHERE ${where} GROUP BY 1 ORDER BY 1`),
     manager ? prisma.user.findMany({ where: { organizationId: orgId!, status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     prisma.leadStage.findMany({ where: { organizationId: orgId! }, orderBy: { position: "asc" }, select: { name: true } }),
+    // stage names that were used before a rename or delete still show on old entries, so keep them filterable
+    prisma.activity.findMany({ where: { organizationId: orgId!, type: "stage_changed" }, distinct: ["newValue"], select: { newValue: true }, take: 50 }),
   ]);
 
   const avg = new Map(response.map((r) => [r.agentId, Math.round(r.minutes)]));
@@ -57,6 +59,6 @@ export async function GET(req: NextRequest) {
     // Other = everything not in a column, so a row's columns add up to its Total (Won is part of Stages).
     leaderboard: board.map((b) => ({ ...b, name: b.agentId ? b.name ?? "Former team member" : "System", other: Math.max(0, b.total - b.calls - b.whatsapp - b.notes - b.viewings - b.stages - b.listings), avgFirstResponseMinutes: b.agentId ? avg.get(b.agentId) ?? null : null })),
     perDay,
-    meta: { agents: users.map((u) => avatarLink(u)!), stages: stages.map((s) => s.name), canSeeAll: manager },
+    meta: { agents: users.map((u) => avatarLink(u)!), stages: [...new Set([...stages.map((s) => s.name), ...usedStages.flatMap((u) => (u.newValue ? [u.newValue] : []))])], canSeeAll: manager },
   });
 }

@@ -232,7 +232,7 @@ function DesktopLeads() {
         <div>
           <h1 className="text-xl font-bold lg:text-[28px] lg:font-semibold lg:leading-none lg:tracking-[-0.025em]">Leads</h1>
           {roleKnown ? (
-            <p className="mt-1 text-[13px] text-muted lg:mt-2.5 lg:text-[15px]">{canManage ? "Every enquiry from Property Finder, sorted by agent." : "Enquiries sent to you from Property Finder."}</p>
+            <p className="mt-1 text-[13px] text-muted lg:mt-2.5 lg:text-[15px]">{canManage ? "Every enquiry from Property Finder, Meta ads and imports, sorted by agent." : "Enquiries sent to you."}</p>
           ) : (
             <div className="mt-2.5 h-4 w-72 max-w-full animate-pulse rounded" />
           )}
@@ -364,28 +364,58 @@ function DesktopLeads() {
       )}
 
       {/* Summary */}
-      <div className="kpi-row grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {[
-          { label: "New", value: counts.fresh, hint: "Waiting to be contacted", tone: "var(--primary)" },
-          { label: "In progress", value: counts.open, hint: "Open leads", tone: "var(--primary)" },
-          { label: "Won", value: counts.won, hint: "Converted", tone: "var(--success)" },
-          canManage ? { label: "Unassigned", value: counts.unassigned, hint: "Need an agent", tone: "var(--warning)" } : { label: "Total", value: counts.total, hint: "Your leads", tone: "var(--muted)" },
+          { label: "New", value: counts.fresh, hint: "Waiting to be contacted", tone: "#2b4fc0" },
+          { label: "In progress", value: counts.open, hint: "Open leads", tone: "#06b6d4" },
+          { label: "Won", value: counts.won, hint: "Converted", tone: "#16a34a" },
+          canManage ? { label: "Unassigned", value: counts.unassigned, hint: "Need an agent", tone: "#f59e0b" } : { label: "Total", value: counts.total, hint: "Your leads", tone: "#8b5cf6" },
         ].map((t) => (
-          <div key={t.label} className="rounded-2xl border border-border bg-surface shadow-sm px-4 py-3.5 lg:p-5">
+          <div key={t.label} className="relative overflow-hidden rounded-2xl border border-border bg-surface shadow-sm px-4 py-3.5 lg:p-5">
+            <span className="absolute inset-x-0 top-0 h-1" style={{ background: t.tone }} />
             <div className="flex items-center gap-2 text-[12.5px] font-medium text-muted">
               <span className="h-2 w-2 rounded-full" style={{ background: t.tone }} />
               {roleKnown || t.label !== "Total" ? t.label : <span className="inline-block h-3 w-14 animate-pulse rounded" />}
             </div>
-            <div className="kpi-num tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2 lg:text-[30px]">{loading || !roleKnown ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : t.value}</div>
+            <div className="tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2 lg:text-[30px]" style={{ color: t.tone }}>{loading || !roleKnown ? <span className="inline-block h-6 w-8 animate-pulse rounded bg-surface-muted" /> : t.value}</div>
             <div className="mt-1.5 text-[12px] text-muted lg:mt-2">{roleKnown || t.label !== "Total" ? t.hint : <span className="inline-block h-3 w-24 animate-pulse rounded" />}</div>
           </div>
         ))}
       </div>
 
+      {/* Where the leads are: one coloured strip, a segment per stage */}
+      {!loading && stages.length > 0 && (() => {
+        const palette = ["#2b4fc0", "#06b6d4", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+        let openIdx = -1;
+        const parts = stages.map((st) => {
+          if (st.kind === "OPEN") openIdx++;
+          return { id: st.id, name: st.name, n: stageCount(grid, st.id, { assignee }), color: st.kind === "WON" ? "#16a34a" : st.kind === "LOST" ? "#f43f5e" : palette[openIdx % palette.length] };
+        });
+        const sum = parts.reduce((n, x) => n + x.n, 0);
+        if (sum === 0) return null;
+        return (
+          <div className="mt-4 rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm">
+            <div className="flex h-2.5 overflow-hidden rounded-full" style={{ background: "var(--primary-soft)" }} role="img" aria-label="Leads by stage">
+              {parts.filter((x) => x.n > 0).map((x) => (
+                <button key={x.id} type="button" title={`${x.name}: ${x.n}`} onClick={() => setStageFilter(stageFilter === x.id ? "all" : x.id)} style={{ width: `${(x.n / sum) * 100}%`, background: x.color }} className="h-full transition-opacity hover:opacity-80" aria-label={`${x.name}: ${x.n}`} />
+              ))}
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+              {parts.map((x) => (
+                <button key={x.id} type="button" onClick={() => setStageFilter(stageFilter === x.id ? "all" : x.id)} className={`inline-flex items-center gap-1.5 text-[12.5px] ${stageFilter === x.id ? "font-semibold text-foreground" : "text-muted hover:text-foreground"}`}>
+                  <span className="h-2 w-2 rounded-full" style={{ background: x.color }} />
+                  {x.name} <span className="tnum font-semibold" style={{ color: x.n ? x.color : undefined }}>{x.n}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Follow-up tabs (list and board) */}
       <div className="mt-4 flex gap-1.5" role="tablist" aria-label="Follow-ups">
         {([["all", "All leads", null], ["today", "Due today", data?.followups.today ?? null], ["overdue", "Overdue", data?.followups.overdue ?? null]] as const).map(([key, label, n]) => (
-          <button key={key} type="button" role="tab" aria-selected={followup === key} onClick={() => setFollowup(key)} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-colors ${followup === key ? "bg-primary-soft text-primary" : "bg-surface-muted text-muted hover:text-foreground"}`}>
+          <button key={key} type="button" role="tab" aria-selected={followup === key} onClick={() => setFollowup(key)} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-colors ${followup === key ? (key === "overdue" ? "bg-rose-100 text-rose-700" : key === "today" ? "bg-amber-100 text-amber-800" : "bg-primary-soft text-primary") : "bg-surface-muted text-muted hover:text-foreground"}`}>
             {label}
             {n !== null && <span className={`tnum rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none ${key === "overdue" && n > 0 ? "bg-danger-soft text-danger" : "bg-white/70"}`}>{n}</span>}
           </button>
@@ -394,7 +424,7 @@ function DesktopLeads() {
 
       {/* Search + filters */}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <div className="flex min-w-[180px] flex-1 items-center gap-2.5 rounded-xl border border-border bg-surface px-3.5 shadow-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
+        <div className="flex min-w-[180px] flex-1 items-center gap-2.5 rounded-xl border border-border bg-white px-3.5 shadow-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
           <IconSearch size={16} className="shrink-0 text-muted" />
           <input data-bare value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, phone, email or area" className="min-w-0 flex-1 bg-transparent py-3 text-[14.5px] outline-none" />
           {query && (

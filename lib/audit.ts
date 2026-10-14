@@ -23,6 +23,13 @@ const LABELS: Record<string, string> = {
   AVAILABILITY_STATUS_CHANGED: "Availability status",
   PHOTOS_CHANGED: "Photos",
   UNIT_DETAILS_PRIVACY_CHANGED: "Floor & unit number visibility",
+  PROPERTY_FINDER_LOCATION_CHANGED: "Property Finder location",
+  AMENITIES_CHANGED: "Amenities",
+  TITLE_CHANGED: "Title",
+  DESCRIPTION_CHANGED: "Description",
+  TITLE_AR_CHANGED: "Arabic title",
+  DESCRIPTION_AR_CHANGED: "Arabic description",
+  VISIBILITY_CHANGED: "Who can see it",
 };
 
 // A field with no previous value is recorded as this literal sentinel (see
@@ -49,18 +56,54 @@ const VALUE_FORMATTERS: Record<string, (raw: string) => string> = {
   UNIT_DETAILS_PRIVACY_CHANGED: (raw) => (raw === "true" ? "Only me" : "Everyone"),
 };
 
-export function describeAuditEntry(entry: AuditLogDTO): string {
-  if (entry.action === "CREATED") return "Listing created";
-  if (entry.action === "DEACTIVATED") return "Listing deactivated";
-  if (entry.action === "REACTIVATED") return "Listing reactivated";
-  // Deliberately doesn't record old/new values (see the PATCH route) - the
-  // audit log is visible to anyone who can view the listing, not just its
-  // owner/admin, so the private fields themselves never appear here.
-  if (entry.action === "PRIVATE_DETAILS_UPDATED") return "Private details updated";
+// Readable name for an audit action ("RENT_PRICE_CHANGED" -> "Rent price").
+export function auditLabel(action: string): string {
+  if (LABELS[action]) return LABELS[action];
+  const t = action.replace(/_(CHANGED|UPDATED)$/, "").replace(/_/g, " ").toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
 
-  const label = LABELS[entry.action] ?? entry.action;
-  const formatter = VALUE_FORMATTERS[entry.action];
-  const oldVal = entry.oldValue ? (formatter ? formatter(entry.oldValue) : entry.oldValue) : UNSET;
-  const newVal = entry.newValue ? (formatter ? formatter(entry.newValue) : entry.newValue) : UNSET;
-  return `${label} changed from ${oldVal} → ${newVal}`;
+// Readable old/new value for an audit action (prices as QAR, enums as their labels).
+export function formatAuditValue(action: string, raw: string): string {
+  const f = VALUE_FORMATTERS[action];
+  if (f) return f(raw);
+  // ENUM_LIKE values ("SEMI_FURNISHED") read as words; free text is shortened.
+  const t = /^[A-Z][A-Z0-9_]*$/.test(raw) ? humanize(raw) : raw;
+  return t.length > 70 ? `${t.slice(0, 67)}…` : t;
+}
+
+const humanize = (id: string) => {
+  const t = id.trim().replace(/[-_]+/g, " ").toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+// "Amenities: +Central ac, +Gym · -Pets" instead of two raw id lists.
+function amenityDiff(oldValue: string | null, newValue: string | null): string {
+  const list = (v: string | null) => (v && v !== UNSET ? v.split(",").map((x) => x.trim()).filter(Boolean) : []);
+  const before = list(oldValue);
+  const after = list(newValue);
+  const show = (items: string[], sign: string) => (items.length > 3 ? `${items.slice(0, 3).map((x) => sign + x).join(", ")} +${items.length - 3} more` : items.map((x) => sign + x).join(", "));
+  const added = after.filter((x) => !before.includes(x)).map(humanize);
+  const removed = before.filter((x) => !after.includes(x)).map(humanize);
+  const parts = [added.length ? show(added, "+") : "", removed.length ? show(removed, "-") : ""].filter(Boolean);
+  return parts.length ? `Amenities: ${parts.join(" · ")}` : "Amenities updated";
+}
+
+// One readable sentence for a recorded change of one field.
+export function describeChange(action: string, oldValue: string | null, newValue: string | null): string {
+  if (action === "CREATED") return "Listing created";
+  if (action === "DEACTIVATED") return "Listing deactivated";
+  if (action === "REACTIVATED") return "Listing reactivated";
+  if (action === "PRIVATE_DETAILS_UPDATED") return "Private details updated";
+  if (action === "AMENITIES_CHANGED") return amenityDiff(oldValue, newValue);
+  const label = auditLabel(action);
+  const isCode = (v: string | null) => v !== null && /^\d+$/.test(v) && !/PRICE|VALUE|SIZE|BEDROOMS|FLOOR|YEARS|PAYMENT/.test(action);
+  // Location ids and similar codes mean nothing to a person, so just say it changed.
+  if (isCode(oldValue) || isCode(newValue) || (!oldValue && !newValue)) return `${label} updated`;
+  const fmt = (v: string | null) => (v && v !== UNSET ? formatAuditValue(action, v) : "none");
+  return `${label}: ${fmt(oldValue)} → ${fmt(newValue)}`;
+}
+
+export function describeAuditEntry(entry: AuditLogDTO): string {
+  return describeChange(entry.action, entry.oldValue ?? null, entry.newValue ?? null);
 }

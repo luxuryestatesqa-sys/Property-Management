@@ -32,6 +32,8 @@ export const ACTIVITY_TYPES: { type: string; label: string; group: ActivityGroup
   { type: "role_changed", label: "Role changed", group: "User", icon: "M12 2 3 7v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V7z" },
 ];
 
+import { describeChange } from "./audit";
+
 export const TYPE_INFO = new Map(ACTIVITY_TYPES.map((t) => [t.type, t]));
 export const typeLabel = (t: string) => TYPE_INFO.get(t)?.label ?? t;
 
@@ -87,8 +89,12 @@ export function describe(r: Pick<ActivityRow, "type" | "oldValue" | "newValue" |
     case "listing_activated":
       return r.oldValue || r.newValue ? `${r.oldValue ?? "?"} → ${r.newValue ?? "?"}` : "";
     case "listing_edited":
-      return r.note ? `${r.note.replace(/_CHANGED$/, "").replace(/_/g, " ").toLowerCase()}${r.oldValue || r.newValue ? `: ${r.oldValue ?? "-"} → ${r.newValue ?? "-"}` : ""}`.slice(0, 160) : "";
+      return describeListingEdit(r);
     default:
       return r.note ?? "";
   }
+}
+
+function describeListingEdit(r: Pick<ActivityRow, "note" | "oldValue" | "newValue">): string {
+  return r.note ? describeChange(r.note, r.oldValue, r.newValue) : "Listing edited";
 }

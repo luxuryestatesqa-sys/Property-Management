@@ -16,9 +16,9 @@
   --text-body: #2a3557;
   --text-muted: #5a6690;
   --text-subtle: #9aa3bf; /* placeholders and disabled only, never readable text */
-  --success: #3e8e6a;
+  --success: #1f7a52;
   --success-soft: #e4f2eb;
-  --warning: #b7862b;
+  --warning: #9a6700;
   --warning-soft: #f7eedc;
   --danger: #b5474b;
   --danger-soft: #f6e3e4;
@@ -255,6 +255,9 @@ textarea {
    real app: this renders as part of the initial HTML, before any JS runs, so
    it's on screen the instant the OS splash hands off, then fades itself out
    via CSS alone - no React, no flash of missing branding either way. */
+html.no-splash #app-splash {
+  display: none;
+}
 #app-splash {
   position: fixed;
   inset: 0;
@@ -383,16 +386,18 @@ body::before {
   background: #ffffff;
 }
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .glass,
-  [role="dialog"] {
+  .glass {
     background: rgba(255, 255, 255, 0.7);
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
   }
 }
+/* Dialogs, sheets and drawers are solid white: the page behind them must not show through, or the text and
+   fields lose contrast (the frosted look is kept for the sidebar and top bars only). */
 [role="dialog"] {
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 24px 60px rgba(13, 31, 92, 0.18);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 60px rgba(13, 31, 92, 0.22);
 }
 
 /* Primary button: flat cobalt, white text, 12px radius, soft blue shadow. */

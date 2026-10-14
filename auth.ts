@@ -37,7 +37,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           else throw e;
         }
         if (!valid) return null;
-        void logActivity(user.organizationId, { type: "user_login", agentId: user.id, note: user.email });
+        // One entry per person per 10 minutes, so repeated sign-ins in a short test or a flaky connection do not flood the log.
+        const recent = await prisma.activity.findFirst({ where: { organizationId: user.organizationId, type: "user_login", agentId: user.id, createdAt: { gte: new Date(Date.now() - 10 * 60_000) } }, select: { id: true } }).catch(() => null);
+        if (!recent) void logActivity(user.organizationId, { type: "user_login", agentId: user.id, note: user.email });
 
         return {
           id: user.id,

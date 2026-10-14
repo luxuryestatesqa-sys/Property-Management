@@ -15,7 +15,8 @@ export default function UnitDetailsPrivacyField({
   unitLabel: string;
   showFloor: boolean;
 }) {
-  const what = showFloor ? `floor and ${unitLabel.toLowerCase()}` : unitLabel.toLowerCase();
+  const unitWord = unitLabel.toLowerCase().replace(/ no\.?$/, " number"); // "apartment no." -> "apartment number", so the sentence's full stop is not doubled
+  const what = showFloor ? `floor and ${unitWord}` : unitWord;
   return (
     <div>
       <span className="text-sm font-medium text-foreground block mb-1.5">Who can see the {what}?</span>

@@ -496,6 +496,22 @@ export default function ProfilePage() {
         <p className="mb-2 mt-6 px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Account</p>
         <div className="surface-card divide-y divide-slate-100 overflow-hidden">{phoneRows.map(phoneRow)}</div>
 
+        <p className="mb-2 mt-6 px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Insights</p>
+        <div className="surface-card divide-y divide-slate-100 overflow-hidden">
+          {[
+            ...(["OWNER", "ADMIN", "MANAGER"].includes(user.role) ? [{ href: "/dashboard", label: "Dashboard", hint: "Leads, listings and charts for the whole agency" }] : []),
+            { href: "/dashboard/activities", label: "Activities", hint: "A timeline of everything that was done" },
+          ].map((r) => (
+            <Link key={r.href} href={r.href} className="flex items-center gap-3.5 px-4 py-3.5 active:bg-surface-muted">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium">{r.label}</span>
+                <span className="block truncate text-[12.5px] text-muted">{r.hint}</span>
+              </span>
+              {chevron}
+            </Link>
+          ))}
+        </div>
+
         {isAdmin && (
           <>
             <p className="mb-2 mt-6 px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Team</p>

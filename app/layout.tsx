@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import Script from "next/script";
 import { auth } from "@/auth";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
 import AppShell from "@/components/AppShell";
@@ -42,12 +43,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${inter.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {/* Part of the initial HTML (not a client component) so it paints the
             instant the OS hands off from its own app-launch splash, with no
             gap where neither is visible. See the #app-splash rules in
             globals.css for the fade-out, which runs on pure CSS. */}
+        {/* The splash is for opening the app, so after the first page of a session it is skipped (a reload
+            while you are working on a form should not cover the page). Runs before the first paint. */}
+        <Script id="splash-once" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: 'try{if(sessionStorage.getItem("splash-seen")){document.documentElement.classList.add("no-splash")}else{sessionStorage.setItem("splash-seen","1")}}catch(e){}' }} />
         <div id="app-splash" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" />

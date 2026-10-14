@@ -4,7 +4,7 @@ import Image from "next/image";
 import { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ListingDTO } from "@/lib/types";
-import { formatQAR, formatSqm, listingCode } from "@/lib/format";
+import { buildingTitle, formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
 import Avatar from "../Avatar";
 import { AvailabilityPill, TypePill, PrivatePill } from "./Badges";
@@ -37,7 +37,7 @@ export function PropertyCell({ listing }: { listing: ListingDTO }) {
       </div>
       <div className="min-w-0">
         <div className="truncate text-[14px] font-semibold text-foreground">
-          {listing.buildingName}
+          {buildingTitle(listing.buildingName)}
           {unitText && <span className="font-normal text-muted"> · {unitText}</span>}
         </div>
         <div className="truncate text-[12.5px] text-muted">
@@ -128,7 +128,7 @@ export default function ListingTable({
                 {c.header}
               </th>
             ))}
-            <th className={trailing ? "px-3 py-3" : "w-10 px-3 py-3"} />
+            <th className={trailing ? "sticky right-0 bg-surface-muted px-3 py-3 text-right shadow-[-8px_0_8px_-8px_rgba(13,31,92,0.12)]" : "w-10 px-3 py-3"}>{trailing ? "Actions" : null}</th>
           </tr>
         </thead>
         <tbody>
@@ -150,7 +150,7 @@ export default function ListingTable({
                     )}
                   </td>
                 ))}
-                <td className="px-3 py-3 text-right" onClick={trailing ? (e) => e.stopPropagation() : undefined}>
+                <td className={`px-3 py-3 text-right ${trailing ? "sticky right-0 bg-surface shadow-[-8px_0_8px_-8px_rgba(13,31,92,0.12)] group-hover:bg-surface" : ""}`} onClick={trailing ? (e) => e.stopPropagation() : undefined}>
                   {trailing ? trailing(l) : <IconChevronRight size={16} className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}
                 </td>
               </tr>

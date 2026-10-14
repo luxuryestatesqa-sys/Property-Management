@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ListingDTO } from "@/lib/types";
-import { formatQAR, formatSqm, listingCode } from "@/lib/format";
+import { buildingTitle, formatQAR, formatSqm, listingCode } from "@/lib/format";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_SHORT_LABELS, unitSummary } from "@/lib/propertyCategory";
 import { TypePill, PrivatePill } from "./Badges";
 import { AvailabilitySelect, PortalsCell, RowActions } from "./MyListingsTable";
@@ -31,7 +31,7 @@ function Card({ listing, onChange }: { listing: ListingDTO; onChange: () => void
           {listing.visibility === "PRIVATE" && <PrivatePill />}
           {listing.status === "INACTIVE" && <span className="rounded-full bg-[rgba(13,31,92,0.72)] px-2.5 py-1 text-[11px] font-semibold leading-none text-white">Inactive</span>}
         </div>
-        <div className="absolute right-3 top-3 rounded-full bg-[rgba(13,31,92,0.55)] px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">{listingCode(listing.id)}</div>
+        <div className="absolute right-3 top-3 rounded-full bg-[rgba(13,31,92,0.72)] px-2.5 py-1 text-[11px] font-medium leading-none text-white backdrop-blur-sm">{listingCode(listing.id)}</div>
         <div className="tnum absolute bottom-3 left-3 text-[22px] font-semibold leading-none tracking-tight text-white drop-shadow">
           {formatQAR(price)}
           {isRent && <span className="ml-1 text-[13px] font-medium opacity-90">/mo</span>}
@@ -41,7 +41,7 @@ function Card({ listing, onChange }: { listing: ListingDTO; onChange: () => void
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="min-w-0">
           <h3 className="truncate text-[16px] font-semibold leading-snug">
-            {listing.buildingName}
+            {buildingTitle(listing.buildingName)}
             {unitText && <span className="font-normal text-muted"> · {unitText}</span>}
           </h3>
           <p className="mt-1 flex items-center gap-1.5 truncate text-[13px] text-muted">
@@ -77,7 +77,7 @@ function Card({ listing, onChange }: { listing: ListingDTO; onChange: () => void
         </div>
 
         <div className="border-t border-border pt-3">
-          <RowActions listing={listing} onChange={onChange} />
+          <RowActions listing={listing} onChange={onChange} fill />
         </div>
       </div>
     </div>
