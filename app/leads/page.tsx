@@ -10,8 +10,8 @@ import FilterSelect from "@/components/leads/FilterSelect";
 import BulkBar from "@/components/leads/BulkBar";
 import MobileLeads from "@/components/leads/MobileLeads";
 import { AddLeadModal, ImportLeadsModal } from "@/components/leads/LeadIntake";
-import { ContactButtons, FollowUpTag, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
-import { LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
+import { ContactButtons, FollowUpTag, FreshBadge, FRESH_STYLE, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
+import { isFreshLead, LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
 import { timeAgo } from "@/lib/timeAgo";
 import { agentCount as gridAgentCount, kpis, stageCount } from "@/lib/leads/counts";
 
@@ -196,6 +196,8 @@ function DesktopLeads() {
 
   const stages: LeadStageDTO[] = data?.stages ?? [];
   const firstStage = stages.find((s) => s.kind === "OPEN");
+  const kindOf = useMemo(() => new Map(stages.map((s) => [s.id, s.kind])), [stages]);
+  const fresh = (l: LeadRow) => isFreshLead(l, kindOf.get(l.stageId));
   const all = useMemo(() => data?.leads ?? [], [data]);
   const visible = useMemo(() => (stageFilter === "all" ? all : all.filter((l) => l.stageId === stageFilter)), [all, stageFilter]);
   // Nothing role-specific is drawn until the signed-in role is known, so an admin never sees the agent wording first.
@@ -557,11 +559,15 @@ function DesktopLeads() {
                           setDragId(null);
                           setOverStage(null);
                         }}
-                        className={`cursor-grab rounded-xl bg-white p-3.5 shadow-[var(--shadow-card)] transition-opacity active:cursor-grabbing ${dragId === l.id ? "opacity-40" : ""}`}
+                        style={fresh(l) ? { background: "linear-gradient(135deg, #dbeafe, #ecfeff 60%, #ffffff)", boxShadow: "inset 4px 0 0 #2b4fc0, var(--shadow-card)" } : undefined}
+                        className={`cursor-grab rounded-xl p-3.5 shadow-[var(--shadow-card)] transition-opacity active:cursor-grabbing ${fresh(l) ? "" : "bg-white"} ${dragId === l.id ? "opacity-40" : ""}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <Link href={`/leads/${l.id}`} className="block truncate text-[14px] font-semibold hover:text-primary">{l.name}</Link>
+                            <div className="flex items-center gap-1.5">
+                              <Link href={`/leads/${l.id}`} className="block truncate text-[14px] font-semibold hover:text-primary">{l.name}</Link>
+                              {fresh(l) && <FreshBadge />}
+                            </div>
                             <div className="truncate text-[12px] text-muted">{l.phone ?? l.email ?? "No contact"}</div>
                           </div>
                           <ContactButtons lead={l} size={30} />
@@ -604,12 +610,15 @@ function DesktopLeads() {
               </thead>
               <tbody>
                 {visible.map((l) => (
-                  <tr key={l.id} className={`border-b border-border last:border-b-0 transition-colors ${selected.has(l.id) ? "bg-accent-light/60" : "hover:bg-accent-light/40"}`}>
+                  <tr key={l.id} style={fresh(l) && !selected.has(l.id) ? FRESH_STYLE : undefined} className={`border-b border-border last:border-b-0 transition-colors ${selected.has(l.id) ? "bg-accent-light/60" : "hover:bg-accent-light/40"}`}>
                     <td className="w-10 py-3.5 pl-4">
                       <input type="checkbox" aria-label={`Select ${l.name}`} checked={selected.has(l.id)} onChange={() => toggle(l.id)} />
                     </td>
                     <td className="px-2.5 py-3">
-                      <Link href={`/leads/${l.id}`} className="block max-w-[190px] truncate text-[14px] font-medium hover:text-primary">{l.name}</Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/leads/${l.id}`} className={`block max-w-[170px] truncate text-[14px] hover:text-primary ${fresh(l) ? "font-semibold" : "font-medium"}`}>{l.name}</Link>
+                        {fresh(l) && <FreshBadge />}
+                      </div>
                       <FollowUpTag iso={l.nextFollowUp} />
                       {l.duplicates > 0 && <span title={`${l.duplicates} other lead${l.duplicates === 1 ? "" : "s"} with the same phone or email`} className="mt-0.5 inline-block rounded-full bg-warning-soft px-2 py-0.5 text-[10.5px] font-bold leading-none text-warning">Duplicate</span>}
                     </td>
@@ -633,12 +642,15 @@ function DesktopLeads() {
         ) : (
           <div className="flex flex-col gap-3">
             {visible.map((l) => (
-              <div key={l.id} className="rounded-2xl border border-border bg-surface shadow-sm p-4">
+              <div key={l.id} style={fresh(l) ? FRESH_STYLE : undefined} className="rounded-2xl border border-border bg-surface shadow-sm p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <Initial name={l.name} />
                     <div className="min-w-0">
-                      <Link href={`/leads/${l.id}`} className="block truncate text-[15px] font-semibold">{l.name}</Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link href={`/leads/${l.id}`} className="block truncate text-[15px] font-semibold">{l.name}</Link>
+                        {fresh(l) && <FreshBadge />}
+                      </div>
                       <div className="truncate text-[12.5px] text-muted">{l.phone ?? l.email ?? "No contact details"}</div>
                     </div>
                   </div>

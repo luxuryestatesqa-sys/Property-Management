@@ -7,6 +7,8 @@ import Avatar from "@/components/Avatar";
 import { timeAgo } from "@/lib/timeAgo";
 import { CHANNEL_LABELS } from "@/components/leads/leadTypes";
 import { IconChevronLeft } from "@/components/desktop/icons";
+import { FreshBadge, FRESH_STYLE } from "@/components/leads/LeadBits";
+import { isFreshLead } from "@/components/leads/leadTypes";
 
 interface Agent {
   id: string;
@@ -26,6 +28,7 @@ interface Unassigned {
   listing: string | null;
   listingReference: string | null;
   receivedAt: string;
+  firstContactedAt: string | null;
 }
 interface Data {
   unassigned: Unassigned[];
@@ -286,7 +289,7 @@ export default function AssignmentPage() {
                     const isTeam = teamNames.has(l.name.trim().toLowerCase());
                     const raw = isRawRef(l.listingReference);
                     return (
-                      <tr key={c.key} className={`border-b border-border last:border-b-0 hover:bg-accent-light/40 ${on ? "bg-accent-light/60" : ""}`}>
+                      <tr key={c.key} style={!on && c.leads.some((x) => isFreshLead(x)) ? FRESH_STYLE : undefined} className={`border-b border-border last:border-b-0 hover:bg-accent-light/40 ${on ? "bg-accent-light/60" : ""}`}>
                         <td className="px-5 py-3.5">
                           <input
                             type="checkbox"
@@ -309,6 +312,7 @@ export default function AssignmentPage() {
                             <Link href={`/leads/${l.id}`} className="text-[14px] font-semibold hover:text-primary">
                               {leadLabel(l)}
                             </Link>
+                            {c.leads.some((x) => isFreshLead(x)) && <FreshBadge />}
                             {c.leads.length > 1 && (
                               <span title={`${c.leads.length} enquiries from this number`} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#ede9fe", color: "#5b21b6" }}>
                                 ×{c.leads.length}

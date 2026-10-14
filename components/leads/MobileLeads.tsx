@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { AddLeadModal, ImportLeadsModal } from "@/components/leads/LeadIntake";
-import { ContactButtons } from "@/components/leads/LeadBits";
-import { CHANNEL_LABELS, LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
+import { ContactButtons, FreshBadge, FRESH_STYLE } from "@/components/leads/LeadBits";
+import { CHANNEL_LABELS, isFreshLead, LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
 import { timeAgo } from "@/lib/timeAgo";
 
 const PAGE = 30;
@@ -61,13 +61,14 @@ function Row({ lead, stage, canManage, now }: { lead: LeadRow; stage?: LeadStage
   const due = lead.nextFollowUp ? new Date(lead.nextFollowUp) : null;
   const overdue = due ? due.getTime() < now : false;
   const property = lead.listing?.buildingName ?? lead.listingReference ?? lead.region;
+  const fresh = isFreshLead(lead, stage?.kind);
   return (
-    <li className="flex items-start gap-2 pr-3">
+    <li className="flex items-start gap-2 pr-3" style={fresh ? FRESH_STYLE : undefined}>
       <Link href={`/leads/${lead.id}`} className="flex min-w-0 flex-1 gap-3 py-3.5 pl-4 active:bg-surface-muted">
         <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-light text-[16px] font-medium text-primary">{lead.name.trim().charAt(0).toUpperCase() || "?"}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="flex min-w-0 items-center gap-1.5"><span className="truncate text-[15.5px] font-medium">{lead.name}</span>{lead.duplicates > 0 && <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-bold leading-none text-warning">Duplicate</span>}</span>
+            <span className="flex min-w-0 items-center gap-1.5"><span className={`truncate text-[15.5px] ${fresh ? "font-semibold" : "font-medium"}`}>{lead.name}</span>{fresh && <FreshBadge />}{lead.duplicates > 0 && <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-bold leading-none text-warning">Duplicate</span>}</span>
             <span className="shrink-0 text-[11.5px] text-muted">{timeAgo(lead.receivedAt)}</span>
           </div>
           <div className="mt-0.5 truncate text-[13px] text-muted">

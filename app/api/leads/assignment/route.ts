@@ -22,7 +22,7 @@ export async function GET() {
       where: { assignedToId: null },
       orderBy: { receivedAt: "desc" },
       take: 200,
-      select: { id: true, name: true, phone: true, channel: true, region: true, listingReference: true, receivedAt: true, listing: { select: { buildingName: true } } },
+      select: { id: true, name: true, phone: true, channel: true, region: true, listingReference: true, receivedAt: true, firstContactedAt: true, listing: { select: { buildingName: true } } },
     }),
     db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true, role: true }, orderBy: { name: "asc" } }),
     db!.assignmentRule.findMany({ orderBy: { position: "asc" } }),

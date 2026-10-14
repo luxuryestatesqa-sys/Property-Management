@@ -135,6 +135,7 @@ export async function GET(req: NextRequest) {
       stageId: l.stageId,
       assignedTo: avatarLink(l.assignedTo),
       receivedAt: l.receivedAt,
+      firstContactedAt: l.firstContactedAt,
       callTalkTime: l.callTalkTime,
       hasRecording: Boolean(l.callRecordUrl),
       tags: l.tags,

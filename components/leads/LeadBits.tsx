@@ -129,3 +129,16 @@ export function ContactButtons({ lead, size = 34 }: { lead: LeadRow; size?: numb
     </div>
   );
 }
+
+// The marker for a lead that nobody has contacted yet.
+export function FreshBadge({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase leading-none tracking-wide text-white ${className}`} style={{ background: "linear-gradient(135deg, #2b4fc0, #06b6d4)" }} title="Nobody has contacted this lead yet">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+      New
+    </span>
+  );
+}
+
+// Row / card tint for a fresh lead: a coloured edge and a soft wash. Spread it on the element's style.
+export const FRESH_STYLE = { background: "linear-gradient(90deg, #dbeafe 0%, #ecfeff 45%, transparent 100%)", boxShadow: "inset 4px 0 0 #2b4fc0" } as const;

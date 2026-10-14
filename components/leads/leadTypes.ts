@@ -24,6 +24,7 @@ export interface LeadRow {
   stageId: string;
   assignedTo: { id: string; name: string; avatarUrl: string | null } | null;
   receivedAt: string;
+  firstContactedAt: string | null;
   callTalkTime: number | null;
   hasRecording: boolean;
   tags: string[];
@@ -59,3 +60,10 @@ export const SOURCE_LABELS: Record<LeadRow["source"], string> = {
 };
 
 export const CHANNEL_LABELS: Record<LeadChannel, string> = { WHATSAPP: "WhatsApp", CALL: "Call", EMAIL: "Email", OTHER: "Other", FORM: "Lead form" };
+
+// A lead that came in during the last 2 days, nobody has contacted yet, and that is still being worked (not Won or
+// Lost). These stand out in every list; once someone calls, messages or notes the lead, or it gets older than 2 days,
+// it goes back to looking normal. (With hundreds of old uncontacted leads, highlighting all of them would hide the new ones.)
+export const FRESH_HOURS = 48;
+export const isFreshLead = (lead: { firstContactedAt: string | null; receivedAt: string }, stageKind?: "OPEN" | "WON" | "LOST") =>
+  !lead.firstContactedAt && (stageKind === undefined || stageKind === "OPEN") && Date.now() - new Date(lead.receivedAt).getTime() < FRESH_HOURS * 3600_000;
