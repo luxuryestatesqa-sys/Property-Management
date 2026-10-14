@@ -23,12 +23,13 @@ export interface RuleMatch {
 }
 
 // Open leads per agent (leads still in an OPEN stage), used to hand the next lead
-// to whoever is least busy.
+// to whoever is least busy. Property Finder leads are not counted: those always go to the listing's
+// owner, never through the rotation, so they say nothing about who should get the next shared lead.
 export async function openLeadCounts(orgId: string, agentIds: string[]): Promise<Map<string, number>> {
   const db = tenantDb(orgId);
   const grouped = await db.lead.groupBy({
     by: ["assignedToId"],
-    where: { assignedToId: { in: agentIds }, stage: { kind: "OPEN" } },
+    where: { assignedToId: { in: agentIds }, source: { not: "PROPERTY_FINDER" }, stage: { kind: "OPEN" } },
     _count: { _all: true },
   });
   const map = new Map<string, number>(agentIds.map((id) => [id, 0]));

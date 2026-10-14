@@ -14,7 +14,7 @@ interface Rule {
   active: boolean;
 }
 interface Data {
-  workload: { id: string; name: string; avatarUrl: string | null; open: number; today: number; week: number; won: number; total: number; avgResponseMinutes: number | null }[];
+  workload: { id: string; name: string; avatarUrl: string | null; open: number; openShared: number; today: number; week: number; won: number; total: number; avgResponseMinutes: number | null }[];
   shareable: number;
   rules: Rule[];
 }
@@ -102,13 +102,14 @@ export default function AssignmentRulesPage() {
   const saved = data?.rules.find((r) => r.kind === "ROUND_ROBIN" && r.active);
   const shareOf = (id: string) => Math.min(10, Math.max(1, shares[id] ?? 1));
   const sameShares = (saved?.agentIds ?? []).every((id) => (saved?.shares?.[id] ?? 1) === shareOf(id));
-  const inRotation = agents.filter((a) => picked.includes(a.id));
-  const nextUp = [...inRotation].sort((x, y) => x.open / shareOf(x.id) - y.open / shareOf(y.id) || shareOf(y.id) - shareOf(x.id))[0]?.id;
+  // in the order they were ticked: that order breaks ties, the same way the server does
+  const inRotation = picked.flatMap((id) => agents.find((a) => a.id === id) ?? []);
+  const nextUp = [...inRotation].sort((x, y) => x.openShared / shareOf(x.id) - y.openShared / shareOf(y.id) || shareOf(y.id) - shareOf(x.id))[0]?.id;
   const totalShare = inRotation.reduce((n, a) => n + shareOf(a.id), 0);
   const dirty = mode === "ROUND_ROBIN" ? !saved || [...picked].sort().join() !== [...saved.agentIds].sort().join() || !sameShares : Boolean(data?.rules.length);
 
   const options: { id: Mode; title: string; text: string }[] = [
-    { id: "ROUND_ROBIN", title: "Round robin", text: "Each new lead goes to the chosen agent with the fewest open leads, so the work is shared evenly." },
+    { id: "ROUND_ROBIN", title: "Round robin", text: "Each new lead goes to the ticked agent with the least open work for their share, so the work is shared fairly." },
     { id: "MANUAL", title: "Manual", text: "New leads wait in the Unassigned inbox until you hand them to an agent yourself." },
   ];
 
@@ -157,7 +158,7 @@ export default function AssignmentRulesPage() {
               {[
                 { label: "In rotation", value: picked.length, hint: "agents" },
                 { label: "Waiting to share", value: data?.shareable ?? 0, hint: "Facebook, Instagram, manual" },
-                { label: "Open leads", value: inRotation.reduce((n, a) => n + a.open, 0), hint: "across the rotation" },
+                { label: "Open leads", value: inRotation.reduce((n, a) => n + a.openShared, 0), hint: "Facebook, Instagram, manual" },
                 { label: "Received today", value: inRotation.reduce((n, a) => n + a.today, 0), hint: "by these agents" },
               ].map((t) => (
                 <div key={t.label} className="rounded-xl bg-slate-50 px-4 py-3">
@@ -168,22 +169,37 @@ export default function AssignmentRulesPage() {
               ))}
             </div>
 
+            {picked.length === 0 && (
+              <div role="alert" className="mt-5 rounded-xl px-4 py-3 text-[13.5px] font-medium" style={{ background: "#fef3c7", color: "#92400e" }}>
+                No agents in the rotation — new leads will stay unassigned. Tick at least one agent, or choose Manual.
+              </div>
+            )}
             <div className="mt-5 flex items-baseline justify-between">
               <div className="text-[13.5px] font-semibold">Agents in the rotation</div>
               <div className="text-[12px] text-muted">Tick the agents who should receive leads</div>
             </div>
             <div className="mt-2.5 overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[760px] border-collapse text-left">
+              <table className="w-full min-w-[860px] table-fixed border-collapse text-left">
+                <colgroup>
+                  <col className="w-12" />
+                  <col className="w-[260px]" />
+                  <col className="w-[190px]" />
+                  <col className="w-[70px]" />
+                  <col className="w-[70px]" />
+                  <col className="w-[80px]" />
+                  <col className="w-[70px]" />
+                  <col className="w-[100px]" />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-border bg-surface-muted/60 text-[11.5px] font-semibold uppercase tracking-wider text-muted">
                     <th className="w-10 px-4 py-2.5" />
                     <th className="px-3 py-2.5">Agent</th>
-                    <th className="px-3 py-2.5 text-center">Share of leads</th>
-                    <th className="px-3 py-2.5 text-right">Open</th>
-                    <th className="px-3 py-2.5 text-right">Today</th>
-                    <th className="px-3 py-2.5 text-right">7 days</th>
-                    <th className="px-3 py-2.5 text-right">Won</th>
-                    <th className="px-3 py-2.5 text-right">Avg reply</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-center">Share of leads</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Open</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Today</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">7 days</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Won</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Avg reply</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -197,8 +213,9 @@ export default function AssignmentRulesPage() {
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2.5">
                             <Avatar name={a.name} avatarUrl={a.avatarUrl} size={28} />
-                            <span className="text-[14px] font-medium">{a.name}</span>
-                            {nextUp === a.id && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Next lead</span>}
+                            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[14px] font-medium" title={a.name}>{a.name}</span>
+                            {/* the badge's space is always reserved, so ticking an agent never moves the row */}
+                            <span className={`shrink-0 whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ${nextUp === a.id ? "" : "invisible"}`} aria-hidden={nextUp !== a.id}>Next lead</span>
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -219,11 +236,11 @@ export default function AssignmentRulesPage() {
                             <span className="block text-center text-muted">—</span>
                           )}
                         </td>
-                        <td className="tnum px-3 py-3 text-right text-[14px] font-semibold">{a.open}</td>
+                        <td className="tnum px-3 py-3 text-right text-[14px] font-semibold" title={`${a.open} open in total, including Property Finder`}>{a.openShared}</td>
                         <td className="tnum px-3 py-3 text-right text-[14px]">{a.today}</td>
                         <td className="tnum px-3 py-3 text-right text-[14px]">{a.week}</td>
                         <td className="tnum px-3 py-3 text-right text-[14px]">{a.won}</td>
-                        <td className="px-3 py-3 text-right text-[13px] text-muted">{a.avgResponseMinutes === null ? "—" : a.avgResponseMinutes < 60 ? `${a.avgResponseMinutes} min` : `${Math.round(a.avgResponseMinutes / 60)} h`}</td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-muted">{a.avgResponseMinutes === null ? "—" : a.avgResponseMinutes < 60 ? `${a.avgResponseMinutes} min` : `${Math.round(a.avgResponseMinutes / 60)} h`}</td>
                       </tr>
                     );
                   })}
@@ -238,7 +255,7 @@ export default function AssignmentRulesPage() {
               </table>
             </div>
             <p className="mt-3 text-[12.5px] leading-relaxed text-muted">
-              <b>Open</b> is leads still being worked (not Won or Lost). <b>Share of leads</b> sets how much each agent gets: an agent with share 3 gets about three times as many leads as an agent with share 1. Each new lead goes to the ticked agent with the least open work for their share, so someone who closes leads quickly gets more.
+              <b>Open</b> is Facebook, Instagram and manual leads still being worked (not Won or Lost). Property Finder leads are left out because they always go to the listing&apos;s owner. <b>Share of leads</b> sets how much each agent gets: an agent with share 3 gets about three times as many leads as an agent with share 1. Each new lead goes to the ticked agent with the least open work for their share, so someone who closes leads quickly gets more.
             </p>
           </div>
         )}

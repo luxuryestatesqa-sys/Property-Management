@@ -17,7 +17,7 @@ export async function GET() {
 
   const startOfToday = qatarStartOfDay();
   const weekAgo = new Date(Date.now() - 7 * 86400000);
-  const [unassigned, agents, rules, audit, openByAgent, totalByAgent, doneByAgent, responded, todayByAgent, weekByAgent, shareable] = await Promise.all([
+  const [unassigned, agents, rules, audit, openByAgent, openSharedByAgent, totalByAgent, doneByAgent, responded, todayByAgent, weekByAgent, shareable] = await Promise.all([
     db!.lead.findMany({
       where: { assignedToId: null },
       orderBy: { receivedAt: "desc" },
@@ -33,6 +33,8 @@ export async function GET() {
       select: { id: true, text: true, createdAt: true, user: { select: { name: true } }, lead: { select: { id: true, name: true } } },
     }),
     db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null }, stage: { kind: "OPEN" } }, _count: { _all: true } }),
+    // open leads from the sources the rotation shares out (not Property Finder): what Round robin compares
+    db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null }, source: { not: "PROPERTY_FINDER" }, stage: { kind: "OPEN" } }, _count: { _all: true } }),
     db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null } }, _count: { _all: true } }),
     db!.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null }, stage: { kind: "WON" } }, _count: { _all: true } }),
     db!.lead.findMany({ where: { assignedToId: { not: null }, firstContactedAt: { not: null } }, orderBy: { receivedAt: "desc" }, take: 300, select: { assignedToId: true, receivedAt: true, firstContactedAt: true } }),
@@ -47,6 +49,7 @@ export async function GET() {
     return {
       ...a,
       open: count(openByAgent, a.id),
+      openShared: count(openSharedByAgent, a.id),
       total: count(totalByAgent, a.id),
       won: count(doneByAgent, a.id),
       today: count(todayByAgent, a.id),
