@@ -59,6 +59,6 @@ export async function GET(req: NextRequest) {
     // Other = everything not in a column, so a row's columns add up to its Total (Won is part of Stages).
     leaderboard: board.map((b) => ({ ...b, name: b.agentId ? b.name ?? "Former team member" : "System", other: Math.max(0, b.total - b.calls - b.whatsapp - b.notes - b.viewings - b.stages - b.listings), avgFirstResponseMinutes: b.agentId ? avg.get(b.agentId) ?? null : null })),
     perDay,
-    meta: { agents: users.map((u) => avatarLink(u)!), stages: [...new Set([...stages.map((s) => s.name), ...usedStages.flatMap((u) => (u.newValue ? [u.newValue] : []))])], canSeeAll: manager },
+    meta: { agents: users.map((u) => avatarLink(u)!), stages: stages.map((s) => s.name), oldStages: [...new Set(usedStages.flatMap((u) => (u.newValue && !stages.some((s) => s.name === u.newValue) ? [u.newValue] : [])))], canSeeAll: manager },
   });
 }

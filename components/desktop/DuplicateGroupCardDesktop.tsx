@@ -61,7 +61,7 @@ function DuplicateGroupCardDesktop({ group, compact = false }: { group: ListingD
           <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/[0.06]" />
 
-          <div className="absolute left-3 top-3 flex items-center gap-1.5">
+          <div className="absolute left-3 top-3 flex max-w-[calc(100%-6.5rem)] flex-wrap items-center gap-1.5">
             {allRent || group.every((l) => l.listingType === "SALE") ? <TypePill type={first.listingType} solid /> : null}
             <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2.5 py-1 text-[11px] font-bold leading-none text-warning shadow-sm">Duplicate · {group.length}</span>
           </div>
@@ -69,7 +69,7 @@ function DuplicateGroupCardDesktop({ group, compact = false }: { group: ListingD
 
           <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2 text-white">
             <div className="tnum text-[22px] font-semibold leading-none tracking-tight drop-shadow">
-              {priceVaries && <span className="mr-1 text-[13px] font-medium opacity-90">From</span>}
+              {priceVaries && <span className="mr-1 text-[13px] font-medium opacity-90">From </span>}
               {formatQAR(minPrice)}
               {allRent && <span className="ml-1 text-[13px] font-medium opacity-90">/mo</span>}
             </div>

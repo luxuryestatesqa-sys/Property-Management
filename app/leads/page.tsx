@@ -11,7 +11,7 @@ import BulkBar from "@/components/leads/BulkBar";
 import MobileLeads from "@/components/leads/MobileLeads";
 import { AddLeadModal, ImportLeadsModal } from "@/components/leads/LeadIntake";
 import { ContactButtons, FollowUpTag, FreshBadge, FRESH_STYLE, SourceBadge, StageSelect } from "@/components/leads/LeadBits";
-import { isFreshLead, LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO } from "@/components/leads/leadTypes";
+import { isFreshLead, LeadGroupDTO, LeadRow, LeadsResponse, LeadStageDTO, SOURCE_LABELS } from "@/components/leads/leadTypes";
 import { timeAgo } from "@/lib/timeAgo";
 import { agentCount as gridAgentCount, kpis, stageCount } from "@/lib/leads/counts";
 
@@ -43,7 +43,7 @@ function PropertyCell({ lead }: { lead: LeadRow }) {
     return <span className="text-[12.5px] text-muted">{lead.entityType === "seller" ? "Seller enquiry" : lead.entityType ? `${lead.entityType} enquiry` : "General enquiry"}</span>;
   return (
     <div className="min-w-0">
-      <div className="truncate text-[13.5px] font-medium">{lead.listing?.buildingName ?? lead.listingReference ?? "Listing"}</div>
+      <div className="truncate text-[13.5px] font-medium">{lead.listing?.buildingName ?? (/^[A-Z0-9]{14,}$/.test(lead.listingReference ?? "") ? "Property Finder listing" : lead.listingReference) ?? "Listing"}</div>
       {lead.region && (
         <div className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-muted">
           <IconPin size={12} className="shrink-0" />
@@ -88,6 +88,18 @@ function DesktopLeads() {
   const [flash, setFlash] = useState<string | null>(null);
   const [intake, setIntake] = useState<null | "add" | "import">(null);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const close = () => setMoreOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, { passive: true });
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close);
+    };
+  }, [moreOpen]);
 
   useEffect(() => {
     try {
@@ -250,7 +262,7 @@ function DesktopLeads() {
           <div className="relative">
             <button type="button" onClick={() => setMoreOpen((o) => !o)} aria-haspopup="menu" aria-expanded={moreOpen} className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-medium shadow-sm transition-colors hover:bg-surface-muted">
               More
-              {counts.unassigned > 0 && canManage && <span className="tnum rounded-full bg-amber-500 px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-white">{counts.unassigned}</span>}
+              {(data?.unassignedCount ?? 0) > 0 && canManage && <span className="tnum rounded-full bg-amber-500 px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-white">{data?.unassignedCount}</span>}
               <svg className={`transition-transform ${moreOpen ? "rotate-180" : ""}`} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m6 9 6 6 6-6" />
               </svg>
@@ -261,7 +273,7 @@ function DesktopLeads() {
                 <div role="menu" className="absolute right-0 top-12 z-40 w-72 overflow-hidden rounded-2xl border border-border bg-surface p-1.5 shadow-xl">
                   {[
                     { show: true, label: "Import leads", hint: "From a CSV or Excel file", icon: "M12 16V4M7 9l5-5 5 5M5 20h14", onClick: () => setIntake("import") },
-                    { show: canManage, label: "Assignment", hint: "Give waiting leads to an agent", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6", href: "/leads/assignment", badge: counts.unassigned },
+                    { show: canManage, label: "Assignment", hint: "Give waiting leads to an agent", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6", href: "/leads/assignment", badge: data?.unassignedCount ?? 0 },
                     { show: canManage, label: "Assignment rules", hint: "Round robin or manual", icon: "M4 6h16M4 12h16M4 18h10", href: "/leads/rules" },
                     { show: isAdmin, label: "Lead stages", hint: "Add, rename or reorder stages", icon: "M5 12h14M13 6l6 6-6 6", href: "/leads/stages" },
                     { show: isAdmin, label: syncing ? "Syncing…" : "Sync from Property Finder", hint: "Fetch the latest leads now", icon: "M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M3 21v-5h5", onClick: syncNow, disabled: syncing },
@@ -337,7 +349,7 @@ function DesktopLeads() {
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
               {attention.overdue.length > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11.5px] font-semibold text-rose-700">{attention.overdue.length} overdue</span>}
               {attention.today.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.today.length} due today</span>}
-              {attention.waitingCount > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.waitingCount} of {counts.fresh} new not contacted</span>}
+              {attention.waitingCount > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.waitingCount} new not contacted</span>}
             </span>
             <span className="shrink-0 text-[12.5px] font-semibold text-amber-900">{attentionOpen ? "Hide" : "View"}</span>
             <svg className={`shrink-0 text-amber-900 transition-transform ${attentionOpen ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -474,6 +486,33 @@ function DesktopLeads() {
         )}
       </div>
 
+      {/* What is filtering the list right now, one tap to remove */}
+      {filtersActive && (
+        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Active filters">
+          <span className="text-[12px] font-medium text-muted">Filtered:</span>
+          {[
+            debounced ? { label: `Search “${debounced}”`, clear: () => setQuery("") } : null,
+            channel !== "ALL" ? { label: CHANNELS.find(([v]) => v === channel)?.[1] ?? channel, clear: () => setChannel("ALL") } : null,
+            assignee !== "all" ? { label: assignee === "unassigned" ? "Unassigned" : data?.agents.find((a) => a.id === assignee)?.name ?? "Agent", clear: () => setAssignee("all") } : null,
+            stageFilter !== "all" ? { label: `Stage: ${stages.find((st) => st.id === stageFilter)?.name ?? ""}`, clear: () => setStageFilter("all") } : null,
+            group !== "all" ? { label: `Group: ${groups.find((g) => g.id === group)?.name ?? ""}`, clear: () => setGroup("all") } : null,
+            followup !== "all" ? { label: followup === "today" ? "Due today" : "Overdue", clear: () => setFollowup("all") } : null,
+          ]
+            .filter((x): x is { label: string; clear: () => void } => x !== null)
+            .map((f) => (
+              <span key={f.label} className="inline-flex items-center gap-1.5 rounded-full py-1 pl-3 pr-1.5 text-[12.5px] font-semibold text-white" style={{ background: "linear-gradient(135deg, #2b4fc0, #8b5cf6)" }}>
+                {f.label}
+                <button type="button" onClick={f.clear} aria-label={`Remove ${f.label}`} className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-white/25">
+                  <IconClose size={11} />
+                </button>
+              </span>
+            ))}
+          <button type="button" onClick={() => { setQuery(""); setChannel("ALL"); setAssignee("all"); setStageFilter("all"); setGroup("all"); setFollowup("all"); }} className="text-[12.5px] font-semibold text-primary hover:underline">
+            Clear all
+          </button>
+        </div>
+      )}
+
       {/* Group chips */}
       {groups.length > 0 && (
         <div className="no-scrollbar mt-3 flex items-center gap-1.5 overflow-x-auto">
@@ -575,6 +614,7 @@ function DesktopLeads() {
                         <div className="mt-2.5">
                           <PropertyCell lead={l} />
                           <FollowUpTag iso={l.nextFollowUp} />
+                          {l.duplicates > 0 && <span title={`${l.duplicates} other lead${l.duplicates === 1 ? "" : "s"} with the same phone or email`} className="mt-1 inline-block rounded-full bg-warning-soft px-2 py-0.5 text-[10.5px] font-bold leading-none text-warning">Duplicate</span>}
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
                           <SourceBadge lead={l} />
@@ -603,7 +643,7 @@ function DesktopLeads() {
                   </th>
                   <th className="px-2.5 py-3">Name</th>
                   <th className="px-2.5 py-3">Phone</th>
-                  <th className="px-2.5 py-3">Source</th>
+                  <th className="hidden px-2.5 py-3 min-[1280px]:table-cell">Source</th>
                   {canManage && <th className="px-2.5 py-3">Assigned agent</th>}
                   <th className="px-2.5 py-3">Stage</th>
                 </tr>
@@ -620,10 +660,11 @@ function DesktopLeads() {
                         {fresh(l) && <FreshBadge />}
                       </div>
                       <FollowUpTag iso={l.nextFollowUp} />
+                      <div className="mt-0.5 text-[12px] text-muted min-[1280px]:hidden">{l.sourceLabel && l.sourceLabel !== "Import" ? l.sourceLabel : SOURCE_LABELS[l.source]}</div>
                       {l.duplicates > 0 && <span title={`${l.duplicates} other lead${l.duplicates === 1 ? "" : "s"} with the same phone or email`} className="mt-0.5 inline-block rounded-full bg-warning-soft px-2 py-0.5 text-[10.5px] font-bold leading-none text-warning">Duplicate</span>}
                     </td>
                     <td className="whitespace-nowrap px-2.5 py-3 text-[13.5px]">{l.phone ?? <span className="text-muted">{l.email ?? "—"}</span>}</td>
-                    <td className="px-2.5 py-3">
+                    <td className="hidden px-2.5 py-3 min-[1280px]:table-cell">
                       <SourceBadge lead={l} />
                     </td>
                     {canManage && (

@@ -187,7 +187,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
     <div className="page-in">
       <div className="px-4 pb-5 pt-4 lg:px-0 lg:pb-7 lg:pt-10">
         <h1 className="text-[28px] font-semibold leading-none tracking-[-0.025em]">Add Property</h1>
-        <p className="mt-2.5 text-[15px] text-muted">Pick your options below. Only the numbered sections are needed.</p>
+        <p className="mt-2.5 text-[15px] text-muted">Sections 1 to 4 are required. Add a title and description (section 5) too: Property Finder needs them to publish.</p>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 px-4 pb-8 md:px-0 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">

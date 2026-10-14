@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { IMPORT_FIELDS, ImportField, LEAD_ORIGINS, joinName, parseCsv, suggestMapping, templateCsv } from "@/lib/leads/csv";
 import { LeadStageDTO } from "@/components/leads/leadTypes";
@@ -77,6 +77,11 @@ export function AddLeadModal({ onClose, onDone, canManage, agents }: { onClose: 
   const [error, setError] = useState("");
   const [dup, setDup] = useState<{ id: string; name: string } | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !busy && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
 
   async function save(force = false) {
     setBusy(true);
@@ -188,6 +193,11 @@ export function ImportLeadsModal({ onClose, onDone, canManage, agents, stages }:
   const [rows, setRows] = useState<Cell[][]>([]);
   const [map, setMap] = useState<Record<ImportField, number>>({ name: -1, lastName: -1, phone: -1, email: -1, region: -1, notes: -1, date: -1 });
   const [keepExtra, setKeepExtra] = useState(true);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   const [channel, setChannel] = useState("OTHER");
   const [mode, setMode] = useState<AssignMode>("self");
   const [agentId, setAgentId] = useState("");

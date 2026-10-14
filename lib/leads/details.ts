@@ -45,7 +45,13 @@ function formatValue(v: unknown): string | null {
   if (typeof v === "number") return String(v);
   if (typeof v === "string") {
     const t = v.trim();
-    return t ? t.slice(0, 500) : null;
+    if (!t) return null;
+    // Lead-form answers like "🏡_family_home" or "💳_installment_plan": drop the emoji, spaces for underscores.
+    if (!/\s/.test(t) && t.includes("_")) {
+      const words = t.replace(/[^\p{L}\p{N}_]/gu, "").replace(/_+/g, " ").trim();
+      if (words) return (words.charAt(0).toUpperCase() + words.slice(1)).slice(0, 500);
+    }
+    return t.slice(0, 500);
   }
   if (Array.isArray(v)) {
     const parts = v.map(formatValue).filter((x): x is string => Boolean(x));

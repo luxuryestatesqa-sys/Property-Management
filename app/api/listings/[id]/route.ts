@@ -276,6 +276,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
   }
 
+  // A rented or sold property must not stay advertised: switch off every feed channel and take it down from
+  // Property Finder. (A failure on Property Finder is logged on the listing's portal state; it never blocks the edit.)
+  if ((data.availabilityStatus === "RENTED" || data.availabilityStatus === "SOLD") && listing.availabilityStatus !== data.availabilityStatus) {
+    await db!.portalListing.updateMany({ where: { listingId: listing.id, enabled: true, portal: { in: ["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX", "OTHER_PORTALS"] } }, data: { enabled: false } });
+    const pf = await db!.portalListing.findFirst({ where: { listingId: listing.id, portal: "PROPERTY_FINDER", OR: [{ enabled: true }, { remoteListingId: { not: null } }] }, select: { id: true } });
+    if (pf) await unpublishListingFromPropertyFinder(orgId!, listing.id).catch((e) => console.error("auto-unpublish failed:", e instanceof Error ? e.message : e));
+  }
+
   const images = await db!.listingImage.findMany({
     where: { listingId: listing.id },
     orderBy: { sortOrder: "asc" },

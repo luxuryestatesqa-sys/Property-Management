@@ -16,7 +16,7 @@ const today = () => ymd(new Date());
 const shift = (day: string, n: number) => ymd(new Date(new Date(`${day}T12:00:00+03:00`).getTime() + n * 86400000));
 const monthStart = (day: string) => `${day.slice(0, 8)}01`;
 const dayLabel = (day: string) => new Date(`${day}T12:00:00+03:00`).toLocaleDateString("en-GB", { timeZone: TZ, day: "numeric", month: "short", year: "numeric" });
-const timeOnly = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true });
+const timeOnly = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true }).replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
 
 const PRESETS = [
   { key: "today", label: "Today" },
@@ -45,7 +45,7 @@ interface Summary {
   kpis: { total: number; calls: number; whatsapp: number; viewings: number; stages: number; published: number };
   leaderboard: { agentId: string | null; name: string; calls: number; whatsapp: number; notes: number; viewings: number; stages: number; listings: number; other: number; won: number; total: number; avgFirstResponseMinutes: number | null }[];
   perDay: { day: string; n: number }[];
-  meta: { agents: { id: string; name: string; avatarUrl: string | null }[]; stages: string[]; canSeeAll: boolean };
+  meta: { agents: { id: string; name: string; avatarUrl: string | null }[]; stages: string[]; oldStages?: string[]; canSeeAll: boolean };
 }
 
 // ---------- small building blocks ----------
@@ -446,6 +446,13 @@ function ActivitiesInner() {
                   {(summary?.meta.stages ?? []).map((st) => (
                     <option key={st} value={st}>{st}</option>
                   ))}
+                  {(summary?.meta.oldStages ?? []).length > 0 && (
+                    <optgroup label="Old stages (no longer used)">
+                      {(summary?.meta.oldStages ?? []).map((st) => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
             </div>
@@ -500,8 +507,8 @@ function ActivitiesInner() {
                         const subject = r.leadName ?? (r.listingName ? `${listingCode(r.listingId!)} · ${r.listingName}` : null);
                         const detail = describe(r);
                         // No lead or property (a sign-in, a new user): the sentence itself is the title.
-                        const title = subject ?? (detail || typeLabel(r.type));
-                        const showDetail = subject && detail && !(/^(added|imported)\b.*\bby /i.test(detail) && detail.includes(who(r)));
+                        const title = subject ?? (TYPE_INFO.get(r.type)?.group === "Lead" ? (r.type === "lead_deleted" ? (r.note ?? "Deleted lead") : "Deleted or merged lead") : detail || typeLabel(r.type));
+                        const showDetail = (subject || TYPE_INFO.get(r.type)?.group === "Lead") && detail && r.type !== "lead_deleted" && !(/^(added|imported)\b.*\bby /i.test(detail) && detail.includes(who(r)));
                         const showPill = !(title === typeLabel(r.type));
                         return (
                           <li key={r.id} className="relative flex min-w-0 gap-3.5 py-2.5">

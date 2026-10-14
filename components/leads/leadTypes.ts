@@ -49,6 +49,7 @@ export interface LeadsResponse {
   followups: { today: number; overdue: number };
   countGrid: { assignedToId: string | null; stageId: string; count: number }[];
   newCount: number;
+  unassignedCount?: number;
   canManage: boolean;
 }
 

@@ -117,6 +117,8 @@ export async function GET(req: NextRequest) {
 
   const newStageId = stages.find((s) => s.kind === "OPEN")?.id;
   const newCount = await db!.lead.count({ where: { ...(manager ? {} : { assignedToId: me }), stageId: newStageId } });
+  // Leads with no agent, whatever filters are on (the badge on the More button must not change with them).
+  const unassignedCount = manager ? await db!.lead.count({ where: { assignedToId: null } }) : 0;
 
   return NextResponse.json({
     leads: leads.map((l) => ({
@@ -151,6 +153,7 @@ export async function GET(req: NextRequest) {
     countGrid,
     followups: { today: dueToday, overdue },
     newCount,
+    unassignedCount,
     canManage: manager,
   });
 }

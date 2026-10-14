@@ -133,11 +133,14 @@ function PriceBody({ filters, onChange, close }: { filters: Filters; onChange: (
         <span className="text-slate-300">–</span>
         <input data-bare inputMode="numeric" value={maxText} onChange={(e) => setMaxText(e.target.value.replace(/[^\d]/g, ""))} placeholder={`Max ${formatCompactQAR(bounds.max)}`} className="tnum w-full rounded-lg border border-border px-3 py-2 text-[13px] outline-none focus:border-primary" />
       </div>
+      {num(minText) !== null && num(maxText) !== null && num(minText)! > num(maxText)! && (
+        <p role="alert" className="mt-2 text-[12px] font-medium text-danger">The minimum is higher than the maximum.</p>
+      )}
       <div className="mt-3 flex gap-2">
         <button type="button" onClick={() => apply(null, null)} className="flex-1 rounded-lg bg-slate-100 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-200">
           Clear
         </button>
-        <button type="button" onClick={() => apply(num(minText), num(maxText))} className="flex-1 rounded-lg py-2 text-[13px] font-semibold text-white" style={{ background: "var(--primary)" }}>
+        <button type="button" disabled={num(minText) !== null && num(maxText) !== null && num(minText)! > num(maxText)!} onClick={() => apply(num(minText), num(maxText))} className="flex-1 rounded-lg py-2 text-[13px] font-semibold text-white disabled:opacity-40" style={{ background: "var(--primary)" }}>
           Apply
         </button>
       </div>

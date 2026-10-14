@@ -12,6 +12,12 @@ export function timeAgo(iso: string | Date, now = Date.now()): string {
   return new Date(t).toLocaleDateString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short" });
 }
 
+// "11 Oct 2026, 3:40 PM" in Qatar time. Use this (or timeOfDay) everywhere a date or time is written out, so the
+// same moment never reads two different ways.
 export function fullDateTime(iso: string | Date): string {
-  return new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+  return new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }).replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
+}
+
+export function timeOfDay(iso: string | Date): string {
+  return new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Qatar", hour: "numeric", minute: "2-digit", hour12: true }).replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
 }

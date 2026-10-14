@@ -160,7 +160,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <nav className="no-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto px-4 pb-2 pt-1 max-xl:px-3">
+      <nav className="no-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-4 pb-2 pt-1 max-xl:px-3">
         {isManager ? (
           <>
             <Section>Overview</Section>

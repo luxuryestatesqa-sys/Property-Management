@@ -144,7 +144,7 @@ function Donut({ slices, colors, center, centerLabel }: { slices: Slice[]; color
   let offset = 0;
   const col = colors ?? ((_s: Slice, i: number) => color(i));
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
       <svg viewBox="0 0 140 140" className="h-[132px] w-[132px] shrink-0 -rotate-90" role="img" aria-label="Breakdown chart">
         <circle cx="70" cy="70" r={R} fill="none" stroke="var(--primary-soft)" strokeWidth="18" />
         {total > 0 &&
@@ -159,14 +159,14 @@ function Donut({ slices, colors, center, centerLabel }: { slices: Slice[]; color
           {centerLabel && <text x="70" y="88" textAnchor="middle" fontSize="10.5" fill="var(--text-muted)">{centerLabel}</text>}
         </g>
       </svg>
-      <ul className="flex min-w-0 flex-1 flex-col gap-2">
+      <ul className="flex min-w-[150px] flex-1 flex-col gap-2">
         {slices.map((s, i) => (
           <li key={s.label} className="flex items-center justify-between gap-3 text-[13px]">
-            <span className="flex min-w-0 items-center gap-2">
+            <span className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: col(s, i) }} />
-              <span className="truncate text-text-body">{s.label}</span>
+              <span className="text-text-body">{s.label}</span>
             </span>
-            <span className="tnum font-semibold text-primary-dark">
+            <span className="tnum shrink-0 font-semibold text-primary-dark">
               {s.count}
               <span className="ml-1 font-normal text-muted">{total ? Math.round((s.count / total) * 100) : 0}%</span>
             </span>
@@ -283,10 +283,11 @@ export default function DashboardPage() {
   // Remember the person's filters and which widgets they hid (per browser).
   useEffect(() => {
     try {
-      const f = localStorage.getItem("dash.filters");
+      // Only the layout (which sections are hidden) is remembered. Filters always start cleared, so the numbers
+      // on screen are never narrowed by a choice made in an earlier visit.
       const h = localStorage.getItem("dash.hidden");
-      if (f) setFilters({ ...DEFAULT_FILTERS, ...JSON.parse(f) });
       if (h) setHidden(JSON.parse(h));
+      localStorage.removeItem("dash.filters");
     } catch {}
     loaded.current = true;
     setReady(true);
@@ -294,7 +295,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!loaded.current) return;
     try {
-      localStorage.setItem("dash.filters", JSON.stringify(filters));
       localStorage.setItem("dash.hidden", JSON.stringify(hidden));
     } catch {}
   }, [filters, hidden]);
@@ -346,7 +346,7 @@ export default function DashboardPage() {
         { label: "New leads this week", value: String(data.newLeads.thisWeek), hint: data.newLeads.lastWeek === 0 && data.newLeads.thisWeek === 0 ? "No leads yet" : `${delta >= 0 ? "+" : ""}${delta} vs last week`, href: "/leads", accent: "#2b4fc0" },
         { label: "Conversion rate", value: `${data.conversion.rate}%`, hint: `${data.conversion.won} won of ${data.conversion.total} (last ${filters.days} days)`, accent: "#16a34a" },
         { label: "Avg first response", value: formatMinutes(data.avgFirstResponseMinutes), hint: `Last ${filters.days} days`, accent: "#06b6d4" },
-        { label: "Unassigned leads", value: String(data.unassigned), hint: "Needs an agent", href: "/leads/assignment", accent: "#f43f5e" },
+        { label: "Unassigned leads", value: String(data.unassigned), hint: filters.agent && filters.agent !== "unassigned" ? "All leads, not just this agent's" : "Needs an agent", href: "/leads/assignment", accent: "#f43f5e" },
         { label: "Active listings", value: String(data.activeListings), hint: `${data.listingMix.type.map((t) => `${t.count} ${t.label.toLowerCase()}`).join(" · ") || "No listings yet"}`, href: "/my-listings", accent: "#8b5cf6" },
         { label: "Viewings this week", value: String(data.viewingsWeek), hint: "Scheduled, next 7 days", accent: "#f59e0b" },
       ]

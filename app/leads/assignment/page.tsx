@@ -206,7 +206,7 @@ export default function AssignmentPage() {
             <span className="absolute inset-x-0 top-0 h-1" style={{ background: t.tone }} />
             <div className="text-[12.5px] font-medium text-muted">{t.label}</div>
             <div className="tnum mt-1.5 text-[26px] font-bold leading-none tracking-tight lg:mt-2" style={{ color: t.tone }}>{t.value}</div>
-            <div className="mt-1.5 truncate text-[12px] text-muted lg:mt-2">{t.hint}</div>
+            <div className="mt-1.5 line-clamp-2 text-[12px] text-muted lg:mt-2">{t.hint}</div>
           </div>
         ))}
       </div>

@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
                           <div className="min-w-0">
                             <div className="truncate text-[14px] font-semibold">
                               {u.name}
-                              {isSelf && <span className="ml-1.5 text-[12px] font-normal text-muted">(you)</span>}
+                              {isSelf && <> <span className="text-[12px] font-normal text-muted">(you)</span></>}
                             </div>
                             <div className="truncate text-[12.5px] text-muted">{u.email}</div>
                             <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-muted">
