@@ -37,7 +37,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
 
   return (
     <aside className="flex flex-col gap-5 min-[1040px]:sticky min-[1040px]:top-6">
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+      <div className="hidden overflow-hidden rounded-2xl border border-border bg-surface shadow-sm min-[1040px]:block">
         <div className="relative aspect-[16/10] bg-surface-muted">
           {data.cover ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -67,7 +67,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+      <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm sm:p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-[14px] font-semibold">Ready to add?</h3>
           <span className="text-[12.5px] font-semibold" style={{ color: pct === 100 ? "var(--success)" : "var(--muted)" }}>
@@ -132,7 +132,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
           type="button"
           disabled={submitting}
           onClick={onSubmit}
-          className="mt-5 w-full rounded-xl py-3.5 text-[15px] font-bold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="mt-5 hidden w-full rounded-xl py-3.5 text-[15px] font-bold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60 min-[1040px]:block"
           style={{ background: "var(--primary)" }}
         >
           {submitting ? "Adding..." : "Add Property"}

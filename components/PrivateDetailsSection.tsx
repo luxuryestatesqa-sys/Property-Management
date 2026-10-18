@@ -131,7 +131,7 @@ export default function PrivateDetailsSection({
             className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
           />
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
             <label className="text-sm font-medium text-foreground block mb-1.5">Owner Phone</label>
             <input

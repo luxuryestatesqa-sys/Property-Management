@@ -113,13 +113,13 @@ export default function PfLocationPicker({ area, community, pfLocationId, label,
     return (
       <div>
         <span className="mb-2 block text-[13.5px] font-semibold text-slate-700">Location</span>
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3.5">
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3 sm:items-center sm:px-4 sm:py-3.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-light text-primary">
             <IconPin size={17} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-medium">{label || `${community}, ${area}`}</div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
+            <div className="break-words text-[15px] font-medium leading-snug">{label || `${community}, ${area}`}</div>
+            <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted">
               {fromPf ? (
                 <>
                   <IconCheck size={12} className="text-emerald-600" /> From Property Finder
@@ -129,7 +129,7 @@ export default function PfLocationPicker({ area, community, pfLocationId, label,
               )}
             </div>
           </div>
-          <button type="button" onClick={clear} className="flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+          <button type="button" onClick={clear} className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 sm:px-2.5">
             <IconClose size={13} />
             Change
           </button>

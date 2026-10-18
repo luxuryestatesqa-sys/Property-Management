@@ -78,7 +78,7 @@ export default function SaleDetailsFields({ value, onChange, showErrors }: { val
                 type="button"
                 aria-pressed={on}
                 onClick={() => onChange({ paymentMethods: o.value, ...(o.value === "CASH" ? {} : { downPayment: value.downPayment === "" ? "0" : value.downPayment }) })}
-                className={`flex-1 rounded-lg py-2.5 text-[13px] font-medium transition-colors ${on ? "bg-surface shadow-sm" : "text-muted hover:text-foreground"}`}
+                className={`flex-1 rounded-lg px-1 py-2.5 text-[12.5px] font-medium leading-tight transition-colors ${on ? "bg-surface shadow-sm" : "text-muted hover:text-foreground"}`}
                 style={on ? { color: "var(--primary)" } : undefined}
               >
                 {o.label}

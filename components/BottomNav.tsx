@@ -54,7 +54,7 @@ export default function BottomNav() {
 
   const addActive = pathname.startsWith("/add");
   // On a property's own page the sticky WhatsApp / Call bar sits above the nav, so the centre "+" is hidden there.
-  const hideAdd = /^\/property\/[^/]+$/.test(pathname);
+  const hideAdd = /^\/property\/[^/]+$/.test(pathname) || addActive;
 
   const leftItems = [
     { href: "/", label: "Properties", icon: icons.properties },
