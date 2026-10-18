@@ -20,6 +20,7 @@ interface Attention {
   today: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
   waiting: { id: string; name: string; receivedAt: string; assignedTo: { name: string } | null }[];
   waitingCount: number;
+  slaHours?: number;
 }
 
 const CHANNELS = [
@@ -373,7 +374,7 @@ function DesktopLeads() {
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
               {attention.overdue.length > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11.5px] font-semibold text-rose-700">{attention.overdue.length} overdue</span>}
               {attention.today.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.today.length} due today</span>}
-              {attention.waitingCount > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.waitingCount} new not contacted</span>}
+              {attention.waitingCount > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">{attention.waitingCount} new not contacted for {attention.slaHours ?? 2}h+</span>}
             </span>
             <span className="shrink-0 text-[12.5px] font-semibold text-amber-900">{attentionOpen ? "Hide" : "View"}</span>
             <svg className={`shrink-0 text-amber-900 transition-transform ${attentionOpen ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

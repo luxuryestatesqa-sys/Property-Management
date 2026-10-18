@@ -24,6 +24,7 @@ interface Attention {
   today: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
   waiting: { id: string; name: string; receivedAt: string; assignedTo: { name: string } | null }[];
   waitingCount: number;
+  slaHours?: number;
 }
 
 const icon = (d: string, size = 18, sw = 2) => (
@@ -326,7 +327,7 @@ export default function MobileLeads() {
             <span className="min-w-0 flex-1 truncate">
               <b className="font-medium">{attentionCount} need attention</b>
               {attention.overdue.length > 0 ? ` · ${attention.overdue.length} overdue` : ""}
-              {attention.waitingCount > 0 ? ` · ${attention.waitingCount} not contacted` : ""}
+              {attention.waitingCount > 0 ? ` · ${attention.waitingCount} waiting over ${attention.slaHours ?? 2}h` : ""}
             </span>
             <span className="shrink-0 text-[12.5px] font-medium">{attentionOpen ? "Hide" : "View"}</span>
             <span className={`shrink-0 transition-transform ${attentionOpen ? "rotate-180" : ""}`}>{icon(I.chevron, 15, 2.4)}</span>
@@ -352,7 +353,7 @@ export default function MobileLeads() {
               </ul>
               {attention.waitingCount > attention.waiting.length && (
                 <button type="button" onClick={() => { setTab("new"); setAttentionOpen(false); }} className="w-full border-t border-amber-100 px-3.5 py-3 text-center text-[13px] font-medium text-primary active:bg-amber-50">
-                  Showing {attention.waiting.length} of {attention.waitingCount} not contacted. See all in New
+                  Showing {attention.waiting.length} of {attention.waitingCount} new leads not contacted for over {attention.slaHours ?? 2}h. See all in New
                 </button>
               )}
             </div>

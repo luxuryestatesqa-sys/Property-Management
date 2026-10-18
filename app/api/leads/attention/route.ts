@@ -40,5 +40,6 @@ export async function GET() {
     today: tasks.filter((t) => t.dueAt >= now),
     waiting,
     waitingCount,
+    slaHours: org?.contactSlaHours ?? 2,
   });
 }

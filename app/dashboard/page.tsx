@@ -168,6 +168,7 @@ function Donut({ slices, colors, center, centerLabel }: { slices: Slice[]; color
             </span>
             <span className="tnum shrink-0 font-semibold text-primary-dark">
               {s.count}
+              <span className="sr-only">, </span>
               <span className="ml-1 font-normal text-muted">{total ? Math.round((s.count / total) * 100) : 0}%</span>
             </span>
           </li>

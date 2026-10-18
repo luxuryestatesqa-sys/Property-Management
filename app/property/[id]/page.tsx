@@ -696,10 +696,13 @@ export default function PropertyDetailPage() {
     <>
           {(isOwner || isAdmin) && auditLogs.length > 0 && (
             <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
-              <button onClick={() => setShowHistory((s) => !s)} className="w-full flex items-center justify-between">
-                <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide">Edit History</h3>
-                <span className="text-muted text-sm">{showHistory ? "Hide ▲" : "Show ▼"}</span>
-              </button>
+              <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide">
+                <button type="button" onClick={() => setShowHistory((s) => !s)} aria-expanded={showHistory} className="flex w-full items-center justify-between uppercase tracking-wide">
+                  <span>Edit History</span>
+                  <span className="text-sm normal-case tracking-normal" aria-hidden="true">{showHistory ? "Hide ▲" : "Show ▼"}</span>
+                  <span className="sr-only">{showHistory ? "Hide" : "Show"} edit history</span>
+                </button>
+              </h3>
               {showHistory && (
                 <div className="flex flex-col gap-3 mt-3">
                   {auditLogs.map((entry) => (
