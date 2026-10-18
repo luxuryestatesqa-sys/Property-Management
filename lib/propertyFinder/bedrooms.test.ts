@@ -29,3 +29,23 @@ describe("pfLayoutNote", () => {
     expect(pfLayoutNote(null)).toBeNull();
   });
 });
+
+describe("bedroom options", () => {
+  it("offers Studio, then 1 to 10, for an apartment", async () => {
+    const { bedroomOptionsFor, BEDROOM_NUMBERS } = await import("../propertyCategory");
+    const opts = bedroomOptionsFor("APARTMENT");
+    expect(opts.slice(0, 11)).toEqual(["STUDIO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"]);
+    expect(opts).not.toContain("SIX_PLUS");
+    expect(BEDROOM_NUMBERS.TEN).toBe(10);
+    expect(PF_BEDROOMS.TEN).toBe("10");
+    expect(PF_BEDROOMS.SEVEN).toBe("7");
+  });
+
+  it("starts a villa at 2 and has no studio", async () => {
+    const { bedroomOptionsFor } = await import("../propertyCategory");
+    const opts = bedroomOptionsFor("VILLA");
+    expect(opts[0]).toBe("TWO");
+    expect(opts).not.toContain("STUDIO");
+    expect(opts).toContain("TEN");
+  });
+});

@@ -29,6 +29,11 @@ export type BedroomCount =
   | "FOUR_PLUS_MAID"
   | "FIVE"
   | "FIVE_PLUS_MAID"
+  | "SIX"
+  | "SEVEN"
+  | "EIGHT"
+  | "NINE"
+  | "TEN"
   | "SIX_PLUS";
 
 export interface ListingImageDTO {

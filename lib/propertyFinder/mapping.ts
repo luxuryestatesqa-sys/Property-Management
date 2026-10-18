@@ -45,6 +45,11 @@ export const PF_BEDROOMS: Record<BedroomCount, string> = {
   FOUR_PLUS_MAID: "4",
   FIVE: "5",
   FIVE_PLUS_MAID: "5",
+  SIX: "6",
+  SEVEN: "7",
+  EIGHT: "8",
+  NINE: "9",
+  TEN: "10",
   SIX_PLUS: "6",
 };
 

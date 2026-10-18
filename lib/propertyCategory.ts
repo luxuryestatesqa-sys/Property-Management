@@ -42,6 +42,11 @@ export const BEDROOM_LABELS: Record<BedroomCount, string> = {
   FOUR_PLUS_MAID: "4 + Maid",
   FIVE: "5 Bedroom",
   FIVE_PLUS_MAID: "5 + Maid",
+  SIX: "6 Bedroom",
+  SEVEN: "7 Bedroom",
+  EIGHT: "8 Bedroom",
+  NINE: "9 Bedroom",
+  TEN: "10 Bedroom",
   SIX_PLUS: "6+ Bedroom",
 };
 
@@ -59,6 +64,11 @@ export const BEDROOM_NUMBERS: Record<BedroomCount, number> = {
   FOUR_PLUS_MAID: 4,
   FIVE: 5,
   FIVE_PLUS_MAID: 5,
+  SIX: 6,
+  SEVEN: 7,
+  EIGHT: 8,
+  NINE: 9,
+  TEN: 10,
   SIX_PLUS: 6,
 };
 
@@ -75,13 +85,22 @@ export const BEDROOM_SHORT_LABELS: Record<BedroomCount, string> = {
   FOUR_PLUS_MAID: "4 BR + Maid",
   FIVE: "5 BR",
   FIVE_PLUS_MAID: "5 BR + Maid",
+  SIX: "6 BR",
+  SEVEN: "7 BR",
+  EIGHT: "8 BR",
+  NINE: "9 BR",
+  TEN: "10 BR",
   SIX_PLUS: "6+ BR",
 };
 
-export const BEDROOM_OPTIONS = Object.keys(BEDROOM_LABELS) as BedroomCount[];
+// What the bedroom dropdowns offer, in this order: Studio, then 1 to 10, then the layouts with an extra room.
+// ("6+" is an older value kept for existing data; it is not offered any more.)
+export const BEDROOM_OPTIONS: BedroomCount[] = [
+  "STUDIO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN",
+  "ONE_PLUS_OFFICE", "TWO_PLUS_MAID", "THREE_PLUS_MAID", "FOUR_PLUS_MAID", "FIVE_PLUS_MAID",
+];
 
 const ALL_BEDROOM_OPTIONS = BEDROOM_OPTIONS;
-const UP_TO_THREE_PLUS_MAID_OPTIONS = BEDROOM_OPTIONS.slice(0, BEDROOM_OPTIONS.indexOf("THREE_PLUS_MAID") + 1);
 // "1 + Office" is an apartment-only layout.
 const FROM_ONE_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO" && b !== "ONE_PLUS_OFFICE");
 const FROM_TWO_BEDROOM_OPTIONS = BEDROOM_OPTIONS.filter((b) => b !== "STUDIO" && b !== "ONE" && b !== "ONE_PLUS_OFFICE");

@@ -125,7 +125,12 @@ enum BedroomCount {
   FOUR_PLUS_MAID
   FIVE
   FIVE_PLUS_MAID
-  SIX_PLUS
+  SIX
+  SEVEN
+  EIGHT
+  NINE
+  TEN
+  SIX_PLUS // older "6+" value, no longer offered
 }
 
 model User {

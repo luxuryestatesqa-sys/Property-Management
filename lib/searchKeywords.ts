@@ -16,6 +16,7 @@ const WORD_TO_DIGIT: Record<string, number> = {
   seven: 7,
   eight: 8,
   nine: 9,
+  ten: 10,
 };
 
 const DIGIT_TO_BEDROOM: Partial<Record<number, BedroomCount>> = {
@@ -24,6 +25,11 @@ const DIGIT_TO_BEDROOM: Partial<Record<number, BedroomCount>> = {
   3: "THREE",
   4: "FOUR",
   5: "FIVE",
+  6: "SIX",
+  7: "SEVEN",
+  8: "EIGHT",
+  9: "NINE",
+  10: "TEN",
 };
 
 const DIGIT_TO_BEDROOM_PLUS_MAID: Partial<Record<number, BedroomCount>> = {
@@ -40,7 +46,7 @@ const MAID_REGEX = /\bmaid'?s?\b/i;
 // Matches a bedroom-count phrase anywhere in the query: a number (digit or
 // word) immediately followed - with an optional space/hyphen/plus - by one
 // of the common shorthand or full spellings for "bedroom".
-const NUMBER_WORD = "(?:one|two|three|four|five|six|seven|eight|nine)";
+const NUMBER_WORD = "(?:one|two|three|four|five|six|seven|eight|nine|ten)";
 const BEDROOM_PHRASE_REGEX = new RegExp(`\\b(\\d{1,2}|${NUMBER_WORD})\\s*[-+]?\\s*(?:bhk|br|bed\\s*rooms?|bedrooms?|beds?)\\b`, "i");
 
 // Same number+suffix shape as above, but the suffix ("bhk"/"br"/"bedroom"/...)
@@ -54,7 +60,7 @@ const BARE_BEDROOM_REGEX = new RegExp(`^(\\d{1,2}|${NUMBER_WORD})\\s*[-+]?\\s*((
 // the plain and "+ Maid" variant of it - only an explicit "maid" keyword
 // narrows the match down to just the "+ Maid" variant.
 function bedroomsForCount(n: number, hasMaid: boolean, hasOffice = false): BedroomCount[] {
-  if (n >= 6) return ["SIX_PLUS"];
+  if (n > 10) return [];
   if (hasOffice) return n === 1 ? ["ONE_PLUS_OFFICE"] : [];
   if (hasMaid) {
     const plusMaid = DIGIT_TO_BEDROOM_PLUS_MAID[n];
