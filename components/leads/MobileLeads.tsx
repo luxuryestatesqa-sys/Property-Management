@@ -20,9 +20,9 @@ const CHANNEL_OPTIONS = [
 ] as const;
 
 interface Attention {
-  overdue: unknown[];
-  today: unknown[];
-  waiting: unknown[];
+  overdue: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
+  today: { id: string; text: string; dueAt: string; lead: { id: string; name: string } }[];
+  waiting: { id: string; name: string; receivedAt: string; assignedTo: { name: string } | null }[];
   waitingCount: number;
 }
 
@@ -146,6 +146,7 @@ export default function MobileLeads() {
   const [meta, setMeta] = useState<{ stages: LeadStageDTO[]; agents: LeadsResponse["agents"]; canManage: boolean; unassigned: number; followups: { today: number; overdue: number } } | null>(null);
   const [groups, setGroups] = useState<LeadGroupDTO[]>([]);
   const [attention, setAttention] = useState<Attention | null>(null);
+  const [attentionOpen, setAttentionOpen] = useState(false);
 
   const [sheet, setSheet] = useState<"filters" | "more" | null>(null);
   const [intake, setIntake] = useState<null | "add" | "import">(null);
@@ -318,13 +319,44 @@ export default function MobileLeads() {
       </div>
 
       {attention && attentionCount > 0 && tab === "all" && !filtering && (
-        <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning-soft px-3.5 py-2.5 text-[13px] text-amber-900">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-          <span className="min-w-0 flex-1 truncate">
-            <b className="font-medium">{attentionCount} need attention</b>
-            {attention.overdue.length > 0 ? ` · ${attention.overdue.length} overdue` : ""}
-            {attention.waitingCount > 0 ? ` · ${attention.waitingCount} not contacted` : ""}
-          </span>
+        <div className="mx-4 mt-3 overflow-hidden rounded-xl border border-warning/30 bg-warning-soft text-[13px] text-amber-900">
+          {/* One tap opens the leads and follow-ups behind the number. */}
+          <button type="button" onClick={() => setAttentionOpen((o) => !o)} aria-expanded={attentionOpen} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left active:opacity-70">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+            <span className="min-w-0 flex-1 truncate">
+              <b className="font-medium">{attentionCount} need attention</b>
+              {attention.overdue.length > 0 ? ` · ${attention.overdue.length} overdue` : ""}
+              {attention.waitingCount > 0 ? ` · ${attention.waitingCount} not contacted` : ""}
+            </span>
+            <span className="shrink-0 text-[12.5px] font-medium">{attentionOpen ? "Hide" : "View"}</span>
+            <span className={`shrink-0 transition-transform ${attentionOpen ? "rotate-180" : ""}`}>{icon(I.chevron, 15, 2.4)}</span>
+          </button>
+          {attentionOpen && (
+            <div className="max-h-[55vh] overflow-y-auto border-t border-amber-200 bg-white/70">
+              <ul className="divide-y divide-amber-100">
+                {[
+                  ...attention.overdue.map((t) => ({ key: `o${t.id}`, href: `/leads/${t.lead.id}`, name: t.lead.name, note: t.text, tag: `Overdue · ${timeAgo(t.dueAt)}`, tone: "bg-rose-100 text-rose-700" })),
+                  ...attention.today.map((t) => ({ key: `t${t.id}`, href: `/leads/${t.lead.id}`, name: t.lead.name, note: t.text, tag: "Due today", tone: "bg-amber-100 text-amber-800" })),
+                  ...attention.waiting.map((l) => ({ key: `w${l.id}`, href: `/leads/${l.id}`, name: l.name, note: l.assignedTo ? l.assignedTo.name : "Unassigned", tag: timeAgo(l.receivedAt), tone: "bg-amber-100 text-amber-800" })),
+                ].map((r) => (
+                  <li key={r.key}>
+                    <Link href={r.href} className="flex items-center justify-between gap-3 px-3.5 py-3 active:bg-amber-50">
+                      <span className="min-w-0">
+                        <span className="block truncate text-[14px] font-medium text-foreground">{r.name}</span>
+                        <span className="block truncate text-[12px] text-muted">{r.note}</span>
+                      </span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${r.tone}`}>{r.tag}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {attention.waitingCount > attention.waiting.length && (
+                <button type="button" onClick={() => { setTab("new"); setAttentionOpen(false); }} className="w-full border-t border-amber-100 px-3.5 py-3 text-center text-[13px] font-medium text-primary active:bg-amber-50">
+                  Showing {attention.waiting.length} of {attention.waitingCount} not contacted. See all in New
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
