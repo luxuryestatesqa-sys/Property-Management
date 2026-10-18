@@ -76,7 +76,7 @@ export default function PrivateDetailsSection({
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-4">
+    <section className="@container rounded-2xl border border-border bg-surface p-4">
       <div className="flex items-center gap-1.5 mb-0.5">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="5" y="11" width="14" height="9" rx="2" />
@@ -131,7 +131,7 @@ export default function PrivateDetailsSection({
             className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
           />
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-col gap-3 @lg:flex-row">
           <div className="flex-1">
             <label className="text-sm font-medium text-foreground block mb-1.5">Owner Phone</label>
             <input

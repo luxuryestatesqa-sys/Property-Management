@@ -67,7 +67,7 @@ export default function AddPropertyAside({ data, submitting, error, onSubmit, hi
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm sm:p-5">
+      <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm @lg:p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-[14px] font-semibold">Ready to add?</h3>
           <span className="text-[12.5px] font-semibold" style={{ color: pct === 100 ? "var(--success)" : "var(--muted)" }}>

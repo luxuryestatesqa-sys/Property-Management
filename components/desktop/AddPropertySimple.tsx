@@ -66,7 +66,7 @@ function Dropdown({ id, value, onChange, placeholder, children }: { id: string; 
 
 function MoneyInput({ value, onChange, suffix, placeholder, big }: { value: string; onChange: (v: string) => void; suffix?: string; placeholder?: string; big?: boolean }) {
   return (
-    <div className="flex items-center rounded-xl border border-border bg-white px-3.5 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light sm:px-4">
+    <div className="flex items-center rounded-xl border border-border bg-white px-3.5 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light @lg:px-4">
       <span className="mr-2 shrink-0 text-[14px] font-medium text-muted">QAR</span>
       <input
         data-bare
@@ -77,7 +77,7 @@ function MoneyInput({ value, onChange, suffix, placeholder, big }: { value: stri
         onKeyDown={(e) => ["-", "+", "e", "E"].includes(e.key) && e.preventDefault()}
         onChange={(e) => onChange(positive(e.target.value))}
         placeholder={placeholder}
-        className={`tnum min-w-0 flex-1 bg-transparent outline-none ${big ? "py-3.5 text-[22px] font-semibold tracking-tight sm:py-4 sm:text-[26px]" : "py-3.5 text-[15px]"}`}
+        className={`tnum min-w-0 flex-1 bg-transparent outline-none ${big ? "py-3.5 text-[22px] font-semibold tracking-tight @lg:py-4 @lg:text-[26px]" : "py-3.5 text-[15px]"}`}
       />
       {suffix && <span className="ml-2 shrink-0 text-[13px] text-muted">{suffix}</span>}
     </div>
@@ -114,11 +114,11 @@ const short = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000}M` : n >= 1000 ?
 // unfinished, the card gets a red edge and says exactly what is missing.
 function Section({ id, n, title, hint, problem, badge, children }: { id: string; n: number; title: string; hint?: string; problem: string | null; badge?: string; children: React.ReactNode }) {
   return (
-    <section id={id} className={`surface-card scroll-mt-4 p-4 transition-shadow sm:p-7 ${problem ? "ring-2 ring-red-300" : ""}`}>
-      <div className="mb-4 flex items-start gap-3 sm:mb-5 sm:gap-3.5">
+    <section id={id} className={`surface-card scroll-mt-4 p-4 transition-shadow @lg:p-7 ${problem ? "ring-2 ring-red-300" : ""}`}>
+      <div className="mb-4 flex items-start gap-3 @lg:mb-5 @lg:gap-3.5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-semibold text-white">{n}</span>
         <div className="min-w-0">
-          <h2 className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[17px] font-semibold tracking-[-0.02em] sm:text-[19px]">
+          <h2 className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[17px] font-semibold tracking-[-0.02em] @lg:text-[19px]">
             {title}
             {badge && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-wide text-amber-800">{badge}</span>}
           </h2>
@@ -136,14 +136,14 @@ function Extra({ title, summary, children, defaultOpen }: { title: string; summa
   const [open, setOpen] = useState(Boolean(defaultOpen));
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50 sm:px-5 sm:py-4">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50 @lg:px-5 @lg:py-4">
         <div className="min-w-0 flex-1">
           <div className="text-[14.5px] font-semibold">{title}</div>
           <div className="mt-0.5 truncate text-[12.5px] text-muted">{summary}</div>
         </div>
         <IconChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
-      {open && <div className="border-t border-slate-100 p-4 sm:p-5">{children}</div>}
+      {open && <div className="border-t border-slate-100 p-4 @lg:p-5">{children}</div>}
     </div>
   );
 }
@@ -185,17 +185,17 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
   const shown = (id: string) => (showErrors ? problems[id] : null);
 
   return (
-    <div className="page-in">
+    <div className="page-in @container">
       <div className="px-4 pb-4 pt-3 lg:px-0 lg:pb-7 lg:pt-10">
-        <h1 className="text-[26px] font-semibold leading-none tracking-[-0.025em] sm:text-[28px]">Add Property</h1>
-        <p className="mt-2 text-[14px] leading-snug text-muted sm:mt-2.5 sm:text-[15px]">Sections 1 to 4 are required. Add a title and description (section 5) too: Property Finder needs them to publish.</p>
+        <h1 className="text-[26px] font-semibold leading-none tracking-[-0.025em] @lg:text-[28px]">Add Property</h1>
+        <p className="mt-2 text-[14px] leading-snug text-muted @lg:mt-2.5 @lg:text-[15px]">Sections 1 to 4 are required. Add a title and description (section 5) too: Property Finder needs them to publish.</p>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 px-4 pb-6 sm:gap-6 md:px-0 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
-        <div className="flex flex-col gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 items-start gap-4 px-4 pb-6 @lg:gap-6 lg:px-0 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
+        <div className="flex flex-col gap-4 @lg:gap-6">
           {/* 1 ----------------------------------------------------------- */}
           <Section id="sec-type" n={1} title="Property type" problem={shown("sec-type")}>
-            <div className="flex flex-col gap-5 sm:gap-6">
+            <div className="flex flex-col gap-5 @lg:gap-6">
               <div className="grid grid-cols-2 gap-3">
                 {([["RENT", "For Rent"], ["SALE", "For Sale"]] as const).map(([v, t]) => (
                   <button
@@ -210,7 +210,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 ))}
               </div>
 
-              <div className={`grid grid-cols-1 gap-5 ${residential && category ? "sm:grid-cols-2" : ""}`}>
+              <div className={`grid grid-cols-1 gap-5 ${residential && category ? "@lg:grid-cols-2" : ""}`}>
                 <div>
                   <label htmlFor="add-category" className={fieldLabel}>Property type</label>
                   <Dropdown
@@ -248,7 +248,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 @lg:grid-cols-2">
                 <div>
                   <label className={fieldLabel}>Size</label>
                   <div className="flex items-center rounded-xl border border-border bg-white px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
@@ -277,7 +277,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 <QuickPick values={RENT_QUICK} current={form.rentPrice} onPick={(v) => update("rentPrice", v)} format={short} />
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 @lg:grid-cols-2">
                 <div>
                   <label className={fieldLabel}>Price</label>
                   <MoneyInput big value={form.salePrice} onChange={(v) => update("salePrice", v)} placeholder="Enter amount" />
@@ -289,7 +289,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                   </label>
                   <MoneyInput value={form.rentalValue} onChange={(v) => update("rentalValue", v)} suffix="/ month" placeholder="e.g. 10,000" />
                 </div>
-                <div className="border-t border-slate-100 pt-5 sm:col-span-2">
+                <div className="border-t border-slate-100 pt-5 @lg:col-span-2">
                   <SaleDetailsFields value={form} onChange={(patch) => (Object.keys(patch) as (keyof typeof patch)[]).forEach((k) => update(k, patch[k] as never))} showErrors={Boolean(shown("sec-price"))} />
                 </div>
               </div>
@@ -312,7 +312,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 onChange={(v) => setForm((prev) => ({ ...prev, area: v.area, community: v.community, pfLocationId: v.pfLocationId, pfLocationLabel: v.label }))}
               />
               <LocationAutocomplete label={<>Building name <span className="font-normal text-muted">(optional)</span></>} placeholder="e.g. Marina Tower 5" area={form.area} community={form.community} value={form.buildingName} onChange={(v) => update("buildingName", v)} />
-              <div className="grid grid-cols-2 gap-3 sm:gap-5">
+              <div className="grid grid-cols-2 gap-3 @lg:gap-5">
                 {unit?.showFloor && (
                   <div>
                     <label className={fieldLabel}>Floor <span className="font-normal text-muted">(optional)</span></label>
@@ -363,7 +363,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
               >
                 <div className="flex flex-col gap-6">
                   {category !== "LAND" && (
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-5 @lg:grid-cols-2">
                       <div>
                         <span className={fieldLabel}>Furnishing</span>
                         <SegmentedControl options={[{ label: "Furnished", value: "FURNISHED" }, { label: "Unfurnished", value: "UNFURNISHED" }]} value={form.furnished} onChange={(v) => update("furnished", v)} />
