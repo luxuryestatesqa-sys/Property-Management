@@ -9,7 +9,7 @@ import { getPfStatus, PF_TONE_COLORS } from "@/lib/propertyFinder/status";
 import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
 import AiWriteButton from "@/components/AiWriteButton";
 import { BEDROOM_LABELS } from "@/lib/propertyCategory";
-import { pfCategoryAndType, PF_FURNISHING_TYPE, filterAmenitiesForCategory, amenityOptionsFor } from "@/lib/propertyFinder/mapping";
+import { pfCategoryAndType, PF_FURNISHING_TYPE, filterAmenitiesForCategory, amenityOptionsFor, pfLayoutNote } from "@/lib/propertyFinder/mapping";
 import { extractErrorMessage } from "@/lib/errors";
 import { formatQAR } from "@/lib/format";
 import MultiChipSelect from "@/components/MultiChipSelect";
@@ -629,6 +629,7 @@ export default function MultiPortalPublishingPage() {
           <section className="rounded-2xl border border-border bg-surface shadow-sm p-4">
             <h3 className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-3">Listing Details for Property Finder</h3>
             <div className="flex flex-col gap-3">
+              {pfLayoutNote(listing.bedrooms) && <div className="rounded-xl bg-surface-muted px-3.5 py-2.5 text-[12.5px] text-muted">{pfLayoutNote(listing.bedrooms)}</div>}
               <SegmentedControl
                 options={[
                   { label: "English", value: "en" },

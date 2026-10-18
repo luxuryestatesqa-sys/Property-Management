@@ -1,6 +1,7 @@
 import { Listing, PropertyCategory, BedroomCount, Furnished } from "@prisma/client";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 import { isResidentialCategory } from "@/lib/propertyCategory";
+import { withLayoutAmenities } from "@/lib/propertyFinder/mapping";
 import { resolveQatarLivingLocation } from "./locations";
 
 // Qatar Living's `type` enum (their feed API spec, Appendix A) has no exact
@@ -171,7 +172,7 @@ export function toQatarLivingListing(listing: MapperListing, agencyName = "us"):
     ...(listing.bedrooms ? { bedrooms: BEDROOM_COUNT[listing.bedrooms] } : {}),
     ...(Number.isFinite(bathrooms) && bathrooms > 0 ? { bathrooms } : {}),
     furnishing: FURNISHING[listing.furnished],
-    facilities: listing.amenities.map((a) => AMENITY[a]).filter((a): a is string => Boolean(a)),
+    facilities: withLayoutAmenities(listing.amenities, listing.bedrooms).map((a) => AMENITY[a]).filter((a): a is string => Boolean(a)),
     price: price!,
     city: location.city,
     area: location.area,

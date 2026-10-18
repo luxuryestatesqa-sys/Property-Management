@@ -30,23 +30,37 @@ export function pfCategoryAndType(category: PropertyCategory): { category: "resi
   };
 }
 
-// Property Finder has no "+ maid" concept - a maid's room is mapped as one
-// extra bedroom. This is a judgment call, not a confirmed PF rule; revisit if
-// it causes rejections or looks wrong on published listings.
+// Property Finder's bedroom field is the real number of bedrooms. A maid's room or an office is not a
+// bedroom, so "2 + Maid" is sent as 2 bedrooms (it used to be sent as 3, which showed buyers the wrong
+// layout). The extra room goes as the "maids-room" / "study" amenity instead - see withLayoutAmenities.
 export const PF_BEDROOMS: Record<BedroomCount, string> = {
   STUDIO: "studio",
   ONE: "1",
-  ONE_PLUS_OFFICE: "1", // the office is a study, not a bedroom, so it is not counted
+  ONE_PLUS_OFFICE: "1",
   TWO: "2",
-  TWO_PLUS_MAID: "3",
+  TWO_PLUS_MAID: "2",
   THREE: "3",
-  THREE_PLUS_MAID: "4",
+  THREE_PLUS_MAID: "3",
   FOUR: "4",
-  FOUR_PLUS_MAID: "5",
+  FOUR_PLUS_MAID: "4",
   FIVE: "5",
-  FIVE_PLUS_MAID: "6",
+  FIVE_PLUS_MAID: "5",
   SIX_PLUS: "6",
 };
+
+// Shown next to the bedroom choice: Property Finder has no "+ Maid" / "+ Office" option, so say what it receives.
+export function pfLayoutNote(bedrooms: BedroomCount | null | undefined): string | null {
+  if (!bedrooms) return null;
+  if (bedrooms.endsWith("_PLUS_MAID")) return `Property Finder has no + Maid option. It will receive ${PF_BEDROOMS[bedrooms]} bedrooms and the Maid's Room amenity.`;
+  if (bedrooms === "ONE_PLUS_OFFICE") return "Property Finder has no + Office option. It will receive 1 bedroom and the Study amenity.";
+  return null;
+}
+
+// The room a "+ Maid" / "+ Office" layout adds, as Property Finder's amenity values.
+export function withLayoutAmenities(amenities: string[], bedrooms: BedroomCount | null | undefined): string[] {
+  const extra = bedrooms?.endsWith("_PLUS_MAID") ? "maids-room" : bedrooms === "ONE_PLUS_OFFICE" ? "study" : null;
+  return extra && !amenities.includes(extra) ? [...amenities, extra] : amenities;
+}
 
 export const PF_FURNISHING_TYPE: Record<Furnished, string> = {
   FURNISHED: "furnished",

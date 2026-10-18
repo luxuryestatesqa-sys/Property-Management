@@ -99,3 +99,11 @@ describe("toQatarLivingListing", () => {
     expect(result.bathrooms).toBeUndefined();
   });
 });
+
+describe("maid / office layouts", () => {
+  it("sends the real bedroom count and adds the maid's room as a facility", () => {
+    const r = toQatarLivingListing({ ...BASE_LISTING, bedrooms: "TWO_PLUS_MAID", amenities: [] });
+    expect(r.bedrooms).toBe(2);
+    expect(r.facilities).toContain("Maids Room");
+  });
+});

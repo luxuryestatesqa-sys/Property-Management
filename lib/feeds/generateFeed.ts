@@ -6,7 +6,7 @@ import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 import { getChannelEligibility } from "@/lib/portals/eligibility";
 import { PROPERTY_CATEGORY_LABELS, BEDROOM_LABELS, BEDROOM_NUMBERS } from "@/lib/propertyCategory";
 import { feedLocationFor } from "@/lib/propertyFinder/location";
-import { AMENITY_LABELS, filterAmenitiesForCategory } from "@/lib/propertyFinder/mapping";
+import { AMENITY_LABELS, filterAmenitiesForCategory, withLayoutAmenities } from "@/lib/propertyFinder/mapping";
 import { FeedListing, FeedResult } from "./types";
 import { formatPropertyFinderFeed } from "./formatters/propertyFinder";
 import { formatPropertyOryxFeed } from "./formatters/propertyOryx";
@@ -123,12 +123,12 @@ export function toFeedListing(listing: FeedRow, ctx: { baseUrl: string; agencyNa
     priceType: listing.listingType === "RENT" ? "monthly" : "sale",
     furnished: listing.furnished,
     availabilityStatus: listing.availabilityStatus,
-    amenityKeys: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
+    amenityKeys: filterAmenitiesForCategory(listing.propertyCategory, withLayoutAmenities(listing.amenities, listing.bedrooms)),
     titleAr: listing.titleAr?.trim() || undefined,
     titleOryx: listing.titleOryx?.trim() || undefined,
     descriptionAr: listing.descriptionAr?.trim() || undefined,
     imageDates: listing.images.map((img) => img.createdAt),
-    amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities)
+    amenities: filterAmenitiesForCategory(listing.propertyCategory, withLayoutAmenities(listing.amenities, listing.bedrooms))
       .map((a) => AMENITY_LABELS[a])
       .filter((a): a is string => Boolean(a)),
     // Cache-busted with each image's own createdAt (stable across repeat

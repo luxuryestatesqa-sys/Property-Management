@@ -48,7 +48,7 @@ import PrivateDetailsSection, { EMPTY_PRIVATE_DETAILS, PrivateDetailsValue } fro
 import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 import PublishToPortalsCard from "@/components/PublishToPortalsCard";
 import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
-import { bathroomsToInputValue, bathroomsFromInputValue } from "@/lib/propertyFinder/mapping";
+import { bathroomsToInputValue, bathroomsFromInputValue, pfLayoutNote } from "@/lib/propertyFinder/mapping";
 import { isAdminRole } from "@/lib/roles";
 import { splitPhotoBatches } from "@/lib/photoBatches";
 import SaleDetailsFields, { SaleDetailsSummary, saleDetailsPayload, saleDetailsProblem, type SaleDetailsValue } from "@/components/SaleDetailsFields";
@@ -1078,6 +1078,7 @@ export default function PropertyDetailPage() {
               onChange={(v) => setForm((f) => ({ ...f, bedrooms: v }))}
             />
           )}
+          {pfLayoutNote(form.bedrooms as BedroomCount) && <p className="-mt-2 text-[12px] text-muted">{pfLayoutNote(form.bedrooms as BedroomCount)}</p>}
 
           {form.propertyCategory !== "LAND" && (
             <div>

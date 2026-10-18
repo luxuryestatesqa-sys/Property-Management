@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PropertyCategory, BedroomCount } from "@/lib/types";
+import { pfLayoutNote } from "@/lib/propertyFinder/mapping";
 import { PROPERTY_CATEGORY_LABELS, PROPERTY_CATEGORY_OPTIONS, BEDROOM_LABELS, isResidentialCategory, bedroomOptionsFor, unitLabelFor } from "@/lib/propertyCategory";
 import { amenityOptionsFor } from "@/lib/propertyFinder/mapping";
 import SegmentedControl from "../SegmentedControl";
@@ -242,6 +243,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                         </option>
                       ))}
                     </Dropdown>
+                    {pfLayoutNote(form.bedrooms as BedroomCount) && <p className="mt-1.5 text-[12px] text-muted">{pfLayoutNote(form.bedrooms as BedroomCount)}</p>}
                   </div>
                 )}
               </div>

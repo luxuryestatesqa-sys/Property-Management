@@ -1,7 +1,7 @@
 import { tenantDb } from "@/lib/tenant";
 import type { Listing, Prisma } from "@prisma/client";
 import { fetchPfLocationSnapshot } from "./location";
-import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory } from "./mapping";
+import { pfCategoryAndType, PF_BEDROOMS, PF_FURNISHING_TYPE, filterAmenitiesForCategory, withLayoutAmenities } from "./mapping";
 import { missingSaleDetails, pfSalePriceExtras, PF_PROJECT_STATUS } from "./saleDetails";
 import { createListing, updateListing, publishListing, unpublishListing, listUsers, getPublishPrice, getListing, PFListingPayload, PFListingResponse, PropertyFinderApiError } from "./client";
 
@@ -165,7 +165,7 @@ export function buildListingPayload(
     size: listing.sizeSqm ?? undefined,
     title: { en: pfTitleOf(listing), ...(listing.titleAr ? { ar: listing.titleAr } : {}) },
     description: { en: listing.description!, ...(listing.descriptionAr ? { ar: listing.descriptionAr } : {}) },
-    amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
+    amenities: filterAmenitiesForCategory(listing.propertyCategory, withLayoutAmenities(listing.amenities, listing.bedrooms)),
     location: { id: listing.pfLocationId! },
     assignedTo: { id: assignedProfileId },
     createdBy: { id: pfUserId },
