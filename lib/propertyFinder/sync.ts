@@ -67,10 +67,17 @@ export interface PropertyFinderEligibility {
   reasons: string[];
 }
 
+// Property Finder's title limit. The listing's main title may be longer (up to 80); the Property Finder
+// title is edited in its publish step and used here when set.
+export const PF_TITLE_MAX = 50;
+export function pfTitleOf(listing: { title: string | null; titlePf?: string | null }): string {
+  return listing.titlePf?.trim() || listing.title?.trim() || "";
+}
+
 // Shared by the toggle API route and the publish UI, so both enforce
 // (and explain) exactly the same rules.
 export function getPropertyFinderEligibility(
-  listing: Pick<Listing, "title" | "description" | "bathrooms" | "propertyCategory" | "pfLocationId" | "listingType" | "rentPrice" | "salePrice"> & Partial<Pick<Listing, "projectStatus" | "paymentMethods" | "downPayment" | "mortgageYears">>,
+  listing: Pick<Listing, "title" | "description" | "bathrooms" | "propertyCategory" | "pfLocationId" | "listingType" | "rentPrice" | "salePrice"> & Partial<Pick<Listing, "projectStatus" | "paymentMethods" | "downPayment" | "mortgageYears" | "titlePf">>,
   images: { id: string }[],
   assignedProfileId: number | null
 ): PropertyFinderEligibility {
@@ -82,7 +89,9 @@ export function getPropertyFinderEligibility(
   if (!price || price <= 0) reasons.push(listing.listingType === "RENT" ? "Set a monthly rent price" : "Set a sale price");
   // Property Finder requires these for every sale.
   if (listing.listingType === "SALE") reasons.push(...missingSaleDetails(listing));
-  if (!listing.title) reasons.push("Add a title");
+  const pfTitle = pfTitleOf(listing);
+  if (!pfTitle) reasons.push("Add a title");
+  else if (pfTitle.length > PF_TITLE_MAX) reasons.push(`Shorten the title to ${PF_TITLE_MAX} characters for Property Finder`);
   if (!listing.description) reasons.push("Add a description");
   if (listing.propertyCategory !== "LAND" && !listing.bathrooms) reasons.push("Set the number of bathrooms");
   if (images.length === 0) reasons.push("Add at least one photo");
@@ -154,7 +163,7 @@ export function buildListingPayload(
     // for this field outside UAE villas isn't confirmed in their docs - see
     // the open question in the integration plan. Sent as-is until confirmed.
     size: listing.sizeSqm ?? undefined,
-    title: { en: listing.title!, ...(listing.titleAr ? { ar: listing.titleAr } : {}) },
+    title: { en: pfTitleOf(listing), ...(listing.titleAr ? { ar: listing.titleAr } : {}) },
     description: { en: listing.description!, ...(listing.descriptionAr ? { ar: listing.descriptionAr } : {}) },
     amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
     location: { id: listing.pfLocationId! },

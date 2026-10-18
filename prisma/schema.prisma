@@ -195,7 +195,14 @@ model Listing {
   // title/description above, these are never required to publish.
   titleAr       String?
   descriptionAr String?
-  amenities     String[] @default([]) // Property Finder amenity enum values, filtered per lib/propertyFinder/mapping.ts
+  // Optional longer title for Qatar Living only (its limit is 80 vs Property
+  // Finder's 50). Empty means Qatar Living uses `title`.
+  titleQl       String?
+  // Same idea for Property Oryx (80 characters).
+  titleOryx     String?
+  // Property Finder title (50 characters). Empty means PF uses `title`, which must then fit in 50.
+  titlePf       String?
+  amenities    String[] @default([]) // Property Finder amenity enum values, filtered per lib/propertyFinder/mapping.ts
 
   // Property Finder's own location-tree id (GET /v1/locations), chosen by the
   // agent via autocomplete rather than derived from area/community - PF

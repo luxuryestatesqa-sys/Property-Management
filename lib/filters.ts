@@ -1,4 +1,5 @@
 import { PropertyCategory, BedroomCount } from "./types";
+import { PROPERTY_CATEGORY_LABELS, BEDROOM_LABELS } from "./propertyCategory";
 
 export interface Filters {
   listingType: "ALL" | "RENT" | "SALE";
@@ -78,4 +79,42 @@ export function filtersToParams(f: Filters, extra?: Record<string, string>): URL
     for (const [k, v] of Object.entries(extra)) p.set(k, v);
   }
   return p;
+}
+
+// The Properties page keeps its filters in the page address, so a refresh keeps them and a filtered
+// view can be shared. Only what differs from the defaults is written.
+export function filtersToUrlParams(f: Filters): URLSearchParams {
+  const p = filtersToParams(f);
+  p.delete("status");
+  if (f.status !== DEFAULT_FILTERS.status) p.set("status", f.status);
+  return p;
+}
+
+const oneOf = <T extends string>(v: string | null, allowed: readonly T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback);
+const orNull = <T extends string>(v: string | null, allowed: readonly string[]): T | null => (v && allowed.includes(v) ? (v as T) : null);
+const num = (v: string | null): number | null => {
+  if (v === null || v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+export function filtersFromParams(p: URLSearchParams): Filters {
+  const text = (k: string) => p.get(k)?.trim().slice(0, 120) || null;
+  return {
+    listingType: oneOf(p.get("listingType"), ["ALL", "RENT", "SALE"] as const, "ALL"),
+    propertyCategory: orNull<PropertyCategory>(p.get("propertyCategory"), Object.keys(PROPERTY_CATEGORY_LABELS)),
+    bedrooms: orNull<BedroomCount>(p.get("bedrooms"), Object.keys(BEDROOM_LABELS)),
+    area: text("area"),
+    community: text("community"),
+    building: text("building"),
+    rentMin: num(p.get("rentMin")),
+    rentMax: num(p.get("rentMax")),
+    saleMin: num(p.get("saleMin")),
+    saleMax: num(p.get("saleMax")),
+    furnished: oneOf(p.get("furnished"), ["ALL", "FURNISHED", "UNFURNISHED"] as const, "ALL"),
+    bills: oneOf(p.get("bills"), ["ALL", "INCLUDED", "EXCLUDED"] as const, "ALL"),
+    agentId: text("agentId"),
+    status: oneOf(p.get("status"), ["ACTIVE", "INACTIVE", "ALL"] as const, DEFAULT_FILTERS.status),
+    availability: oneOf(p.get("availability"), ["ALL", "AVAILABLE", "RESERVED", "RENTED", "SOLD"] as const, "ALL"),
+  };
 }

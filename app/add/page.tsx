@@ -109,6 +109,7 @@ export default function AddPropertyPage() {
     if (!form.propertyCategory) return "Property type is required";
     if (isResidentialCategory(form.propertyCategory) && !form.bedrooms) return "Bedrooms is required";
     if (!(Number(form.sizeSqm) > 0)) return "Size is required";
+    if (Number(form.sizeSqm) < 10) return "Size must be at least 10 sqm";
     if (form.images.length === 0) return "At least one photo is required";
     if (!form.area.trim()) return "Location is required";
     if (!form.community.trim()) return "Area / Community is required";

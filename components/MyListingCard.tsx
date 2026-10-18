@@ -127,7 +127,7 @@ function MyListingCard({ listing, onStatusChange }: { listing: ListingDTO; onSta
         <div className="flex min-w-0 flex-1 flex-col justify-between">
           <div className="flex items-start justify-between gap-1.5">
             <span className="shrink-0 text-[11px] font-semibold text-muted">{listingCode(listing.id)}</span>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
               <span className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ background: isRent ? "var(--rent-bg)" : "var(--sale-bg)", color: isRent ? "var(--rent-text)" : "var(--sale-text)" }}>
                 {isRent ? "FOR RENT" : "FOR SALE"}
               </span>

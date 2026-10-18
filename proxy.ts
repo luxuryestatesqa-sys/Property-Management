@@ -48,6 +48,11 @@ export default auth((req) => {
     }
   }
 
+  // Every /api/listings/<id>/... route takes a numeric id; anything else is simply not found.
+  if (isApiRoute && /^\/api\/listings\/(?!\d+(\/|$))[^/]+/.test(nextUrl.pathname)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   if (isLoggedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/", nextUrl));
   }

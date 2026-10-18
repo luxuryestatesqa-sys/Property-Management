@@ -8,8 +8,10 @@ export async function GET() {
   const { session, db, error } = await requireSession();
   if (error) return error;
   const me = session!.user.id;
-  const overdueCount = await db!.leadTask.count({ where: { assignedToId: me, doneAt: null, dueAt: { lte: new Date() } } });
-  const first = await db!.leadStage.findFirst({ orderBy: { position: "asc" } });
+  const [overdueCount, first] = await Promise.all([
+    db!.leadTask.count({ where: { assignedToId: me, doneAt: null, dueAt: { lte: new Date() } } }),
+    db!.leadStage.findFirst({ orderBy: { position: "asc" } }),
+  ]);
   if (!first) return NextResponse.json({ newCount: 0, overdueCount });
   const newCount = await db!.lead.count({ where: { stageId: first.id, ...(isManagerRole(session!.user.role) ? {} : { assignedToId: me }) } });
   return NextResponse.json({ newCount, overdueCount });

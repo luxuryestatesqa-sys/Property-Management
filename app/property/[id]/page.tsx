@@ -145,6 +145,11 @@ export default function PropertyDetailPage() {
     load();
   }, [load]);
 
+  // Open at the top, not part-way down where the previous page was scrolled to.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   useEffect(() => {
     if (!openInEditMode || !listing || !session?.user) return;
     const canManage = session.user.id === listing.createdById || isAdminRole(session.user.role);
@@ -207,6 +212,10 @@ export default function PropertyDetailPage() {
     }
     if (!form.sizeSqm) {
       setError("Size is required.");
+      return;
+    }
+    if (Number(form.sizeSqm) < 10) {
+      setError("Size must be at least 10 sqm.");
       return;
     }
     if (images.length === 0) {
@@ -767,8 +776,8 @@ export default function PropertyDetailPage() {
             {listing.status === "INACTIVE" && <span className="rounded-full bg-danger-bg px-2.5 py-1 text-[11px] font-semibold leading-none text-danger">Inactive</span>}
           </div>
           <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">
-            {listing.buildingName}
-            {unitLine && <span className="font-normal text-muted"> · {unitLine}</span>}
+            {listing.title?.trim() || listing.buildingName}
+            {!listing.title?.trim() && unitLine &&<span className="font-normal text-muted"> · {unitLine}</span>}
           </h1>
           <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-muted">
             <IconPin size={16} className="shrink-0" />
@@ -916,7 +925,7 @@ export default function PropertyDetailPage() {
             <path d="m15 18-6-6 6-6" />
           </svg>
         </button>
-        <h1 className="text-lg font-bold truncate flex-1 lg:text-2xl lg:tracking-tight">{listing.buildingName}</h1>
+        <h1 className="text-lg font-bold truncate flex-1 lg:text-2xl lg:tracking-tight">{listing.title?.trim() || listing.buildingName}</h1>
         {listing.status === "INACTIVE" && (
           <span className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-danger-bg text-danger shrink-0">Inactive</span>
         )}
@@ -1097,10 +1106,10 @@ export default function PropertyDetailPage() {
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="Listing title, e.g. Spacious 2BR with Marina View"
-                  maxLength={50}
+                  maxLength={80}
                   className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base outline-none focus:border-primary"
                 />
-                <div className="text-right text-[12px] text-muted mt-1">{form.title.length}/50</div>
+                <div className="text-right text-[12px] text-muted mt-1">{form.title.length}/80 · Property Finder shortens to 50 when you publish there</div>
               </div>
               <div>
                 <textarea

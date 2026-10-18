@@ -156,6 +156,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   trackChange("description", listing.description, data.description, "DESCRIPTION");
   trackChange("titleAr", listing.titleAr, data.titleAr, "TITLE_AR");
   trackChange("descriptionAr", listing.descriptionAr, data.descriptionAr, "DESCRIPTION_AR");
+  trackChange("titleQl", listing.titleQl, data.titleQl, "TITLE_QL");
+  trackChange("titlePf", listing.titlePf, data.titlePf, "TITLE_PF");
+  trackChange("titleOryx", listing.titleOryx, data.titleOryx, "TITLE_ORYX");
   trackChange("pfLocationId", listing.pfLocationId, data.pfLocationId, "PROPERTY_FINDER_LOCATION");
   // Keep the readable Property Finder location (name, tree, coordinates) in
   // step with the chosen id - it's what the feeds and AI copy show. Looked up

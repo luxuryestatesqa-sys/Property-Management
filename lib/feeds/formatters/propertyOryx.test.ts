@@ -121,6 +121,12 @@ describe("Property Oryx XML feed", () => {
     expect(tag(formatPropertyOryxFeed([{ ...BASE, bedrooms: 11, bathrooms: 9 }]), "bathroom")).toBe("7+");
   });
 
+  it("sends the Oryx-only title when there is one, else the main title", () => {
+    const long = "Spacious Furnished 2 Bedroom Apartment with Marina View in The Pearl Qatar";
+    expect(tag(formatPropertyOryxFeed([{ ...BASE, titleOryx: long }]), "title_en")).toBe(`<![CDATA[${long}]]>`);
+    expect(tag(formatPropertyOryxFeed([{ ...BASE, title: "Main title" }]), "title_en")).toBe("<![CDATA[Main title]]>");
+  });
+
   it("writes Arabic text when there is some, keeps tricky text valid, and tones down an all-caps title", () => {
     const ar = formatPropertyOryxFeed([{ ...BASE, titleAr: "شقة جميلة", descriptionAr: "وصف" }]);
     expect(tag(ar, "title_ar")).toBe("<![CDATA[شقة جميلة]]>");

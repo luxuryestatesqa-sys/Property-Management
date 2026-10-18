@@ -43,7 +43,7 @@ function PropertyCard({ listing }: { listing: ListingDTO }) {
       <div className="min-w-0 flex-1 flex flex-col justify-between">
         <div className="flex items-start justify-between gap-1.5">
           <span className="text-[11px] font-semibold text-muted shrink-0">{listingCode(listing.id)}</span>
-          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+          <div className="flex min-w-0 items-center gap-1 flex-wrap justify-end">
             <span
               className="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap"
               style={{

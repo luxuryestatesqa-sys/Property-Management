@@ -51,7 +51,7 @@ interface Form {
 
 function formFrom(l: ListingDTO): Form {
   return {
-    title: l.title ?? "",
+    title: l.titleOryx ?? l.title ?? "",
     titleAr: l.titleAr ?? "",
     description: l.description ?? "",
     descriptionAr: l.descriptionAr ?? "",
@@ -113,7 +113,8 @@ export default function PropertyOryxPage() {
       const body: Record<string, unknown> = {};
       const rent = listing.listingType === "RENT";
       const text = (v: string) => v.trim() || null;
-      if (form.title !== saved.title) body.title = text(form.title);
+      // Written to the Oryx-only title (up to 80 characters); left the same as the main title, Oryx keeps following it.
+      if (form.title !== saved.title) body.titleOryx = form.title.trim() && form.title.trim() !== (listing.title ?? "").trim() ? form.title.trim() : null;
       if (form.titleAr !== saved.titleAr) body.titleAr = text(form.titleAr);
       if (form.description !== saved.description) body.description = text(form.description);
       if (form.descriptionAr !== saved.descriptionAr) body.descriptionAr = text(form.descriptionAr);
@@ -316,10 +317,10 @@ export default function PropertyOryxPage() {
                   <label className={labelCls} htmlFor="oryx-title">
                     Title (English) <span className="text-danger">*</span>
                   </label>
-                  <Counter value={form.title} max={50} />
+                  <Counter value={form.title} max={80} />
                 </div>
-                <input id="oryx-title" value={form.title} maxLength={50} onChange={(e) => set("title", e.target.value)} className={inputCls} placeholder="e.g. Furnished 2BR with marina view" />
-                <p className={hint}>Short and descriptive. Don&apos;t write it all in capitals. No emojis.</p>
+                <input id="oryx-title" value={form.title} maxLength={80} onChange={(e) => set("title", e.target.value)} className={inputCls} placeholder="e.g. Furnished 2BR with marina view" />
+                <p className={hint}>Up to 80 characters. Short and descriptive. Don&apos;t write it all in capitals. No emojis. Property Finder keeps its own 50-character title.</p>
               </div>
               <div>
                 <div className="flex items-baseline justify-between">

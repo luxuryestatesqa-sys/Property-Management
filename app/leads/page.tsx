@@ -118,7 +118,9 @@ function DesktopLeads() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const load = useCallback(async () => {
+  // Typing in the search box or changing a filter only needs the leads again; the groups and the
+  // "needs attention" panel don't depend on them.
+  const loadLeads = useCallback(async () => {
     const p = new URLSearchParams();
     if (assignee !== "all") p.set("assignee", assignee);
     if (channel !== "ALL") p.set("channel", channel);
@@ -127,18 +129,40 @@ function DesktopLeads() {
     if (followup !== "all") p.set("followup", followup);
     p.set("limit", "100");
     try {
-      const [res, gRes, aRes] = await Promise.all([fetch(`/api/leads?${p.toString()}`), fetch("/api/leads/groups"), fetch("/api/leads/attention")]);
+      const res = await fetch(`/api/leads?${p.toString()}`);
       if (res.ok) setData(await res.json());
-      if (gRes.ok) setGroups((await gRes.json()).groups);
-      if (aRes.ok) setAttention(await aRes.json());
     } finally {
       setLoading(false);
     }
   }, [assignee, channel, debounced, group, followup]);
 
+  const loadSide = useCallback(async () => {
+    const [gRes, aRes] = await Promise.all([fetch("/api/leads/groups"), fetch("/api/leads/attention")]);
+    if (gRes.ok) setGroups((await gRes.json()).groups);
+    if (aRes.ok) setAttention(await aRes.json());
+  }, []);
+
+  const load = useCallback(() => Promise.all([loadLeads(), loadSide()]).then(() => undefined), [loadLeads, loadSide]);
+
   useEffect(() => {
-    if (status === "authenticated") load();
-  }, [load, status]);
+    if (status === "authenticated") loadLeads();
+  }, [loadLeads, status]);
+  useEffect(() => {
+    if (status === "authenticated") loadSide();
+  }, [loadSide, status]);
+
+  // After adding a lead, show everything again: a search or filter left on could hide the new lead.
+  function showAllLeads() {
+    const filtered = query || debounced || assignee !== "all" || channel !== "ALL" || stageFilter !== "all" || group !== "all" || followup !== "all";
+    setQuery("");
+    setDebounced("");
+    setAssignee("all");
+    setChannel("ALL");
+    setStageFilter("all");
+    setGroup("all");
+    setFollowup("all");
+    if (!filtered) load();
+  }
 
   const [loadingMore, setLoadingMore] = useState(false);
   async function loadMore() {
@@ -747,7 +771,7 @@ function DesktopLeads() {
           onDone={(m) => {
             setIntake(null);
             setFlash(m);
-            load();
+            showAllLeads();
           }}
         />
       )}

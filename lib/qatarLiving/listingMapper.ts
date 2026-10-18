@@ -99,7 +99,19 @@ type MapperListing = Pick<
 > & {
   images: { id: string; createdAt: Date }[];
   createdBy: { name: string; email: string; whatsapp: string };
+  titleQl?: string | null;
 };
+
+// Qatar Living's title limit (Property Finder's is 50).
+export const QL_TITLE_MAX = 80;
+
+// Cut at a word boundary so a title that is somehow too long is shortened rather than rejected by the portal.
+function clampTitle(value: string, max: number): string {
+  if (value.length <= max) return value;
+  const cut = value.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trim();
+}
 
 // The exact JSON shape Qatar Living's feed API spec (v1.0, §5) defines for
 // one listing object. Field names and casing match the spec precisely -
@@ -152,7 +164,7 @@ export function toQatarLivingListing(listing: MapperListing, agencyName = "us"):
     // lib/feeds/generateFeed.ts's priceType), so rentals are always "Monthly".
     ...(listing.listingType === "RENT" ? { frequency: "Monthly" as const } : {}),
     unitType: UNIT_TYPE[listing.propertyCategory],
-    title: listing.title?.trim() || `${listing.propertyCategory} for ${listing.listingType === "RENT" ? "Rent" : "Sale"} in ${listing.area}`,
+    title: clampTitle(listing.titleQl?.trim() || listing.title?.trim() || `${listing.propertyCategory} for ${listing.listingType === "RENT" ? "Rent" : "Sale"} in ${listing.area}`, QL_TITLE_MAX),
     description: listing.description?.trim() || `Contact ${agencyName} for details and viewings.`,
     unitBuiltupArea: listing.sizeSqm!,
     unitMeasure: "sqm",

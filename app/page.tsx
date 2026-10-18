@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { ListingDTO } from "@/lib/types";
-import { Filters, DEFAULT_FILTERS, countActiveFilters, filtersToParams } from "@/lib/filters";
+import { Filters, DEFAULT_FILTERS, countActiveFilters, filtersToParams, filtersToUrlParams, filtersFromParams } from "@/lib/filters";
 import GroupedResults from "@/components/GroupedResults";
 import SegmentedControl from "@/components/SegmentedControl";
 import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
@@ -25,10 +25,11 @@ const FilterSheet = dynamic(() => import("@/components/FilterSheet"), { ssr: fal
 const PAGE_SIZE = 20;
 
 // Lets the command palette (and shared links) pre-fill the search box via ?q=
-function QuerySync({ onQuery }: { onQuery: (q: string) => void }) {
+function QuerySync({ onQuery, written }: { onQuery: (q: string) => void; written: React.MutableRefObject<string | null> }) {
   const q = useSearchParams().get("q");
   useEffect(() => {
-    if (q !== null) onQuery(q);
+    // The address also changes when this page writes the search into it; that is not a new search.
+    if (q !== null && q !== written.current) onQuery(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
   return null;
@@ -71,6 +72,23 @@ export default function PropertiesPage() {
     } catch {}
   }
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+
+  // Filters and the search live in the page address: a refresh keeps them and a filtered view can be shared.
+  const writtenQuery = useRef<string | null>(null);
+  const [urlRead, setUrlRead] = useState(false);
+  useEffect(() => {
+    setFilters(filtersFromParams(new URLSearchParams(window.location.search)));
+    setUrlRead(true);
+  }, []);
+  useEffect(() => {
+    if (!urlRead) return;
+    const p = filtersToUrlParams(filters);
+    const q = query.trim();
+    if (q) p.set("q", q);
+    writtenQuery.current = q || null;
+    const search = p.toString();
+    if (search !== window.location.search.replace(/^\?/, "")) window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
+  }, [filters, query, urlRead]);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const [listings, setListings] = useState<ListingDTO[]>([]);
@@ -182,6 +200,7 @@ export default function PropertiesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDesktop, sessionStatus, countsKey, debouncedQuery]);
 
+  const groupedCards = new Set(listings.map((l) => l.dupKey)).size;
   const dupCounts = new Map<string, number>();
   for (const l of listings) dupCounts.set(l.dupKey, (dupCounts.get(l.dupKey) ?? 0) + 1);
 
@@ -196,7 +215,7 @@ export default function PropertiesPage() {
               <PropertyCardSkeleton />
             </div>
           )}
-          {!canLoadMore && <div className="py-4 text-center text-[12px] text-muted lg:py-8">You&apos;ve reached the end · {total} propert{total === 1 ? "y" : "ies"}</div>}
+          {!canLoadMore && <div className="py-4 text-center text-[12px] text-muted lg:py-8">You&apos;ve reached the end · {total} listing{total === 1 ? "" : "s"}{groupedCards < listings.length ? ` (${groupedCards} cards: duplicates share one)` : ""}</div>}
         </>
       )}
     </>
@@ -206,7 +225,7 @@ export default function PropertiesPage() {
     return (
       <div className="page-in">
         <Suspense fallback={null}>
-          <QuerySync onQuery={setQuery} />
+          <QuerySync onQuery={setQuery} written={writtenQuery} />
         </Suspense>
         <div className="pb-6 pt-10">
           <div className="flex items-end justify-between gap-6">
@@ -277,7 +296,7 @@ export default function PropertiesPage() {
                 />
               </div>
               <span className="whitespace-nowrap text-[13.5px] text-muted">
-                {loading && listings.length === 0 ? "Searching…" : `Showing ${listings.length} of ${total}`}
+                {loading && listings.length === 0 ? "Searching…" : `Showing ${listings.length} of ${total} listings`}
               </span>
             </div>
             <div className="flex shrink-0 rounded-lg border border-border bg-surface p-0.5 shadow-sm" role="group" aria-label="Layout">
@@ -338,7 +357,7 @@ export default function PropertiesPage() {
   return (
     <div>
       <Suspense fallback={null}>
-        <QuerySync onQuery={setQuery} />
+        <QuerySync onQuery={setQuery} written={writtenQuery} />
       </Suspense>
       <div className="sticky top-0 z-30 glass safe-top pt-4 px-4 pb-3 border-b border-border">
         <h1 className="text-xl font-bold mb-3">Properties</h1>
@@ -391,7 +410,7 @@ export default function PropertiesPage() {
 
         <div className="flex items-center justify-between mt-2.5">
           <div className="text-[12px] text-muted">
-            {loading && listings.length === 0 ? "Searching..." : `Showing ${listings.length} of ${total}`}
+            {loading && listings.length === 0 ? "Searching..." : `Showing ${listings.length} of ${total} listings`}
           </div>
           {activeFilterCount > 0 && (
             <button onClick={() => setFilters(DEFAULT_FILTERS)} className="text-[12px] font-semibold" style={{ color: "var(--primary)" }}>

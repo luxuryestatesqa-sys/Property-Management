@@ -12,6 +12,7 @@ interface PFStatus {
 }
 
 interface WebhookStatus {
+  localOnly?: boolean;
   missing: string[];
   subscribed: string[];
 }
@@ -272,12 +273,15 @@ export default function PropertyFinderSettingsCard() {
         <div className="mt-3 pt-3 border-t border-border">
           <div className="flex items-center justify-between">
             <span className="text-[13px] text-muted">Webhooks</span>
-            {webhookStatus && (
+            {webhookStatus?.localOnly ? (
+              <span className="text-[11px] font-semibold text-muted">Not available here</span>
+            ) : webhookStatus && (
               <span className="text-[11px] font-semibold" style={{ color: webhookStatus.missing.length === 0 ? "var(--success)" : "var(--muted)" }}>
                 {webhookStatus.missing.length === 0 ? "All set up" : `${webhookStatus.subscribed.length}/${webhookStatus.subscribed.length + webhookStatus.missing.length} subscribed`}
               </span>
             )}
           </div>
+          {webhookStatus?.localOnly && <p className="text-[12px] text-muted mt-1.5">This app is running on a local address that Property Finder can&apos;t reach. Webhooks can be set up once it is on its public website address.</p>}
           {webhookError && <p className="text-[12px] text-danger mt-1.5">{webhookError}</p>}
           {webhookStatus && webhookStatus.missing.length > 0 && (
             <button

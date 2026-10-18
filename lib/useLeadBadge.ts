@@ -15,20 +15,35 @@ try {
 
 const emit = () => listeners.forEach((l) => l());
 
-export async function refreshLeadBadge() {
-  try {
-    const r = await fetch("/api/leads/summary");
-    if (!r.ok) return;
-    const d = await r.json();
-    const next = (d.newCount ?? 0) + (d.overdueCount ?? 0);
-    if (next !== value) {
-      value = next;
-      try {
-        sessionStorage.setItem("leadBadge", String(next));
-      } catch {}
-      emit();
+// Callers that ask while a request is on its way (sidebar + bottom nav, rapid navigation) share it, and a
+// result younger than a few seconds is reused instead of asking the server again.
+let inflight: Promise<void> | null = null;
+let lastFetched = 0;
+const FRESH_MS = 5_000;
+
+export function refreshLeadBadge(): Promise<void> {
+  if (inflight) return inflight;
+  if (Date.now() - lastFetched < FRESH_MS) return Promise.resolve();
+  inflight = (async () => {
+    try {
+      const r = await fetch("/api/leads/summary");
+      if (!r.ok) return;
+      const d = await r.json();
+      lastFetched = Date.now();
+      const next = (d.newCount ?? 0) + (d.overdueCount ?? 0);
+      if (next !== value) {
+        value = next;
+        try {
+          sessionStorage.setItem("leadBadge", String(next));
+        } catch {}
+        emit();
+      }
+    } catch {
+    } finally {
+      inflight = null;
     }
-  } catch {}
+  })();
+  return inflight;
 }
 
 function subscribe(cb: () => void) {

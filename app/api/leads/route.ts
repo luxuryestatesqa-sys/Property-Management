@@ -3,11 +3,12 @@ import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
 import { ensureStages, themedStages } from "@/lib/leads/stages";
 import { createLeads, IntakeError } from "@/lib/leads/intake";
-import { normalizePhone, resolveOrigin } from "@/lib/leads/csv";
+import { normalizeEmail, normalizePhone, resolveOrigin } from "@/lib/leads/csv";
 import type { Prisma } from "@prisma/client";
 import { agentCount } from "@/lib/leads/counts";
 import { avatarLink } from "@/lib/avatar";
 import { qatarEndOfDay } from "@/lib/qatarTime";
+import { collapseSpaces, escapeLike, phoneSearchDigits } from "@/lib/search";
 
 const MAX_LEADS = 300;
 
@@ -47,14 +48,16 @@ export async function GET(req: NextRequest) {
   if (followup === "today" || followup === "overdue") Object.assign(where, dueWhere(followup));
   const group = sp.get("group");
   if (group && group !== "all") where.groupLinks = { some: { groupId: group } };
-  const q = sp.get("q")?.trim();
+  const q = collapseSpaces(sp.get("q") ?? "");
   if (q) {
+    const like = escapeLike(q);
+    const digits = phoneSearchDigits(q);
     where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { phone: { contains: q } },
-      { email: { contains: q, mode: "insensitive" } },
-      { region: { contains: q, mode: "insensitive" } },
-      { listingReference: { contains: q, mode: "insensitive" } },
+      { name: { contains: like, mode: "insensitive" } },
+      { phone: { contains: digits ?? like } },
+      { email: { contains: like, mode: "insensitive" } },
+      { region: { contains: like, mode: "insensitive" } },
+      { listingReference: { contains: like, mode: "insensitive" } },
     ];
   }
 
@@ -166,6 +169,10 @@ export async function POST(req: NextRequest) {
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<{ name?: string; phone?: string; email?: string; region?: string; notes?: string; channel?: string; assign?: { mode?: string; agentId?: string }; stageId?: string; force?: boolean }>(req);
   if (bodyError) return bodyError;
+
+  // An email or phone that can't be read is an error, not something to drop quietly.
+  if (String(body?.email ?? "").trim() && !normalizeEmail(body?.email)) return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
+  if (String(body?.phone ?? "").trim() && !normalizePhone(body?.phone)) return NextResponse.json({ error: "Enter a valid phone number" }, { status: 400 });
 
   const manager = isManagerRole(session!.user.role);
   const mode = manager && (body?.assign?.mode === "rules" || body?.assign?.mode === "agent" || body?.assign?.mode === "none") ? body.assign.mode : "self";

@@ -28,6 +28,9 @@ const LABELS: Record<string, string> = {
   TITLE_CHANGED: "Title",
   DESCRIPTION_CHANGED: "Description",
   TITLE_AR_CHANGED: "Arabic title",
+  TITLE_QL_CHANGED: "Qatar Living title",
+  TITLE_PF_CHANGED: "Property Finder title",
+  TITLE_ORYX_CHANGED: "Property Oryx title",
   DESCRIPTION_AR_CHANGED: "Arabic description",
   VISIBILITY_CHANGED: "Who can see it",
 };

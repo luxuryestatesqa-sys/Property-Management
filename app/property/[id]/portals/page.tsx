@@ -76,6 +76,13 @@ export default function MultiPortalPublishingPage() {
   const [description, setDescription] = useState("");
   const [titleAr, setTitleAr] = useState("");
   const [descriptionAr, setDescriptionAr] = useState("");
+  // Qatar Living allows 80 characters (Property Finder 50): edited right where it is published.
+  const QL_TITLE_MAX = 80;
+  // The listing's own title can be up to 80 characters; Property Finder takes 50, so it has its own field here.
+  const PF_TITLE_MAX = 50;
+  const [pfTitle, setPfTitle] = useState("");
+  const [qlTitle, setQlTitle] = useState("");
+  const [qlSaved, setQlSaved] = useState(false);
   const [detailsLang, setDetailsLang] = useState<"en" | "ar">("en");
   const [aiBusy, setAiBusy] = useState<"title" | "description" | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -118,6 +125,9 @@ export default function MultiPortalPublishingPage() {
       setTitle(l.title ?? "");
       setDescription(l.description ?? "");
       setTitleAr(l.titleAr ?? "");
+      setQlTitle(l.titleQl ?? l.title ?? "");
+      const main = (l.title ?? "").trim();
+      setPfTitle(l.titlePf ?? (main.length <= PF_TITLE_MAX ? main : main.slice(0, PF_TITLE_MAX).replace(/\s+\S*$/, "")));
       setDescriptionAr(l.descriptionAr ?? "");
       setAmenities(filterAmenitiesForCategory(l.propertyCategory, l.amenities));
       setPfLocationId(l.pfLocationId);
@@ -257,7 +267,7 @@ export default function MultiPortalPublishingPage() {
     : badgeFor(listing.propertyFinderState?.state);
 
   const missing: string[] = [];
-  if (!title.trim()) missing.push("title");
+  if (!pfTitle.trim()) missing.push("title");
   if (!description.trim()) missing.push("description");
   if (!isLand && !listing.bathrooms) missing.push("bathrooms");
   if (listing.images.length === 0) missing.push("photos");
@@ -265,10 +275,31 @@ export default function MultiPortalPublishingPage() {
   if (!effectiveAssignedProfileId) missing.push("Property Finder account");
   if (!price || price <= 0) missing.push(isRent ? "monthly rent price (edit it on the listing page)" : "sale price (edit it on the listing page)");
 
+  // Saves the Qatar Living title. Left the same as the main title, nothing is stored and Qatar Living keeps following it.
+  async function saveQlTitle(): Promise<string | null> {
+    const value = qlTitle.trim();
+    const res = await fetch(`/api/listings/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ titleQl: value && value !== title.trim() ? value : null }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return extractErrorMessage(data?.error, "Couldn't save the Qatar Living title");
+    setListing((prev) => (prev ? { ...prev, titleQl: value && value !== title.trim() ? value : null } : prev));
+    return null;
+  }
+
   async function toggleChannel(portal: PullChannel, nextEnabled: boolean) {
     setChannelBusy((prev) => ({ ...prev, [portal]: true }));
     setChannelErrors((prev) => ({ ...prev, [portal]: [] }));
     try {
+      if (portal === "QATAR_LIVING" && nextEnabled) {
+        const err = await saveQlTitle();
+        if (err) {
+          setChannelErrors((prev) => ({ ...prev, [portal]: [err] }));
+          return;
+        }
+      }
       const res = await fetch(`/api/listings/${id}/channels/${portal}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -295,7 +326,7 @@ export default function MultiPortalPublishingPage() {
   // the agent reviews/edits and saves with the rest of the form as usual.
   async function generateWithAi(field: "title" | "description") {
     const isEn = detailsLang === "en";
-    const current = field === "title" ? (isEn ? title : titleAr) : isEn ? description : descriptionAr;
+    const current = field === "title" ? (isEn ? pfTitle : titleAr) : isEn ? description : descriptionAr;
     if (current.trim() && !window.confirm(`Replace the current ${field} with AI-written text?`)) return;
     setAiError(null);
     setAiBusy(field);
@@ -303,14 +334,14 @@ export default function MultiPortalPublishingPage() {
       const res = await fetch(`/api/listings/${id}/generate-copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang: detailsLang, field, currentTitle: isEn ? title : titleAr, amenities, locationLabel: pfLocationLabel }),
+        body: JSON.stringify({ lang: detailsLang, field, currentTitle: isEn ? pfTitle : titleAr, amenities, locationLabel: pfLocationLabel }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setAiError(extractErrorMessage(data?.error, "Couldn't generate text"));
         return;
       }
-      if (field === "title") (isEn ? setTitle : setTitleAr)(data.title);
+      if (field === "title") (isEn ? setPfTitle : setTitleAr)(data.title);
       else (isEn ? setDescription : setDescriptionAr)(data.description);
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Network error. Please try again.");
@@ -325,7 +356,8 @@ export default function MultiPortalPublishingPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim() || null,
+          title: title.trim() || pfTitle.trim() || null,
+          titlePf: pfTitle.trim() && pfTitle.trim() !== title.trim() ? pfTitle.trim() : null,
           description: description.trim() || null,
           titleAr: titleAr.trim() || null,
           descriptionAr: descriptionAr.trim() || null,
@@ -613,19 +645,22 @@ export default function MultiPortalPublishingPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-sm font-medium text-foreground">
-                        Title <span className="text-danger">*</span>
+                        Title on Property Finder <span className="text-danger">*</span>
                       </label>
                       <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} />
                     </div>
                     <input
                       type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
+                      value={pfTitle}
+                      onChange={(e) => setPfTitle(e.target.value)}
                       placeholder="e.g. Spacious 2BR with Marina View"
-                      maxLength={50}
+                      maxLength={PF_TITLE_MAX}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-[15px] outline-none focus:border-primary"
                     />
-                    <div className="text-right text-[12px] text-muted mt-1">{title.length}/50</div>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-[12px] text-muted">
+                      <span>{title.trim().length > PF_TITLE_MAX && pfTitle.trim() !== title.trim() ? "Your listing title is longer, so it is shortened here for Property Finder (50 max). Edit it as you like." : "Property Finder allows up to 50 characters."}</span>
+                      <span>{pfTitle.length}/{PF_TITLE_MAX}</span>
+                    </div>
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
@@ -854,6 +889,43 @@ export default function MultiPortalPublishingPage() {
                   </div>
                 )}
 
+                {ch.key === "QATAR_LIVING" && (
+                  <div>
+                    <label htmlFor="ql-title" className="block text-[12.5px] font-semibold mb-1">Title on Qatar Living</label>
+                    <input
+                      id="ql-title"
+                      value={qlTitle}
+                      maxLength={QL_TITLE_MAX}
+                      onChange={(e) => {
+                        setQlTitle(e.target.value);
+                        setQlSaved(false);
+                      }}
+                      placeholder={title || "Title shown on Qatar Living"}
+                      className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-primary"
+                    />
+                    <div className="mt-1 flex items-center justify-between gap-2 text-[12px] text-muted">
+                      <span>Qatar Living allows up to {QL_TITLE_MAX} characters. Property Finder keeps its own {title.length > 0 ? "title" : "50-character title"}.</span>
+                      <span className={qlTitle.length >= QL_TITLE_MAX ? "font-semibold text-danger" : ""}>{qlTitle.length}/{QL_TITLE_MAX}</span>
+                    </div>
+                    {isChannelEnabled && (
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          setChannelBusy((prev) => ({ ...prev, [ch.key]: true }));
+                          const err = await saveQlTitle();
+                          setChannelErrors((prev) => ({ ...prev, [ch.key]: err ? [err] : [] }));
+                          setQlSaved(!err);
+                          setChannelBusy((prev) => ({ ...prev, [ch.key]: false }));
+                        }}
+                        className="mt-2 rounded-xl px-4 py-2 text-[13px] font-semibold bg-accent-light text-primary active:opacity-70 disabled:opacity-60"
+                      >
+                        {qlSaved ? "Saved ✓" : "Save title"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {errors && errors.length > 0 && (
                   <div className="text-[12px] text-danger bg-danger-bg p-2.5 rounded-xl">
                     Still needed: {errors.join(", ")}
@@ -933,7 +1005,7 @@ export default function MultiPortalPublishingPage() {
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
         listing={listing}
-        title={detailsLang === "en" ? title.trim() : titleAr.trim()}
+        title={detailsLang === "en" ? pfTitle.trim() : titleAr.trim()}
         description={detailsLang === "en" ? description.trim() : descriptionAr.trim()}
         lang={detailsLang}
         reference={reference.trim() || `LE-${listing.id}`}

@@ -158,7 +158,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
 
   // What is still missing in each numbered section (same rules the server checks).
   const problems: Record<string, string | null> = {
-    "sec-type": !category ? "Choose a property type" : residential && !form.bedrooms ? "Choose the number of bedrooms" : !isPositive(form.sizeSqm) ? "Enter the size in sqm" : null,
+    "sec-type": !category ? "Choose a property type" : residential && !form.bedrooms ? "Choose the number of bedrooms" : !isPositive(form.sizeSqm) ? "Enter the size in sqm" : Number(form.sizeSqm) < 10 ? "Size must be at least 10 sqm" : null,
     "sec-price": isRent ? (isPositive(form.rentPrice) ? null : "Enter the monthly rent") : isPositive(form.salePrice) ? saleDetailsProblem(form) : "Enter the sale price",
     "sec-photos": form.images.length === 0 ? "Add at least one photo" : null,
     "sec-where": !form.area.trim() || !form.community.trim()
@@ -250,7 +250,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                 <div>
                   <label className={fieldLabel}>Size</label>
                   <div className="flex items-center rounded-xl border border-border bg-white px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-accent-light">
-                    <input data-bare type="number" inputMode="decimal" min="1" value={form.sizeSqm} onKeyDown={(e) => ["-", "+", "e", "E"].includes(e.key) && e.preventDefault()} onChange={(e) => update("sizeSqm", positive(e.target.value, true))} placeholder="e.g. 120" className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] outline-none" />
+                    <input data-bare type="number" inputMode="decimal" min="10" value={form.sizeSqm} onKeyDown={(e) => ["-", "+", "e", "E"].includes(e.key) && e.preventDefault()} onChange={(e) => update("sizeSqm", positive(e.target.value, true))} placeholder="e.g. 120" className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] outline-none" />
                     <span className="text-[13px] text-muted">sqm</span>
                   </div>
                   <QuickPick values={SIZE_QUICK} current={form.sizeSqm} onPick={(v) => update("sizeSqm", v)} format={(n) => `${n}`} />
@@ -337,8 +337,8 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
                       <span className="text-[13.5px] font-semibold text-slate-700">Title</span>
                       <AiWriteButton onClick={() => generateWithAi("title")} busy={aiBusy === "title"} disabled={aiBusy !== null} />
                     </div>
-                    <input type="text" value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="e.g. Spacious 2BR with Marina View" maxLength={50} className={input} />
-                    <div className={`mt-1 text-right text-[12px] ${form.title.length >= 45 ? "font-semibold text-danger" : "text-muted"}`}>{form.title.length >= 50 ? "Limit reached · " : ""}{form.title.length}/50</div>
+                    <input type="text" value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="e.g. Spacious 2BR with Marina View" maxLength={80} className={input} />
+                    <div className={`mt-1 text-right text-[12px] ${form.title.length >= 75 ? "font-semibold text-danger" : "text-muted"}`}>{form.title.length >= 80 ? "Limit reached · " : ""}{form.title.length}/80</div>
                   </div>
                   <div>
                     <div className="mb-2 flex items-center justify-between">

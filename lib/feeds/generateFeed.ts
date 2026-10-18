@@ -64,6 +64,9 @@ export const FEED_LISTING_SELECT = {
   description: true,
   titleAr: true,
   descriptionAr: true,
+  titleQl: true,
+  titleOryx: true,
+  titlePf: true,
   amenities: true,
   area: true,
   community: true,
@@ -122,6 +125,7 @@ export function toFeedListing(listing: FeedRow, ctx: { baseUrl: string; agencyNa
     availabilityStatus: listing.availabilityStatus,
     amenityKeys: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities),
     titleAr: listing.titleAr?.trim() || undefined,
+    titleOryx: listing.titleOryx?.trim() || undefined,
     descriptionAr: listing.descriptionAr?.trim() || undefined,
     imageDates: listing.images.map((img) => img.createdAt),
     amenities: filterAmenitiesForCategory(listing.propertyCategory, listing.amenities)

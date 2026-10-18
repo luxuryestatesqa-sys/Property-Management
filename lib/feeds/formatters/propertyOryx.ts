@@ -74,7 +74,7 @@ export function oryxPropertyXml(l: FeedListing): string {
     cdataTag("community", l.community),
     cdataTag("sub_community", l.subcommunity || l.community),
     cdataTag("property_name", l.buildingName),
-    cdataTag("title_en", sentenceCaseIfShouting(l.title)),
+    cdataTag("title_en", sentenceCaseIfShouting(l.titleOryx || l.title)),
     cdataTag("title_ar", l.titleAr ? sentenceCaseIfShouting(l.titleAr) : undefined),
     cdataTag("description_en", truncateBytes(l.description, MAX_TEXT_BYTES)),
     cdataTag("description_ar", l.descriptionAr ? truncateBytes(l.descriptionAr, MAX_TEXT_BYTES) : undefined),

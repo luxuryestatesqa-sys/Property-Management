@@ -26,7 +26,7 @@ export interface LeadPropertyListing {
 
 // Link a lead to the property it asked about ("Interested in LST-000085") and send that listing to them on
 // WhatsApp with its price and public link (never the unit number when the listing hides it).
-export default function LeadProperty({ leadId, leadName, phone, listing, onChange }: { leadId: string; leadName: string; phone: string | null; listing: LeadPropertyListing | null; onChange: () => void }) {
+export default function LeadProperty({ leadId, leadName, phone, listing, onChange }: { leadId: string; leadName: string; phone: string | null; listing: LeadPropertyListing | null; onChange: () => void | Promise<void> }) {
   const { data: session } = useSession();
   const org = useOrg();
   const [code, setCode] = useState("");
@@ -37,10 +37,14 @@ export default function LeadProperty({ leadId, leadName, phone, listing, onChang
     setBusy(true);
     setError("");
     const res = await fetch(`/api/leads/${leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ listing: value }) });
+    if (!res.ok) {
+      setBusy(false);
+      return setError((await res.json().catch(() => null))?.error ?? "Couldn't link that property");
+    }
+    // Keep the box (and the busy state) until the lead has reloaded, so it never looks like nothing happened.
+    await onChange();
     setBusy(false);
-    if (!res.ok) return setError((await res.json().catch(() => null))?.error ?? "Couldn't link that property");
     setCode("");
-    onChange();
   }
 
   const digits = phone?.replace(/[^\d]/g, "");

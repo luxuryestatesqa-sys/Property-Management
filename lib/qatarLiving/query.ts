@@ -18,6 +18,7 @@ const LISTING_SELECT = {
   bathrooms: true,
   sizeSqm: true,
   title: true,
+  titleQl: true,
   description: true,
   amenities: true,
   area: true,

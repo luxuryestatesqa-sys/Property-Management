@@ -102,7 +102,7 @@ function SubNav({ items, label = "Leads pages" }: { items: { href: string; label
 function Section({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <div className="mx-3 my-3 border-t border-slate-200/80 xl:hidden" />
+      <div className="mx-3 my-2 border-t border-slate-200/80 xl:hidden" />
       <div className="hidden px-3 pb-1.5 pt-5 label-caps xl:block">{children}</div>
     </>
   );
@@ -130,8 +130,8 @@ export default function Sidebar() {
   const initial = org.name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase() || "•";
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[76px] flex-col glass border-r border-white/60 lg:flex xl:w-64">
-      <div className="flex justify-center px-5 pb-5 pt-6 xl:block">
+    <aside className="no-scrollbar fixed inset-y-0 left-0 z-40 hidden w-[76px] flex-col overflow-y-auto glass border-r border-white/60 lg:flex xl:w-64">
+      <div className="flex shrink-0 justify-center px-5 pb-5 pt-6 max-xl:pb-3 max-xl:pt-4 xl:block">
         <Link href="/" className="flex items-center gap-3">
           {org.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -146,7 +146,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <div className="px-4 max-xl:px-3">
+      <div className="shrink-0 px-4 max-xl:px-3">
         <Link
           href="/add"
           title="Add Property"
@@ -160,7 +160,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <nav className="no-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-4 pb-2 pt-1 max-xl:px-3">
+      <nav className="flex shrink-0 flex-1 flex-col gap-0.5 px-4 pb-2 pt-1 max-xl:px-3">
         {isManager ? (
           <>
             <Section>Overview</Section>
@@ -197,12 +197,12 @@ export default function Sidebar() {
         )}
       </nav>
 
-      <div className="px-4 pb-1 max-xl:px-3">
+      <div className="shrink-0 px-4 pb-1 max-xl:px-3">
         <NavLink href="/settings" label="Settings" icon={icons.settings} active={pathname.startsWith("/settings")} />
       </div>
 
       {session?.user && (
-        <div className="m-3 mt-2 flex flex-col items-center gap-3 rounded-2xl bg-white/60 p-3 xl:flex-row">
+        <div className="m-3 mt-2 flex shrink-0 flex-col items-center gap-2 rounded-2xl bg-white/60 p-2 xl:flex-row xl:gap-3 xl:p-3">
           <Avatar name={session.user.name ?? "?"} size={36} neutral />
           <div className="hidden min-w-0 flex-1 leading-tight xl:block">
             <div className="truncate text-[13px] font-medium text-slate-900">{session.user.name}</div>

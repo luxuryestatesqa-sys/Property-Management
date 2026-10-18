@@ -51,6 +51,10 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     const onPop = () => setSection(null);
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);

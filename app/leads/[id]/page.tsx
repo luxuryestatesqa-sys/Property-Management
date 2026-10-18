@@ -158,6 +158,9 @@ export default function LeadDetailPage() {
   const [missing, setMissing] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  // Saves can take a couple of seconds: show that something is happening.
+  const [saves, setSaves] = useState(0);
+  const saving = saves > 0 || busy;
   const [error, setError] = useState("");
   const [now] = useState(() => Date.now());
   const [taskText, setTaskText] = useState("");
@@ -183,10 +186,17 @@ export default function LeadDetailPage() {
     []
   );
 
+  // Only the newest load may update the page: a slow earlier response must not overwrite a change that was just saved.
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
-    const res = await fetch(`/api/leads/${id}`);
+    const seq = ++loadSeq.current;
+    const res = await fetch(`/api/leads/${id}`, { cache: "no-store" });
+    if (seq !== loadSeq.current) return;
     if (res.status === 404) return setMissing(true);
-    if (res.ok) setData(await res.json());
+    if (res.ok) {
+      const json = await res.json();
+      if (seq === loadSeq.current) setData(json);
+    }
   }, [id]);
 
   useEffect(() => {
@@ -195,9 +205,14 @@ export default function LeadDetailPage() {
 
   async function patch(body: Record<string, unknown>) {
     setError("");
-    const res = await fetch(`/api/leads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (!res.ok) setError((await res.json().catch(() => null))?.error ?? "Couldn't save that change");
-    await load();
+    setSaves((n) => n + 1);
+    try {
+      const res = await fetch(`/api/leads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!res.ok) setError((await res.json().catch(() => null))?.error ?? "Couldn't save that change");
+      await load();
+    } finally {
+      setSaves((n) => n - 1);
+    }
   }
 
   // A request that is already on its way is not sent again (double click, Enter held down).
@@ -214,10 +229,15 @@ export default function LeadDetailPage() {
   }
   async function sendOnce(url: string, method: string, body?: unknown) {
     setError("");
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-    if (!res.ok) setError((await res.json().catch(() => null))?.error ?? "Couldn't save");
-    await load();
-    return res.ok;
+    setSaves((n) => n + 1);
+    try {
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+      if (!res.ok) setError((await res.json().catch(() => null))?.error ?? "Couldn't save");
+      await load();
+      return res.ok;
+    } finally {
+      setSaves((n) => n - 1);
+    }
   }
 
   // Fold a duplicate lead into this one: its timeline, follow-ups and groups move here.
@@ -733,7 +753,7 @@ export default function LeadDetailPage() {
             <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was discussed, budget, next step…" rows={5} maxLength={2000} className={`${input} w-full resize-none`} />
             <div className="flex justify-end">
               <button type="button" disabled={busy || !note.trim()} onClick={() => log("NOTE", note)} className={primaryBtn} style={{ background: "var(--primary)" }}>
-                Save note
+                {busy ? "Saving…" : "Save note"}
               </button>
             </div>
           </div>
@@ -1105,6 +1125,11 @@ export default function LeadDetailPage() {
 
   return (
     <div className="px-4 pb-24 lg:px-0 lg:pb-12 page-in">
+      {saving && (
+        <div role="status" className="fixed bottom-20 right-4 z-50 rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg lg:bottom-6">
+          Saving…
+        </div>
+      )}
       <div className="pt-4 lg:pt-8">
         <div className="mb-4 flex items-center gap-2 text-[13px] text-muted">
           <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-1 font-medium transition-colors hover:text-slate-900">

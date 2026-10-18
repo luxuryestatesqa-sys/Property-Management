@@ -18,6 +18,12 @@ const LEAD_EVENTS = ["lead.created", "lead.updated", "lead.assigned"];
 export async function GET() {
   const { orgId, error } = await requireAdmin();
   if (error) return error;
+  // On a local or private address Property Finder can't call us back: say so plainly, not as a failure.
+  try {
+    getAppBaseUrl();
+  } catch {
+    return NextResponse.json({ localOnly: true, missing: [], subscribed: [] });
+  }
   try {
     const webhooks = await listWebhooks(orgId!);
     const callbackUrl = `${getAppBaseUrl()}/api/portals/propertyfinder/webhook`;

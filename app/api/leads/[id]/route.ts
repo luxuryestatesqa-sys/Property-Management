@@ -33,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!lead || (!manager && lead.assignedToId !== session!.user.id)) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 
-  const [stages, agents, related] = await Promise.all([
+  const [stages, agents, related, groups] = await Promise.all([
     db!.leadStage.findMany({ orderBy: { position: "asc" } }),
     manager ? db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     lead.phone
@@ -44,9 +44,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           select: { id: true, name: true, receivedAt: true, listingReference: true, stage: { select: { name: true, kind: true, color: true } } },
         })
       : Promise.resolve([]),
+    db!.leadGroup.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
   ]);
-
-  const groups = await db!.leadGroup.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } });
 
   const { raw, callRecordUrl, groupLinks, ...rest } = lead;
   return NextResponse.json({
@@ -102,24 +101,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.stageId === undefined) return NextResponse.json({ ok: true });
   }
   if (!body.stageId || typeof body.stageId !== "string") return NextResponse.json({ error: "stageId is required" }, { status: 400 });
-  const stage = await db!.leadStage.findFirst({ where: { id: body.stageId } });
+  const [stage, firstStage] = await Promise.all([
+    db!.leadStage.findFirst({ where: { id: body.stageId } }),
+    db!.leadStage.findFirst({ orderBy: { position: "asc" } }),
+  ]);
   if (!stage) return NextResponse.json({ error: "Unknown stage" }, { status: 404 });
   if (stage.id === lead.stageId) return NextResponse.json({ ok: true });
 
-  const firstStage = await db!.leadStage.findFirst({ orderBy: { position: "asc" } });
-  await db!.lead.update({
-    where: { id },
-    data: { stageId: stage.id, ...(!lead.firstContactedAt && lead.stageId === firstStage?.id ? { firstContactedAt: new Date() } : {}) },
-  });
-  await db!.leadActivity.create({
-    data: {
-      organizationId: orgId!,
-      leadId: id,
-      userId: session!.user.id,
-      type: "STAGE_CHANGED",
-      text: `Stage: ${lead.stage.name} → ${stage.name}`,
-      data: { from: lead.stageId, to: stage.id },
-    },
-  });
+  await Promise.all([
+    db!.lead.update({
+      where: { id },
+      data: { stageId: stage.id, ...(!lead.firstContactedAt && lead.stageId === firstStage?.id ? { firstContactedAt: new Date() } : {}) },
+    }),
+    db!.leadActivity.create({
+      data: {
+        organizationId: orgId!,
+        leadId: id,
+        userId: session!.user.id,
+        type: "STAGE_CHANGED",
+        text: `Stage: ${lead.stage.name} → ${stage.name}`,
+        data: { from: lead.stageId, to: stage.id },
+      },
+    }),
+  ]);
   return NextResponse.json({ ok: true });
 }

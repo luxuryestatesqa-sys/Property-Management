@@ -64,8 +64,8 @@ export function reviewOryx(l: FeedListing, state: ListingState): { problems: Ory
   if (!l.buildingName) add("error", "location", "Add the building or project name.");
 
   // Worth fixing before it goes live.
-  const rawTitle = l.title.trim();
-  if (rawTitle.length > 70) add("warning", "title", "The title is long. Oryx asks for a short, descriptive one.");
+  const rawTitle = (l.titleOryx || l.title).trim();
+  if (rawTitle.length > 80) add("warning", "title", "The title is long. Oryx asks for a short, descriptive one.");
   if (rawTitle !== sentenceCaseIfShouting(rawTitle)) add("warning", "title", "The title is all capitals, so it will be sent in normal case.");
   if (l.description.length < 80) add("warning", "description", "The description is very short. A good description helps the listing.");
   if (Buffer.byteLength(l.description, "utf8") > MAX_TEXT_BYTES) add("warning", "description", "The description is over 64 KB, so the end will be cut.");

@@ -94,10 +94,15 @@ const marketingText = (max: number) =>
 
 const listingMarketingFields = {
   // Matches Property Finder's own listing form limits exactly.
-  title: marketingText(50),
+  title: marketingText(80),
+  // Property Finder cuts at 50; edited in its publish step.
+  titlePf: marketingText(50),
   description: marketingText(2000),
   // Optional Arabic variants - same limits, never required.
   titleAr: marketingText(50),
+  // Qatar Living allows a longer title than Property Finder.
+  titleQl: marketingText(80),
+  titleOryx: marketingText(80),
   descriptionAr: marketingText(2000),
   amenities: z.array(z.string()).max(40).optional(),
   bathrooms: z.enum(PF_BATHROOM_OPTIONS as [string, ...string[]]).optional().nullable(),
@@ -132,7 +137,7 @@ export const listingCreateSchema = z
     listingType: z.enum(["RENT", "SALE"]),
     propertyCategory: z.enum(PROPERTY_CATEGORIES),
     bedrooms: z.enum(BEDROOM_COUNTS).optional().nullable(),
-    sizeSqm: z.number().positive("Size is required"),
+    sizeSqm: z.number().positive("Size is required").min(10, "Size must be at least 10 sqm"),
     area: z.string().trim().min(1, "Location is required"),
     community: z.string().trim().min(1, "Area/Community is required"),
     // Optional: Property Finder doesn't need them. Blanks are filled in by the server.
@@ -185,7 +190,7 @@ export const listingUpdateSchema = z.object({
   // Not nullable here (unlike other optional-on-update fields) - size is
   // required on every listing, so an edit may leave it untouched but must
   // never clear it back to empty.
-  sizeSqm: z.number().positive("Size is required").optional(),
+  sizeSqm: z.number().positive("Size is required").min(10, "Size must be at least 10 sqm").optional(),
   area: z.string().trim().min(1).optional(),
   community: z.string().trim().min(1).optional(),
   buildingName: z.string().trim().optional(),

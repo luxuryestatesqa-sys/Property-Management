@@ -165,7 +165,7 @@ export default function MyListingsPage() {
     const availableNow = listingsByTab.ACTIVE.filter((l) => l.availabilityStatus === "AVAILABLE").length;
     const livePf = listingsByTab.ACTIVE.filter((l) => l.propertyFinderState?.state === "live").length;
     const stats: { label: string; value: string; hint: string; tab?: Tab }[] = [
-      { label: "Active listings", value: String(counts.ACTIVE ?? "–"), hint: "Visible to every agent", tab: "ACTIVE" },
+      { label: "Active listings", value: String(counts.ACTIVE ?? "–"), hint: "Not marked inactive", tab: "ACTIVE" },
       { label: "Inactive", value: String(counts.INACTIVE ?? "–"), hint: "Hidden from search", tab: "INACTIVE" },
       { label: "Available now", value: complete ? String(availableNow) : "—", hint: "Ready to rent or sell" },
       { label: "Live on Property Finder", value: complete ? String(livePf) : "—", hint: "Published to the portal" },

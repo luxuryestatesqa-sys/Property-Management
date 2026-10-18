@@ -94,7 +94,10 @@ function clampAtWord(text: string, max: number): string {
 
 export function cleanTitle(raw: string): string {
   const oneLine = toPlainText(raw).replace(/\s*\n+\s*/g, " ").replace(/^["'“”‘’]+|["'“”‘’]+$/g, "").replace(/[.\s]+$/g, "");
-  return clampAtWord(oneLine, TITLE_MAX);
+  const clamped = clampAtWord(oneLine, TITLE_MAX);
+  if (clamped.length === oneLine.length) return clamped;
+  // Cut short: don't leave it ending on a joining word ("…Pool Access in").
+  return clamped.replace(/(?:[\s,&|–—-]+(?:in|with|and|at|of|for|to|the|a|an|on|near|by|from|or|overlooking))+$/i, "").replace(/[\s,&|–—-]+$/, "");
 }
 
 export function callToAction(lang: CopyLang, agentName: string, agentPhone: string): string {

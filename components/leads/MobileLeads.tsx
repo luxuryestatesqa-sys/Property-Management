@@ -494,7 +494,16 @@ export default function MobileLeads() {
           onDone={(m) => {
             setIntake(null);
             setFlash(m);
-            loadFirst();
+            // A search or filter left on could hide the lead just added.
+            const filtered = q || debounced || tab !== "all" || assignee !== "all" || stageId !== "all" || channel !== "ALL" || group !== "all";
+            setQ("");
+            setDebounced("");
+            setTab("all");
+            setAssignee("all");
+            setStageId("all");
+            setChannel("ALL");
+            setGroup("all");
+            if (!filtered) loadFirst();
           }}
         />
       )}

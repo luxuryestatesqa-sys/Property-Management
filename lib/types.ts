@@ -51,6 +51,9 @@ export interface ListingDTO {
   description: string | null;
   titleAr: string | null;
   descriptionAr: string | null;
+  titleQl: string | null;
+  titlePf: string | null;
+  titleOryx: string | null;
   amenities: string[];
   // Property Finder's own location-tree id, chosen via autocomplete.
   pfLocationId: number | null;

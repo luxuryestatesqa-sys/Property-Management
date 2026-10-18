@@ -47,6 +47,20 @@ describe("toQatarLivingListing", () => {
     expect(result.furnishing).toBe("Furnished");
   });
 
+  it("uses the Qatar Living title (up to 80 characters) when set, else the main title", () => {
+    const long = "Spacious Furnished 2 Bedroom Apartment with Marina View in The Pearl Qatar";
+    expect(long.length).toBeGreaterThan(50);
+    expect(long.length).toBeLessThanOrEqual(80);
+    expect(toQatarLivingListing({ ...BASE_LISTING, titleQl: long }).title).toBe(long);
+    expect(toQatarLivingListing({ ...BASE_LISTING, title: "Main title", titleQl: null }).title).toBe("Main title");
+  });
+
+  it("cuts a title over 80 characters at a word instead of sending it too long", () => {
+    const title = toQatarLivingListing({ ...BASE_LISTING, titleQl: "word ".repeat(30) }).title;
+    expect(title.length).toBeLessThanOrEqual(80);
+    expect(title.endsWith("word")).toBe(true);
+  });
+
   it("omits frequency for a SALE listing and uses salePrice", () => {
     const result = toQatarLivingListing({ ...BASE_LISTING, listingType: "SALE", rentPrice: null, salePrice: 2500000 });
     expect(result.purpose).toBe("For Sale");

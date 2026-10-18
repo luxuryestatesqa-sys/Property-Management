@@ -9,6 +9,7 @@ import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeyword
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
 import { isAdminRole } from "@/lib/roles";
 import { avatarLink } from "@/lib/avatar";
+import { collapseSpaces, escapeLike } from "@/lib/search";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
 
 const DEFAULT_PAGE_SIZE = 30;
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
     Number.isFinite(requestedPageSize) && requestedPageSize > 0
       ? Math.min(Math.floor(requestedPageSize), MAX_PAGE_SIZE)
       : DEFAULT_PAGE_SIZE;
-  const q = sp.get("q")?.trim();
+  const q = collapseSpaces(sp.get("q") ?? "");
   const listingType = sp.get("listingType"); // RENT | SALE | ALL
   const area = sp.get("area");
   const community = sp.get("community");
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
   const availability = sp.get("availability"); // AVAILABLE | RESERVED | RENTED | SOLD | ALL
   const propertyCategory = sp.get("propertyCategory");
   const bedrooms = sp.get("bedrooms");
-  const page = Math.max(1, Number(sp.get("page") ?? "1"));
+  const page = Math.max(1, Math.floor(Number(sp.get("page"))) || 1);
   const mine = sp.get("mine"); // "1" -> only current user's listings
 
   const isAdmin = isAdminRole(session!.user.role);
@@ -89,10 +90,10 @@ export async function GET(req: NextRequest) {
     conditions.push({ bedrooms: bedrooms as BedroomCount });
   }
 
-  if (rentMin) conditions.push({ rentPrice: { gte: Number(rentMin) } });
-  if (rentMax) conditions.push({ rentPrice: { lte: Number(rentMax) } });
-  if (saleMin) conditions.push({ salePrice: { gte: Number(saleMin) } });
-  if (saleMax) conditions.push({ salePrice: { lte: Number(saleMax) } });
+  if (rentMin) conditions.push({ rentPrice: { gte: Number(rentMin) || 0 } });
+  if (rentMax) conditions.push({ rentPrice: { lte: Number(rentMax) || 0 } });
+  if (saleMin) conditions.push({ salePrice: { gte: Number(saleMin) || 0 } });
+  if (saleMax) conditions.push({ salePrice: { lte: Number(saleMax) || 0 } });
 
   if (q) {
     // A query that's nothing but a bedroom expression ("2", "two", "studio",
@@ -105,14 +106,15 @@ export async function GET(req: NextRequest) {
     } else {
       const digits = q.replace(/\D/g, "");
       const unitSearchable = unitDetailsSearchableWhere(session!.user.id, isAdmin);
+      const like = escapeLike(q);
       const orConds: Prisma.ListingWhereInput[] = [
-        { area: { contains: q, mode: "insensitive" } },
-        { community: { contains: q, mode: "insensitive" } },
-        { buildingName: { contains: q, mode: "insensitive" } },
+        { area: { contains: like, mode: "insensitive" } },
+        { community: { contains: like, mode: "insensitive" } },
+        { buildingName: { contains: like, mode: "insensitive" } },
         // Hidden unit details must not be searchable by other agents.
-        { AND: [{ apartmentNumber: { contains: q, mode: "insensitive" } }, unitSearchable] },
-        { AND: [{ floor: { contains: q, mode: "insensitive" } }, unitSearchable] },
-        { createdBy: { name: { contains: q, mode: "insensitive" } } },
+        { AND: [{ apartmentNumber: { contains: like, mode: "insensitive" } }, unitSearchable] },
+        { AND: [{ floor: { contains: like, mode: "insensitive" } }, unitSearchable] },
+        { createdBy: { name: { contains: like, mode: "insensitive" } } },
       ];
       if (digits) {
         const idNum = Number(digits);
