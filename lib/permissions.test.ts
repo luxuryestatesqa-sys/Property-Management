@@ -2,10 +2,17 @@ import { describe, it, expect } from "vitest";
 import { ALL_PERMISSIONS, DEFAULT_PERMISSIONS, can, effectivePermissions, normalizePermissions, templateFor } from "./permissions";
 
 describe("permissions", () => {
-  it("Owners and Super Admins always have everything, whatever is saved", () => {
+  it("only the Owner (the Super Admin) always has everything, whatever is saved", () => {
     expect(effectivePermissions("OWNER", [], null)).toEqual(ALL_PERMISSIONS);
-    expect(effectivePermissions("ADMIN", ["leads.viewAll"], { MANAGER: [] })).toEqual(ALL_PERMISSIONS);
-    expect(can({ role: "ADMIN", permissions: [] }, "users.manage")).toBe(true);
+    expect(effectivePermissions("OWNER", ["leads.viewAll"], { MANAGER: [] })).toEqual(ALL_PERMISSIONS);
+    expect(can({ role: "OWNER", permissions: [] }, "users.manage")).toBe(true);
+  });
+
+  it("an Admin has everything by default (as Admins did before) but can be restricted", () => {
+    expect(effectivePermissions("ADMIN", null, null)).toEqual(ALL_PERMISSIONS);
+    expect(effectivePermissions("ADMIN", ["dashboard.view"], null)).toEqual(["dashboard.view"]);
+    expect(effectivePermissions("ADMIN", null, { ADMIN: ["leads.viewAll"] })).toEqual(["leads.viewAll"]);
+    expect(can({ role: "ADMIN", permissions: ["dashboard.view"] }, "users.manage")).toBe(false);
   });
 
   it("a Manager with nothing saved keeps what Managers could do before permissions were configurable", () => {

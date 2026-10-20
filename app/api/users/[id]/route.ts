@@ -8,13 +8,13 @@ import { whatsappSchema, adminResetPasswordSchema } from "@/lib/validation";
 import { setIdentityPassword, setIdentityDisabled, deleteIdentity } from "@/lib/identity";
 import { logActivity } from "@/lib/activity";
 
-// Only the OWNER can touch the OWNER account (deactivate, remove, reset password, change role), and only a
-// Super Admin can touch another Super Admin: someone who may manage users but is not one cannot reach upward.
+// Only the OWNER (the Super Admin) can touch the OWNER account or an Admin (deactivate, remove, reset password,
+// change role or permissions): someone who may manage users but is not the Super Admin cannot reach upward.
 async function ownerProtected(db: NonNullable<Awaited<ReturnType<typeof requirePermission>>["db"]>, id: string, callerRole: string) {
   const target = await db.user.findUnique({ where: { id }, select: { role: true } });
   if (!target) return { notFound: true as const, forbidden: false, message: "" };
   if (target.role === "OWNER" && callerRole !== "OWNER") return { notFound: false as const, forbidden: true, message: "Only the agency owner can change the owner account" };
-  if (target.role === "ADMIN" && !isSuperAdminRole(callerRole)) return { notFound: false as const, forbidden: true, message: "Only a Super Admin can change a Super Admin" };
+  if (target.role === "ADMIN" && !isSuperAdminRole(callerRole)) return { notFound: false as const, forbidden: true, message: "Only the Super Admin can change an Admin" };
   return { notFound: false as const, forbidden: false, message: "" };
 }
 
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.role !== undefined) {
     if (!["ADMIN", "MANAGER", "AGENT"].includes(body.role)) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     if (id === session!.user.id) return NextResponse.json({ error: "You cannot change your own role" }, { status: 400 });
-    if (body.role === "ADMIN" && !isSuperAdminRole(session!.user.role)) return NextResponse.json({ error: "Only a Super Admin can make someone a Super Admin" }, { status: 403 });
+    if (body.role === "ADMIN" && !isSuperAdminRole(session!.user.role)) return NextResponse.json({ error: "Only the Super Admin can make someone an Admin" }, { status: 403 });
     role = body.role;
   }
 
@@ -105,7 +105,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(whatsapp ? { whatsapp } : {}),
       ...(passwordHash ? { passwordHash } : {}),
       ...(pfPublicProfileId !== undefined ? { pfPublicProfileId } : {}),
-      ...(savedPermissions !== undefined ? { permissions: savedPermissions === null || role === "ADMIN" ? Prisma.DbNull : savedPermissions } : {}),
+      ...(savedPermissions !== undefined ? { permissions: savedPermissions === null ? Prisma.DbNull : savedPermissions } : {}),
     },
     select: {
       id: true,

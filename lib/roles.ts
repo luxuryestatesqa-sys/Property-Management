@@ -13,8 +13,8 @@ export function isManagerRole(role: Role | string | null | undefined): boolean {
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
-  OWNER: "Owner",
-  ADMIN: "Super Admin",
+  OWNER: "Super Admin",
+  ADMIN: "Admin",
   MANAGER: "Manager",
   AGENT: "Agent",
 };

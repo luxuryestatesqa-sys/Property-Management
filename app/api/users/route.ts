@@ -55,12 +55,12 @@ export async function POST(req: NextRequest) {
   }
   const data = parsed.data;
 
-  // Only a Super Admin can create another Super Admin. Anyone else who may manage users can only give a new
+  // Only the Super Admin (the Owner) can create an Admin. Anyone else who may manage users can only give a new
   // person permissions they hold themselves.
   if (data.role === "ADMIN" && !isSuperAdminRole(session!.user.role)) {
-    return NextResponse.json({ error: "Only a Super Admin can add a Super Admin" }, { status: 403 });
+    return NextResponse.json({ error: "Only the Super Admin can add an Admin" }, { status: 403 });
   }
-  const permissions = data.role === "ADMIN" || data.permissions === undefined ? null : normalizePermissions(data.permissions);
+  const permissions = data.permissions === undefined ? null : normalizePermissions(data.permissions);
   if (permissions && permissions.some((p) => !can(session!.user, p))) {
     return NextResponse.json({ error: "You can only give permissions you have yourself" }, { status: 403 });
   }

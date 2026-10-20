@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { tenantDb } from "@/lib/tenant";
-import { isAdminRole } from "@/lib/roles";
 import { loadLiveUser } from "@/lib/liveUser";
 import { can, type Permission } from "@/lib/permissions";
 
@@ -38,15 +37,6 @@ export async function requirePermission(permission: Permission) {
     return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "You don't have permission to do this" }, { status: 403 }) };
   }
   return result;
-}
-
-export async function requireAdmin() {
-  const { session, db, orgId, error } = await requireSession();
-  if (error) return { session: null, db: null, orgId: null, error };
-  if (!isAdminRole(session!.user.role)) {
-    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
-  }
-  return { session, db, orgId, error: null };
 }
 
 // req.json() throws on a body that isn't valid JSON - which happens for any

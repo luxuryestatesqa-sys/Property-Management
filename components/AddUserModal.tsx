@@ -20,11 +20,11 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
   const [submitting, setSubmitting] = useState(false);
   const { data: session } = useSession();
   const locked = useLockedPermissions();
-  const [templates, setTemplates] = useState<{ MANAGER: Permission[]; AGENT: Permission[] }>(DEFAULT_PERMISSIONS);
+  const [templates, setTemplates] = useState<{ ADMIN: Permission[]; MANAGER: Permission[]; AGENT: Permission[] }>(DEFAULT_PERMISSIONS);
   const [permissions, setPermissions] = useState<Permission[]>(DEFAULT_PERMISSIONS.AGENT);
   const [touched, setTouched] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const canMakeSuperAdmin = isSuperAdminRole(session?.user?.role);
+  const canMakeAdmin = isSuperAdminRole(session?.user?.role);
 
   // A new person starts from the agency's template for their role; the Permissions tab can then change it.
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
       .catch(() => {});
   }, []);
   useEffect(() => {
-    if (role !== "ADMIN" && !touched) setPermissions(templates[role].filter((p) => !locked.includes(p)));
+    if (!touched) setPermissions(templates[role].filter((p) => !locked.includes(p)));
   }, [role, templates, touched, locked]);
 
   const detailsFilled = Boolean(name.trim() && email.trim() && whatsapp.trim() && password);
@@ -53,7 +53,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, whatsapp, password, role, ...(role === "ADMIN" ? {} : { permissions }) }),
+        body: JSON.stringify({ name, email, whatsapp, password, role, permissions }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -74,7 +74,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
   }
 
   const input = "w-full rounded-xl border border-border px-4 py-3 text-base outline-none focus:border-primary";
-  const roleName = role === "ADMIN" ? "Super Admin" : role === "MANAGER" ? "Manager" : "Agent";
+  const roleName = role === "ADMIN" ? "Admin" : role === "MANAGER" ? "Manager" : "Agent";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -127,7 +127,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
                 <label className="text-sm font-medium block mb-1.5">Role</label>
                 <div className="flex bg-surface-muted rounded-xl p-1 gap-1">
                   {(["AGENT", "MANAGER", "ADMIN"] as const)
-                    .filter((r) => r !== "ADMIN" || canMakeSuperAdmin)
+                    .filter((r) => r !== "ADMIN" || canMakeAdmin)
                     .map((r) => (
                       <button
                         key={r}
@@ -139,14 +139,12 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
                         className={`flex-1 text-[13px] font-medium py-2.5 rounded-lg ${role === r ? "bg-surface shadow-sm" : "text-muted"}`}
                         style={role === r ? { color: "var(--primary)" } : undefined}
                       >
-                        {r === "AGENT" ? "Agent" : r === "MANAGER" ? "Manager" : "Super Admin"}
+                        {r === "AGENT" ? "Agent" : r === "MANAGER" ? "Manager" : "Admin"}
                       </button>
                     ))}
                 </div>
               </div>
             </>
-          ) : role === "ADMIN" ? (
-            <p className="rounded-xl bg-surface-muted px-4 py-3 text-[13px] text-muted">A Super Admin can do everything in the agency, including managing users and settings, so there is nothing to choose.</p>
           ) : (
             <div>
               <p className="text-[13px] text-muted mb-3">
@@ -165,7 +163,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
 
           {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
 
-          {tab === "details" && role !== "ADMIN" ? (
+          {tab === "details" ? (
             <button type="button" onClick={next} className="w-full rounded-xl py-3.5 text-base font-semibold text-white active:opacity-80 mt-1" style={{ background: "var(--primary)" }}>
               Next: Permissions
             </button>

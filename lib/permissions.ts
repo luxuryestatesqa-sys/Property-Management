@@ -1,8 +1,9 @@
 import type { Role } from "./types";
 
-// What a person may do is a set of permissions. Owners and Super Admins (role ADMIN) always have all of
-// them. A Manager or Agent gets the set saved on their account; if none is saved they follow their role's
-// template, which an agency can change (Organization.rolePermissions) and which starts from DEFAULT_PERMISSIONS.
+// What a person may do is a set of permissions. The Super Admin (the Owner, the one who created the agency)
+// always has all of them. Everyone else - Admin, Manager, Agent - gets the set saved on their account; if none
+// is saved they follow their role's template, which the Super Admin can change (Organization.rolePermissions)
+// and which starts from DEFAULT_PERMISSIONS.
 // This file has no server imports so the browser can use it to show or hide buttons; the API routes are
 // the real check.
 
@@ -65,12 +66,15 @@ const IMPLIES: Partial<Record<Permission, Permission[]>> = {
 };
 
 // Same as what Managers and Agents could do before permissions were configurable.
-export const DEFAULT_PERMISSIONS: Record<"MANAGER" | "AGENT", Permission[]> = {
+export type TemplateRole = "ADMIN" | "MANAGER" | "AGENT";
+export const DEFAULT_PERMISSIONS: Record<TemplateRole, Permission[]> = {
+  ADMIN: ALL_PERMISSIONS,
   MANAGER: ["dashboard.view", "activities.viewAll", "leads.viewAll", "leads.assign", "viewings.manageAll", "owners.viewAll"],
   AGENT: [],
 };
 
-export const isSuperAdminRole = (role: Role | string | null | undefined) => role === "OWNER" || role === "ADMIN";
+// Only the Owner is the Super Admin. Admins are created by the Super Admin and have the permissions given to them.
+export const isSuperAdminRole = (role: Role | string | null | undefined) => role === "OWNER";
 
 export function normalizePermissions(input: unknown): Permission[] {
   if (!Array.isArray(input)) return [];
@@ -80,9 +84,9 @@ export function normalizePermissions(input: unknown): Permission[] {
   return ALL_PERMISSIONS.filter((p) => set.has(p));
 }
 
-export type RoleTemplates = Partial<Record<"MANAGER" | "AGENT", unknown>> | null | undefined;
+export type RoleTemplates = Partial<Record<TemplateRole, unknown>> | null | undefined;
 
-export function templateFor(role: "MANAGER" | "AGENT", templates: RoleTemplates): Permission[] {
+export function templateFor(role: TemplateRole, templates: RoleTemplates): Permission[] {
   const saved = templates?.[role];
   return Array.isArray(saved) ? normalizePermissions(saved) : DEFAULT_PERMISSIONS[role];
 }
@@ -91,7 +95,7 @@ export function templateFor(role: "MANAGER" | "AGENT", templates: RoleTemplates)
 export function effectivePermissions(role: Role | string, own: unknown, templates: RoleTemplates): Permission[] {
   if (isSuperAdminRole(role)) return ALL_PERMISSIONS;
   if (Array.isArray(own)) return normalizePermissions(own);
-  return templateFor(role === "MANAGER" ? "MANAGER" : "AGENT", templates);
+  return templateFor(role === "ADMIN" ? "ADMIN" : role === "MANAGER" ? "MANAGER" : "AGENT", templates);
 }
 
 export function can(user: { role?: string | null; permissions?: readonly string[] | null } | null | undefined, permission: Permission): boolean {

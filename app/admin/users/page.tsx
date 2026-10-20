@@ -79,7 +79,7 @@ export default function AdminUsersPage() {
   async function changeRole(u: UserDTO, role: "ADMIN" | "MANAGER" | "AGENT") {
     const confirmed = await confirm({
       title: `Make ${ROLE_LABELS[role]}?`,
-      message: `${u.name} will become ${role === "ADMIN" ? "a Super Admin with full access to settings, users and every listing" : role === "MANAGER" ? "a Manager who can see and assign all of the agency's work" : "an Agent"}.`,
+      message: `${u.name} will become ${role === "ADMIN" ? "an Admin, with the permissions set for Admins" : role === "MANAGER" ? "a Manager who can see and assign all of the agency's work" : "an Agent"}.`,
       confirmLabel: "Change role",
     });
     if (!confirmed) return;
@@ -181,7 +181,7 @@ export default function AdminUsersPage() {
             {(
               [
                 ["ALL", "All", users.length],
-                ["ADMIN", "Super Admins", users.filter((u) => u.role === "OWNER" || u.role === "ADMIN").length],
+                ["ADMIN", "Admins", users.filter((u) => u.role === "OWNER" || u.role === "ADMIN").length],
                 ["MANAGER", "Managers", users.filter((u) => u.role === "MANAGER").length],
                 ["AGENT", "Agents", users.filter((u) => u.role === "AGENT").length],
                 ["INACTIVE", "Inactive", users.filter((u) => u.status === "INACTIVE").length],
@@ -290,16 +290,16 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3.5">
                         <div className="flex items-center justify-end">
                           {/* Only the owner can touch the owner account; nobody manages themselves here. */}
-                          {!isSelf && !(u.role === "OWNER" && session?.user?.role !== "OWNER") && (
+                          {!isSelf && !((u.role === "OWNER" || u.role === "ADMIN") && session?.user?.role !== "OWNER") && (
                             <RowMenu
                               disabled={busyId === u.id}
                               items={[
                                 { label: "Reset password", onClick: () => setResetUser(u) },
-{ label: "Permissions…", onClick: () => setPermUser(u), hidden: u.role === "OWNER" || u.role === "ADMIN" },
+{ label: "Permissions…", onClick: () => setPermUser(u), hidden: u.role === "OWNER" },
                                 { label: u.pfPublicProfileId ? "Property Finder account…" : "Link Property Finder…", onClick: () => setPfLinkUser(u) },
                                 { label: "Make Agent", onClick: () => changeRole(u, "AGENT"), hidden: u.role === "AGENT" || u.role === "OWNER", separator: true },
                                 { label: "Make Manager", onClick: () => changeRole(u, "MANAGER"), hidden: u.role === "MANAGER" || u.role === "OWNER", separator: u.role === "AGENT" ? true : false },
-                                { label: "Make Super Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" || !iAmSuperAdmin },
+                                { label: "Make Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" || !iAmSuperAdmin },
                                 { label: u.status === "ACTIVE" ? "Deactivate user" : "Activate user", onClick: () => toggleStatus(u), separator: true },
                                 { label: "Remove user", onClick: () => removeUser(u), danger: true },
                               ]}
@@ -381,7 +381,7 @@ export default function AdminUsersPage() {
             {(
               [
                 ["ALL", "All"],
-                ["ADMIN", "Super Admins"],
+                ["ADMIN", "Admins"],
                 ["MANAGER", "Managers"],
                 ["AGENT", "Agents"],
                 ["INACTIVE", "Inactive"],
@@ -424,16 +424,16 @@ export default function AdminUsersPage() {
                     </div>
                   </div>
                   {/* One tidy menu instead of a stack of buttons. The owner account can only be changed by the owner. */}
-                  {!isSelf && !(u.role === "OWNER" && session?.user?.role !== "OWNER") && (
+                  {!isSelf && !((u.role === "OWNER" || u.role === "ADMIN") && session?.user?.role !== "OWNER") && (
                     <RowMenu
                       disabled={busyId === u.id}
                       items={[
                         { label: "Reset password", onClick: () => setResetUser(u) },
-{ label: "Permissions…", onClick: () => setPermUser(u), hidden: u.role === "OWNER" || u.role === "ADMIN" },
+{ label: "Permissions…", onClick: () => setPermUser(u), hidden: u.role === "OWNER" },
                         { label: u.pfPublicProfileId ? "Property Finder account…" : "Link Property Finder…", onClick: () => setPfLinkUser(u) },
                         { label: "Make Agent", onClick: () => changeRole(u, "AGENT"), hidden: u.role === "AGENT" || u.role === "OWNER", separator: true },
                         { label: "Make Manager", onClick: () => changeRole(u, "MANAGER"), hidden: u.role === "MANAGER" || u.role === "OWNER" },
-                        { label: "Make Super Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" || !iAmSuperAdmin },
+                        { label: "Make Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" || !iAmSuperAdmin },
                         { label: u.status === "ACTIVE" ? "Deactivate user" : "Activate user", onClick: () => toggleStatus(u), separator: true },
                         { label: "Remove user", onClick: () => removeUser(u), danger: true },
                       ]}
