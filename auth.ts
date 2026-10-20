@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import type { Role } from "@/lib/types";
 import { loadLiveUser } from "@/lib/liveUser";
+import { effectivePermissions } from "@/lib/permissions";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -79,7 +80,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // change made by an admin shows in the person's open screens without signing in again.
         const live = await loadLiveUser(session.user.id).catch(() => null);
         if (live) session.user.role = live.role as Role;
-        session.user.permissions = live?.permissions ?? [];
+        // If the database cannot be asked right now, fall back to what the role gets by default rather than
+        // hiding every page from an Admin. (The API routes still check the database on every request.)
+        session.user.permissions = live?.permissions ?? effectivePermissions(session.user.role, null, null);
         session.user.teamScoped = Boolean(live?.scope);
       }
       return session;
