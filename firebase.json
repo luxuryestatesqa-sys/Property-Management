@@ -17,7 +17,8 @@
         "prisma/dev.db",
         "supabase",
         "tsconfig.tsbuildinfo"
-      ]
+      ],
+      "alwaysDeployFromSource": true
     }
   ]
 }

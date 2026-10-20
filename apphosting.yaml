@@ -4,7 +4,7 @@ runConfig:
   cpu: 1
   memoryMiB: 1024 # photos arrive as large base64 JSON bodies (up to 30 MB), so more than the 512 MB default
   concurrency: 40
-  minInstances: 0 # set to 1 for production: the Property Finder webhook must answer within 5 seconds
+  minInstances: 1 # production: the Property Finder webhook must answer within 5 seconds
   maxInstances: 10 # x DB_POOL_MAX (5) = 50 database connections at most
 
 env:
