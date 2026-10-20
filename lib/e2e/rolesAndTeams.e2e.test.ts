@@ -35,6 +35,7 @@ const R = {
   user: () => import("../../app/api/users/[id]/route"),
   teams: () => import("../../app/api/teams/route"),
   team: () => import("../../app/api/teams/[id]/route"),
+  teamMembers: () => import("../../app/api/teams/[id]/members/route"),
   org: () => import("../../app/api/org/route"),
   orgPermissions: () => import("../../app/api/org/permissions/route"),
 };
@@ -370,7 +371,7 @@ describe.skipIf(!run)("roles, permissions and teams (real database, real routes)
     it("still cannot manage users, teams or settings", async () => {
       as("mgrA");
       expect((await read(await (await R.users()).GET())).status).toBe(403);
-      expect((await read(await (await R.teams()).GET())).status).toBe(403);
+      expect((await read(await (await R.teams()).POST(req("/api/teams", "POST", { name: "Mine too" })))).status).toBe(403); // can look at their team, not create one
       expect((await read(await (await R.org()).PATCH(req("/x", "PATCH", { name: "x" })))).status).toBe(403);
     });
 
@@ -387,6 +388,170 @@ describe.skipIf(!run)("roles, permissions and teams (real database, real routes)
       as("a2");
       expect(leadIds((await read(await (await R.leads()).GET(req("/api/leads")))).body)).toEqual(sorted("L_a2"));
       expect((await read(await (await R.dashboard()).GET(req("/api/dashboard")))).status).toBe(403);
+    });
+  });
+
+  // ------------------------------------------------------------------------------------ A team's page
+  describe("a team's page: its numbers, and adding and removing people", () => {
+    const teamDetail = async (who: string, teamKey: string) => {
+      as(who);
+      return read(await (await R.team()).GET(req("/x"), P({ id: team[teamKey] })));
+    };
+    const countsFor = async (...names: string[]) => {
+      const who = names.map((n) => ids[n]);
+      return {
+        leads: await prisma.lead.count({ where: { organizationId: org1, assignedToId: { in: who } } }),
+        listings: await prisma.listing.count({ where: { organizationId: org1, createdById: { in: who } } }),
+        activeListings: await prisma.listing.count({ where: { organizationId: org1, createdById: { in: who }, status: "ACTIVE" } }),
+      };
+    };
+
+    it("shows the team's people with their listings and leads, and the totals", async () => {
+      const r = await teamDetail("admin", "A");
+      expect(r.status).toBe(200);
+      expect(r.body.canEdit).toBe(true);
+      expect(r.body.team.name).toBe("Sales Team A");
+      const people = (r.body.members as { id: string }[]).map((m) => m.id).sort();
+      expect(people).toEqual([ids.a1, ids.a2, ids.mgrA].sort()); // two agents, and the manager is counted too
+      const want = await countsFor("a1", "a2", "mgrA");
+      expect(r.body.totals.people).toBe(3);
+      expect(r.body.totals.leads.total).toBe(want.leads);
+      expect(r.body.totals.listings.total).toBe(want.listings);
+      expect(r.body.totals.listings.active).toBe(want.activeListings);
+      // each person's own numbers add up to the totals
+      const sum = (f: (m: Record<string, any>) => number) => (r.body.members as Record<string, any>[]).reduce((n, m) => n + f(m), 0); // eslint-disable-line @typescript-eslint/no-explicit-any
+      expect(sum((m) => m.leads.total)).toBe(r.body.totals.leads.total);
+      expect(sum((m) => m.listings.total)).toBe(r.body.totals.listings.total);
+      const a1 = (r.body.members as Record<string, any>[]).find((m) => m.id === ids.a1)!; // eslint-disable-line @typescript-eslint/no-explicit-any
+      expect(a1.leads.total).toBe((await countsFor("a1")).leads);
+      expect(a1.listings.total).toBe((await countsFor("a1")).listings);
+      expect(a1.isManager).toBe(false);
+      expect((r.body.members as Record<string, any>[])[0].id).toBe(ids.mgrA); // eslint-disable-line @typescript-eslint/no-explicit-any
+      expect((r.body.members as Record<string, any>[])[0].isManager).toBe(true); // eslint-disable-line @typescript-eslint/no-explicit-any
+      expect(r.body.totals.leads.open + r.body.totals.leads.won + r.body.totals.leads.lost).toBe(r.body.totals.leads.total);
+    });
+
+    it("lists who could be added, and the team they are in now; never an Admin, an Owner, or someone already in it", async () => {
+      const r = await teamDetail("admin", "A");
+      const c = r.body.candidates as { id: string; team: string | null }[];
+      const got = c.map((x) => x.id);
+      expect(got).toEqual(expect.arrayContaining([ids.b1, ids.x0, ids.mgrB, ids.mgrL]));
+      for (const never of [ids.a1, ids.a2, ids.admin, ids.admin2, ids.owner, ids.z]) expect(got).not.toContain(never);
+      expect(c.find((x) => x.id === ids.b1)?.team).toBe("Sales Team B");
+      expect(c.find((x) => x.id === ids.x0)?.team).toBeNull();
+    });
+
+    it("the team's own manager can open it (to look, not to change), and nobody else can", async () => {
+      const mine = await teamDetail("mgrA", "A");
+      expect(mine.status).toBe(200);
+      expect(mine.body.canEdit).toBe(false);
+      expect(mine.body.candidates).toEqual([]);
+      expect(mine.body.totals.people).toBe(3);
+      expect((await teamDetail("mgrA", "B")).status).toBe(403); // another team's page
+      expect((await teamDetail("mgrB", "A")).status).toBe(403);
+      expect((await teamDetail("mgrL", "A")).status).toBe(403); // a manager of no team
+      expect((await teamDetail("a1", "A")).status).toBe(403); // even a member only sees their own work
+      expect((await teamDetail("ownerZ", "A")).status).toBe(404); // another agency
+    });
+
+    it("the list of teams: everything for those who manage teams, only their own for a team manager, nothing for an agent", async () => {
+      as("admin");
+      expect(((await read(await (await R.teams()).GET())).body.teams as { id: string }[]).map((t) => t.id)).toEqual(expect.arrayContaining([team.A, team.B]));
+      as("mgrA");
+      const mine = await read(await (await R.teams()).GET());
+      expect(mine.status).toBe(200);
+      expect((mine.body.teams as { id: string }[]).map((t) => t.id)).toEqual([team.A]);
+      as("mgrL");
+      expect((await read(await (await R.teams()).GET())).status).toBe(403);
+      as("a1");
+      expect((await read(await (await R.teams()).GET())).status).toBe(403);
+    });
+
+    it("only someone with the Teams permission can add or remove people", async () => {
+      for (const who of ["mgrA", "a1", "mgrL"]) {
+        as(who);
+        expect((await read(await (await R.teamMembers()).POST(req("/x", "POST", { userIds: [ids.x0] }), P({ id: team.A })))).status).toBe(403);
+        expect((await read(await (await R.teamMembers()).DELETE(req(`/x?userId=${ids.a1}`, "DELETE"), P({ id: team.A })))).status).toBe(403);
+      }
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: ids.x0 } })).teamId).toBeNull();
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: ids.a1 } })).teamId).toBe(team.A);
+    });
+
+    it("adding a person puts their leads and listings in the team's numbers and in front of its manager", async () => {
+      as("admin");
+      const before = (await teamDetail("admin", "A")).body.totals;
+      const add = await read(await (await R.teamMembers()).POST(req("/x", "POST", { userIds: [ids.x0] }), P({ id: team.A })));
+      expect(add.status).toBe(200);
+      expect(add.body.added).toBe(1);
+      const after = (await teamDetail("admin", "A")).body;
+      expect(after.totals.people).toBe(before.people + 1);
+      const x0 = await countsFor("x0");
+      expect(after.totals.leads.total).toBe(before.leads.total + x0.leads);
+      expect(after.totals.listings.total).toBe(before.listings.total + x0.listings);
+      expect((after.candidates as { id: string }[]).map((c) => c.id)).not.toContain(ids.x0);
+      // and the team manager now sees that agent's leads and private listings, straight away
+      as("mgrA");
+      expect(leadIds((await read(await (await R.leads()).GET(req("/api/leads")))).body)).toContain(lead.L_x0);
+      expect(listingIds((await read(await (await R.listings()).GET(req("/api/listings?pageSize=100")))).body)).toContain(listing.P_x0);
+    });
+
+    it("removing a person takes them out of the numbers and out of sight, but they keep their own work", async () => {
+      as("admin");
+      const rm = await read(await (await R.teamMembers()).DELETE(req(`/x?userId=${ids.x0}`, "DELETE"), P({ id: team.A })));
+      expect(rm.status).toBe(200);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: ids.x0 } })).teamId).toBeNull();
+      expect((await prisma.lead.findUniqueOrThrow({ where: { id: lead.L_x0 } })).assignedToId).toBe(ids.x0); // their leads stay with them
+      expect((await teamDetail("admin", "A")).body.totals.people).toBe(3);
+      as("mgrA");
+      expect(leadIds((await read(await (await R.leads()).GET(req("/api/leads")))).body)).not.toContain(lead.L_x0);
+      expect(listingIds((await read(await (await R.listings()).GET(req("/api/listings?pageSize=100")))).body)).not.toContain(listing.P_x0);
+      as("x0");
+      expect(leadIds((await read(await (await R.leads()).GET(req("/api/leads")))).body)).toEqual(sorted("L_x0")); // still theirs
+    });
+
+    it("refuses someone who is not in the team, an Admin, nobody, a stranger from another agency", async () => {
+      as("admin");
+      const { POST, DELETE } = await R.teamMembers();
+      expect((await read(await DELETE(req(`/x?userId=${ids.x0}`, "DELETE"), P({ id: team.A })))).status).toBe(404);
+      expect((await read(await DELETE(req("/x", "DELETE"), P({ id: team.A })))).status).toBe(404);
+      expect((await read(await POST(req("/x", "POST", { userIds: [ids.admin2] }), P({ id: team.A })))).status).toBe(400);
+      expect((await read(await POST(req("/x", "POST", { userIds: [ids.owner] }), P({ id: team.A })))).status).toBe(400);
+      expect((await read(await POST(req("/x", "POST", { userIds: [ids.z] }), P({ id: team.A })))).status).toBe(400);
+      expect((await read(await POST(req("/x", "POST", { userIds: [] }), P({ id: team.A })))).status).toBe(400);
+      expect((await read(await POST(req("/x", "POST", { userIds: "x0" }), P({ id: team.A })))).status).toBe(400);
+      expect((await read(await POST(req("/x", "POST", { userIds: [ids.x0] }), P({ id: "no-such-team" })))).status).toBe(404);
+      as("ownerZ");
+      expect((await read(await POST(req("/x", "POST", { userIds: [ids.z] }), P({ id: team.A })))).status).toBe(404); // not their agency's team
+      expect((await read(await DELETE(req(`/x?userId=${ids.a1}`, "DELETE"), P({ id: team.A })))).status).toBe(404);
+    });
+
+    it("moving someone from one team to another takes them out of the first", async () => {
+      as("admin");
+      expect((await read(await (await R.teamMembers()).POST(req("/x", "POST", { userIds: [ids.b1] }), P({ id: team.A })))).status).toBe(200);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: ids.b1 } })).teamId).toBe(team.A);
+      expect((await teamDetail("admin", "B")).body.totals.people).toBe(1); // only the manager is left
+      as("mgrB");
+      expect(leadIds((await read(await (await R.leads()).GET(req("/api/leads")))).body)).not.toContain(lead.L_b1);
+      // put them back
+      as("admin");
+      expect((await read(await (await R.teamMembers()).POST(req("/x", "POST", { userIds: [ids.b1] }), P({ id: team.B })))).status).toBe(200);
+      as("mgrB");
+      expect(leadIds((await read(await (await R.leads()).GET(req("/api/leads")))).body)).toContain(lead.L_b1);
+    });
+
+    it("a deactivated person cannot be added, and the totals count an inactive member that is already in", async () => {
+      await prisma.user.update({ where: { id: ids.x0 }, data: { status: "INACTIVE" } });
+      as("admin");
+      expect((await read(await (await R.teamMembers()).POST(req("/x", "POST", { userIds: [ids.x0] }), P({ id: team.A })))).status).toBe(400);
+      await prisma.user.update({ where: { id: ids.x0 }, data: { status: "ACTIVE", teamId: team.A } });
+      const r = await teamDetail("admin", "A");
+      expect(r.body.totals.people).toBe(4);
+      await prisma.user.update({ where: { id: ids.x0 }, data: { status: "INACTIVE" } });
+      const r2 = await teamDetail("admin", "A");
+      expect(r2.body.totals.people).toBe(4);
+      expect(r2.body.totals.activePeople).toBe(3);
+      await prisma.user.update({ where: { id: ids.x0 }, data: { status: "ACTIVE", teamId: null } });
+      refresh();
     });
   });
 

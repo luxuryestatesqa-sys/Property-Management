@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { extractErrorMessage } from "@/lib/errors";
@@ -82,6 +83,9 @@ export default function TeamsPanel({ users, onChanged }: { users: UserDTO[]; onC
                 ))}
               </ul>
               <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
+                <Link href={`/teams/${t.id}`} className="rounded-lg px-3 py-1.5 text-[12.5px] font-semibold text-white hover:opacity-90" style={{ background: "var(--primary)" }}>
+                  Open
+                </Link>
                 <button type="button" onClick={() => setEditing(t)} className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-semibold hover:bg-surface-muted">
                   Edit team
                 </button>

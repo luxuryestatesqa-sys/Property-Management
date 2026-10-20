@@ -122,6 +122,8 @@ export default function Sidebar() {
   // The assignment pages work on the agency's waiting leads, which a team manager does not see.
   const canAssign = can(session?.user, "leads.assign") && !session?.user?.teamScoped;
   const canStages = can(session?.user, "leads.stages");
+  // The teams page: everyone with the Teams permission, and a manager who is in charge of a team.
+  const canTeams = can(session?.user, "teams.manage") || Boolean(session?.user?.teamScoped);
   const newLeads = useLeadBadge(!!session?.user, pathname);
   const onAdd = pathname.startsWith("/add");
   const onProperties = pathname === "/" || pathname.startsWith("/property");
@@ -193,10 +195,11 @@ export default function Sidebar() {
         <NavLink href="/leads" label="Leads" icon={icons.leads} active={onLeads} badge={newLeads}>
           {onLeads && leadPages.length > 1 && <SubNav items={leadPages} />}
         </NavLink>
-        {canUsers && (
+        {(canUsers || canTeams) && (
           <>
             <Section>Team</Section>
-            <NavLink href="/admin/users" label="Users" icon={icons.users} active={pathname.startsWith("/admin/users")} />
+            {canTeams && <NavLink href="/teams" label={session?.user?.teamScoped && !can(session?.user, "teams.manage") ? "My team" : "Teams"} icon={icons.users} active={pathname.startsWith("/teams")} />}
+            {canUsers && <NavLink href="/admin/users" label="Users" icon={icons.users} active={pathname.startsWith("/admin/users")} />}
           </>
         )}
       </nav>

@@ -60,6 +60,10 @@ try {
     await page.goto(`${BASE}/dashboard`);
     await page.waitForURL((u) => !u.pathname.startsWith("/dashboard"), { timeout: 20_000 }).catch(() => {});
     check("Agent: the dashboard sends them away", !new URL(page.url()).pathname.startsWith("/dashboard"));
+    check("Agent: no Teams link in the menu", (await page.locator('nav a[href="/teams"]').count()) === 0);
+    await page.goto(`${BASE}/teams`);
+    await settle(page);
+    check("Agent: the Teams page tells them they have no access", await visible(page, "permission"));
     await ctx.close();
   }
 
@@ -87,6 +91,17 @@ try {
     await page.goto(`${BASE}/admin/users`);
     await settle(page);
     check("Team manager: the Users page sends them away", !new URL(page.url()).pathname.startsWith("/admin"));
+    await page.goto(`${BASE}/`);
+    await settle(page);
+    check("Team manager: has a 'My team' link in the menu", (await page.locator('nav a[href="/teams"]').count()) > 0 && (await page.locator("nav").getByText("My team").count()) > 0);
+    await page.locator('nav a[href="/teams"]').first().click();
+    await page.waitForURL((u) => /^\/teams\/[^/]+$/.test(u.pathname), { timeout: 30_000 });
+    await page.getByText("Team total").first().waitFor();
+    check("Team manager: 'My team' goes straight to their team's page", await visible(page, "Sales Team A"));
+    check("Team manager: sees their people with their numbers", (await visible(page, "A1 Person")) && (await visible(page, "A2 Person")) && (await visible(page, "Team manager")));
+    check("Team manager: does not see another team's people on it", !(await visible(page, "B1 Person")));
+    check("Team manager: can look but not add or remove people", (await page.getByRole("button", { name: "+ Add people" }).count()) === 0 && (await page.getByRole("button", { name: "Remove" }).count()) === 0);
+    await shot(page, "team-manager-team-page");
     await ctx.close();
   }
 
@@ -130,6 +145,34 @@ try {
     await page.getByRole("button", { name: "Create team" }).click();
     await page.getByText("Marketing Team").first().waitFor();
     check("Admin: creates a team with a manager and a member", (await visible(page, "Marketing Team")) && (await visible(page, "Managed by")));
+
+    // open a team: its dashboard, and add / remove people
+    await page.getByRole("tab", { name: "Teams" }).click();
+    await page.locator("div.rounded-2xl", { has: page.getByRole("heading", { name: "Sales Team A" }) }).getByRole("link", { name: "Open" }).click();
+    await page.waitForURL((u) => /^\/teams\/[^/]+$/.test(u.pathname), { timeout: 30_000 });
+    await page.getByText("Team total").first().waitFor();
+    check("Team page: shows the team name and its manager", (await visible(page, "Sales Team A")) && (await visible(page, "MGRA Person")));
+    check("Team page: shows the total numbers (people, listings, leads)", (await visible(page, "People")) && (await visible(page, "Active listings")) && (await visible(page, "Leads by person")) && (await visible(page, "Active listings by person")));
+    check("Team page: lists every person with their numbers", (await visible(page, "A1 Person")) && (await visible(page, "A2 Person")) && (await visible(page, "MGRA Person")));
+    await shot(page, "admin-team-page");
+    await page.getByRole("button", { name: "+ Add people" }).click();
+    const addDlg = page.getByRole("dialog", { name: "Add people to the team" });
+    await addDlg.waitFor();
+    await addDlg.getByLabel("Search people").fill("X0");
+    await addDlg.getByText("X0 Person").first().click();
+    await shot(page, "admin-team-add-people");
+    await addDlg.getByRole("button", { name: /Add 1 person/ }).click();
+    await page.getByText("was added to the team").first().waitFor();
+    const x0Row = page.locator("tr", { hasText: "X0 Person" });
+    await x0Row.first().waitFor({ timeout: 15_000 }).catch(() => {});
+    check("Team page: adds a person and they appear with their numbers", (await x0Row.count()) > 0);
+    await page.locator("tr", { hasText: "X0 Person" }).getByRole("button", { name: "Remove" }).click();
+    await page.getByRole("button", { name: "Remove from team" }).click();
+    await page.getByText("was removed from the team").first().waitFor();
+    await x0Row.first().waitFor({ state: "detached", timeout: 15_000 }).catch(() => {});
+    check("Team page: removes a person from the team", (await x0Row.count()) === 0);
+    await page.goto(`${BASE}/admin/users`);
+    await settle(page);
 
     // add a user: Details / Permissions tabs
     await page.getByRole("tab", { name: "People" }).click();

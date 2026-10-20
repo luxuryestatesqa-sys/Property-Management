@@ -1,7 +1,9 @@
 import { grantTeamManagerPermissions } from "@/lib/teamAccess";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { parseJsonBody, requirePermission } from "@/lib/api-helpers";
+import { parseJsonBody, requirePermission, requireSession } from "@/lib/api-helpers";
+import { can } from "@/lib/permissions";
+import { loadTeamDetail } from "@/lib/teamStatsLoader";
 import { teamBodySchema } from "@/lib/teams";
 import { forgetLiveUsers } from "@/lib/liveUser";
 import { logActivity } from "@/lib/activity";
@@ -26,6 +28,22 @@ async function wouldGoAgencyWide(db: Db, managerId: string | null, exceptTeamId:
 
 const confirmNeeded = (name: string) =>
   NextResponse.json({ error: `${name} is not the manager of any other team, so they would see the whole agency's leads and listings. Confirm to continue.`, needsConfirm: true }, { status: 409 });
+
+// A team's page: its people with their listings and leads, and the totals. Anyone with the Teams permission can open
+// any team; a manager can open the team they are in charge of. Everyone else gets "no".
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { session, db, error } = await requireSession();
+  if (error) return error;
+  const { id } = await params;
+  const canEdit = can(session!.user, "teams.manage");
+  if (!canEdit) {
+    const mine = await db!.team.findFirst({ where: { id, managerId: session!.user.id }, select: { id: true } });
+    if (!mine) return NextResponse.json({ error: "You don't have permission to see this team" }, { status: 403 });
+  }
+  const detail = await loadTeamDetail(db!, id, canEdit);
+  if (!detail) return NextResponse.json({ error: "Team not found" }, { status: 404 });
+  return NextResponse.json(detail);
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, db, orgId, error } = await requirePermission("teams.manage");

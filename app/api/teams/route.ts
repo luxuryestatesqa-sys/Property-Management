@@ -1,7 +1,8 @@
 import { grantTeamManagerPermissions } from "@/lib/teamAccess";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { parseJsonBody, requirePermission } from "@/lib/api-helpers";
+import { parseJsonBody, requirePermission, requireSession } from "@/lib/api-helpers";
+import { can } from "@/lib/permissions";
 import { teamBodySchema } from "@/lib/teams";
 import { avatarLink } from "@/lib/avatar";
 import { forgetLiveUsers } from "@/lib/liveUser";
@@ -14,10 +15,13 @@ const TEAM_SELECT = {
   members: { select: { id: true, name: true, role: true, avatarUrl: true, status: true }, orderBy: { name: "asc" as const } },
 };
 
+// Everyone with the Teams permission sees every team; a manager sees the teams they are in charge of.
 export async function GET() {
-  const { db, error } = await requirePermission("teams.manage");
+  const { session, db, error } = await requireSession();
   if (error) return error;
-  const teams = await db!.team.findMany({ orderBy: { name: "asc" }, select: TEAM_SELECT });
+  const all = can(session!.user, "teams.manage");
+  const teams = await db!.team.findMany({ where: all ? {} : { managerId: session!.user.id }, orderBy: { name: "asc" }, select: TEAM_SELECT });
+  if (!all && teams.length === 0) return NextResponse.json({ error: "You don't have permission to see teams" }, { status: 403 });
   return NextResponse.json({ teams: teams.map((t) => ({ ...t, members: t.members.map((m) => avatarLink(m)!) })) });
 }
 
