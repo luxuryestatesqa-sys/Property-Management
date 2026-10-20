@@ -1,3 +1,4 @@
+import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const start = (existing[existing.length - 1]?.sortOrder ?? -1) + 1;
   const created = await db!.listingImage.createManyAndReturn({
-    data: images.map((url, i) => ({ listingId, url, sortOrder: start + i })),
+    data: await Promise.all(images.map(async (url, i) => ({ listingId, url: await storeListingPhoto(listingId, url), sortOrder: start + i }))),
     select: { id: true, sortOrder: true },
   });
   // Photos changed, so portals reading the feed should see the listing as updated.

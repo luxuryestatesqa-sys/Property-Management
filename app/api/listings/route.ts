@@ -1,3 +1,4 @@
+import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { withImageLinks } from "@/lib/listingImages";
@@ -261,7 +262,7 @@ export async function POST(req: NextRequest) {
 
   if (data.images && data.images.length > 0) {
     await db!.listingImage.createMany({
-      data: data.images.map((url, index) => ({ listingId: listing.id, url, sortOrder: index })),
+      data: await Promise.all(data.images.map(async (url, index) => ({ listingId: listing.id, url: await storeListingPhoto(listing.id, url), sortOrder: index }))),
     });
   }
 

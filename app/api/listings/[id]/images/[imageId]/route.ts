@@ -1,3 +1,4 @@
+import { isStoredInBucket, readStoredPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { dataUrlToBuffer } from "@/lib/image";
@@ -40,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   try {
-    const { buffer, contentType } = dataUrlToBuffer(image.url);
+    const { buffer, contentType } = isStoredInBucket(image.url) ? await readStoredPhoto(image.url) : dataUrlToBuffer(image.url);
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

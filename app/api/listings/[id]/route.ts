@@ -1,3 +1,4 @@
+import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingUpdateSchema } from "@/lib/validation";
@@ -250,7 +251,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (keptIds.some((kept) => !have.has(kept)) || new Set(keptIds).size !== keptIds.length) {
       return NextResponse.json({ error: "A photo is no longer on this listing. Reload the page and try again." }, { status: 409 });
     }
-    const fresh = refs.flatMap((r, index) => (typeof r === "string" ? [{ listingId: listing.id, url: r, sortOrder: index }] : []));
+    const fresh = await Promise.all(refs.flatMap((r, index) => (typeof r === "string" ? [storeListingPhoto(listing.id, r).then((url) => ({ listingId: listing.id, url, sortOrder: index }))] : [])));
     imageOps = [
       db!.listingImage.deleteMany({ where: { listingId: listing.id, id: { notIn: keptIds } } }),
       ...refs.flatMap((r, index) => (typeof r === "string" ? [] : [db!.listingImage.updateMany({ where: { id: r.id, listingId: listing.id }, data: { sortOrder: index } })])),

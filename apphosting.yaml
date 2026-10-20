@@ -21,6 +21,11 @@ env:
     secret: crm-db-password
     availability: [ RUNTIME ]
 
+  # --- photos: private Cloud Storage bucket (see lib/storage.ts); unset = photos stay in the database ---
+  - variable: PHOTO_BUCKET
+    value: luxury-estate-crm-photos
+    availability: [ RUNTIME ]
+
   # --- login ---
   # Passwords are held by Firebase Authentication (users appear in the Firebase console); the database
   # row still decides role, agency and status. Remove AUTH_PROVIDER to fall back to database passwords.
