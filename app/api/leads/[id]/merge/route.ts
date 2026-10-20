@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -6,7 +7,7 @@ import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 // groups) moves over, blanks on this lead are filled from it, and the duplicate is removed. Nothing is
 // lost: both timelines end up on the lead that stays. Agents can merge only leads that are theirs.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ fromId?: string }>(req);
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const fromId = body?.fromId;
   if (!fromId || fromId === id) return NextResponse.json({ error: "Choose a different lead to merge" }, { status: 400 });
 
-  const mine = can(session!.user, "leads.viewAll") ? {} : { assignedToId: session!.user.id };
+  const mine = leadsWhere(reachOf(session!.user, "leads.viewAll", teamScope));
   const [keep, dupe] = await Promise.all([db!.lead.findFirst({ where: { id, ...mine } }), db!.lead.findFirst({ where: { id: fromId, ...mine } })]);
   if (!keep || !dupe) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 

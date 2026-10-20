@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere, type Reach } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 // Numbers for the dashboard. Managers, admins and owners only: it covers the whole agency.
 export async function GET(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   if (!can(session!.user, "dashboard.view")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -28,15 +29,22 @@ export async function GET(req: NextRequest) {
   const sourceQ = ["PROPERTY_FINDER", "META", "MANUAL", "IMPORT"].includes(q.get("source") ?? "") ? (q.get("source") as "PROPERTY_FINDER" | "META" | "MANUAL" | "IMPORT") : null;
   const agentId = agentQ && agentQ !== "unassigned" ? agentQ : null;
 
-  const cacheKey = `${orgId}|${q.toString()}`;
+  // Shared only between people with the same reach: a team manager must never get the agency-wide answer.
+  const viewReach = reachOf(session!.user, "dashboard.view", teamScope);
+  const cacheKey = `${orgId}|${viewReach === true ? "all" : [...viewReach].sort().join(",")}|${q.toString()}`;
   const cached = answers.get(cacheKey);
   if (cached) return NextResponse.json(cached);
 
-  const leadBase = { ...(sourceQ ? { source: sourceQ } : {}), ...(typeQ ? { listing: { listingType: typeQ } } : {}) };
-  const leadWhere = { ...leadBase, ...(agentQ === "unassigned" ? { assignedToId: null } : agentId ? { assignedToId: agentId } : {}) };
-  const listingWhere = { status: "ACTIVE" as const, ...(typeQ ? { listingType: typeQ } : {}), ...(agentId ? { createdById: agentId } : {}) };
-  const viewingWhere = { status: "SCHEDULED" as const, ...(agentId ? { agentId } : {}), ...(typeQ ? { listing: { listingType: typeQ } } : {}) };
-  const taskWhere = { doneAt: null, ...(agentId ? { assignedToId: agentId } : {}) };
+  // A team manager sees only their team's people: everything below is limited to them, whatever the filters ask.
+  const reach: Reach = reachOf(session!.user, "dashboard.view", teamScope);
+  const teamOnly = reach !== true;
+  const none = { in: [] as string[] };
+  const pickAgent = agentId && (reach === true || reach.includes(agentId)) ? agentId : agentId ? none : null;
+  const leadBase = { ...(sourceQ ? { source: sourceQ } : {}), ...(typeQ ? { listing: { listingType: typeQ } } : {}), ...(reach === true ? {} : { assignedToId: { in: reach } }) };
+  const leadWhere = { ...leadBase, ...(agentQ === "unassigned" ? { assignedToId: teamOnly ? none : null } : pickAgent ? { assignedToId: pickAgent } : {}) };
+  const listingWhere = { status: "ACTIVE" as const, ...(typeQ ? { listingType: typeQ } : {}), ...(pickAgent ? { createdById: pickAgent } : reach === true ? {} : { createdById: { in: reach } }) };
+  const viewingWhere = { status: "SCHEDULED" as const, ...(pickAgent ? { agentId: pickAgent } : reach === true ? {} : { agentId: { in: reach } }), ...(typeQ ? { listing: { listingType: typeQ } } : {}) };
+  const taskWhere = { doneAt: null, ...(pickAgent ? { assignedToId: pickAgent } : reach === true ? {} : { assignedToId: { in: reach } }) };
 
   const now = Date.now();
   const today = qatarDay();
@@ -50,7 +58,7 @@ export async function GET(req: NextRequest) {
     db!.lead.count({ where: { ...leadWhere, receivedAt: { gte: weekAgo } } }),
     db!.lead.count({ where: { ...leadWhere, receivedAt: { gte: twoWeeksAgo, lt: weekAgo } } }),
     db!.lead.groupBy({ by: ["assignedToId"], where: { ...leadBase, receivedAt: { gte: since } }, _count: { _all: true } }),
-    db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true } }),
+    db!.user.findMany({ where: { status: "ACTIVE", ...(reach === true ? {} : { id: { in: reach } }) }, select: { id: true, name: true } }),
     db!.leadStage.findMany({ select: { id: true, kind: true } }),
     db!.lead.groupBy({ by: ["stageId"], where: { ...leadWhere, receivedAt: { gte: since } }, _count: { _all: true } }),
     db!.lead.findMany({ where: { ...leadWhere, receivedAt: { gte: since }, firstContactedAt: { not: null }, ...(agentId ? {} : { assignedToId: { not: null } }) }, select: { receivedAt: true, firstContactedAt: true }, take: 5000 }),
@@ -59,7 +67,7 @@ export async function GET(req: NextRequest) {
     db!.listing.count({ where: listingWhere }),
     db!.viewing.findMany({ where: { ...viewingWhere, scheduledAt: { gte: new Date(now - 3600_000), lte: in7 } }, orderBy: { scheduledAt: "asc" }, take: 8, select: { id: true, scheduledAt: true, lead: { select: { id: true, name: true } }, listing: { select: { id: true, buildingName: true } }, agent: { select: { name: true } } } }),
     db!.listing.findMany({ where: { ...listingWhere, leaseEndDate: { not: null, lte: in60 } }, orderBy: { leaseEndDate: "asc" }, take: 8, select: { id: true, buildingName: true, community: true, leaseEndDate: true } }),
-    db!.lead.count({ where: { ...leadBase, assignedToId: null } }),
+    teamOnly ? Promise.resolve(0) : db!.lead.count({ where: { ...leadBase, assignedToId: null } }),
     db!.lead.findMany({ where: { ...leadWhere, receivedAt: { gte: since } }, select: { receivedAt: true, source: true, sourceLabel: true }, take: 20000 }),
     db!.lead.groupBy({ by: ["stageId"], where: { ...leadWhere, receivedAt: { gte: since } }, _count: { _all: true } }),
     db!.leadStage.findMany({ orderBy: { position: "asc" }, select: { id: true, name: true, kind: true } }),

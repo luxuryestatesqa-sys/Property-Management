@@ -31,6 +31,7 @@ export const ACTIVITY_TYPES: { type: string; label: string; group: ActivityGroup
   { type: "user_added", label: "User added", group: "User", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6" },
   { type: "role_changed", label: "Role changed", group: "User", icon: "M12 2 3 7v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V7z" },
   { type: "permissions_changed", label: "Permissions changed", group: "User", icon: "M12 2 3 7v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V7z" },
+  { type: "team_changed", label: "Team changed", group: "User", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
 ];
 
 import { describeChange } from "./audit";
@@ -83,6 +84,8 @@ export function describe(r: Pick<ActivityRow, "type" | "oldValue" | "newValue" |
       return `${portal}: ${r.note ?? "error"}`;
     case "role_changed":
       return `${r.note ?? "User"}: ${r.oldValue ?? "?"} → ${r.newValue ?? "?"}`;
+    case "team_changed":
+      return `${r.note ?? "Team"}: ${r.newValue ?? ""}`;
     case "permissions_changed":
       return `${r.note ?? "User"}: ${r.newValue ?? ""}`;
     case "user_added":

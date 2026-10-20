@@ -225,6 +225,8 @@ export const userCreateSchema = z.object({
   role: z.enum(["ADMIN", "MANAGER", "AGENT"]).default("AGENT"),
   // What a Manager or Agent may do (keys from lib/permissions.ts). Left out = follow the role's template.
   permissions: z.array(z.string()).max(50).optional(),
+  // The team they join (needs the Teams permission). Left out = no team.
+  teamId: z.string().min(1).nullable().optional(),
 });
 
 export const orgUpdateSchema = z.object({

@@ -80,6 +80,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const live = await loadLiveUser(session.user.id).catch(() => null);
         if (live) session.user.role = live.role as Role;
         session.user.permissions = live?.permissions ?? [];
+        session.user.teamScoped = Boolean(live?.scope);
       }
       return session;
     },

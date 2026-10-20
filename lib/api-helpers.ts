@@ -11,22 +11,23 @@ import { can, type Permission } from "@/lib/permissions";
 export async function requireSession() {
   const session = await auth();
   if (!session?.user || !session.user.organizationId) {
-    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return { session: null, db: null, orgId: null, scope: null as string[] | null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   // The signed-in token can outlive the account it was issued for, so every request
   // is checked against the database: a removed or deactivated user, a suspended
   // agency, or changed permissions take effect within seconds, not when the token expires.
   const live = await loadLiveUser(session.user.id);
   if (!live || live.organizationId !== session.user.organizationId) {
-    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return { session: null, db: null, orgId: null, scope: null as string[] | null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   if (live.status !== "ACTIVE" || live.orgStatus !== "ACTIVE") {
-    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Account inactive" }, { status: 403 }) };
+    return { session: null, db: null, orgId: null, scope: null as string[] | null, error: NextResponse.json({ error: "Account inactive" }, { status: 403 }) };
   }
   session.user.role = live.role as typeof session.user.role;
   session.user.permissions = live.permissions;
+  session.user.teamScoped = Boolean(live.scope);
   const orgId = live.organizationId;
-  return { session, db: tenantDb(orgId), orgId, error: null };
+  return { session, db: tenantDb(orgId), orgId, scope: live.scope, error: null };
 }
 
 // Requires one permission (Owners and Super Admins have them all).
@@ -34,7 +35,7 @@ export async function requirePermission(permission: Permission) {
   const result = await requireSession();
   if (result.error) return result;
   if (!can(result.session!.user, permission)) {
-    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "You don't have permission to do this" }, { status: 403 }) };
+    return { session: null, db: null, orgId: null, scope: null as string[] | null, error: NextResponse.json({ error: "You don't have permission to do this" }, { status: 403 }) };
   }
   return result;
 }

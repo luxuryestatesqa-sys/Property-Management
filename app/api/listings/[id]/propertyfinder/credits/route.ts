@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
@@ -11,7 +12,7 @@ const PORTAL = "PROPERTY_FINDER" as const;
 // browsable for a listing you don't own/manage (same access rule as the
 // publish toggle route).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = can(session!.user, "listings.editAll");
+  const isAdmin = reaches(reachOf(session!.user, "listings.editAll", teamScope), listing.createdById);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only view this for your own listings" }, { status: 403 });
   }

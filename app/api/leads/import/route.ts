@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -20,7 +21,7 @@ interface Row {
 // matched to our fields. Numbers or emails we already have are skipped, never overwritten.
 // Agents import into their own list; managers choose who gets them.
 export async function POST(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<{ rows?: Row[]; channel?: string; assign?: { mode?: string; agentId?: string }; stageId?: string; fileName?: string }>(req);
   if (bodyError) return bodyError;
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
   if (rows.length > MAX_ROWS) return NextResponse.json({ error: `Import up to ${MAX_ROWS} leads at a time. This file has ${rows.length}.` }, { status: 400 });
 
   const manager = can(session!.user, "leads.assign");
+  const reach = reachOf(session!.user, "leads.assign", teamScope);
+  if (reach !== true && body?.assign?.mode === "rules") return NextResponse.json({ error: "Assignment rules are run by your agency admin" }, { status: 403 });
+  if (body?.assign?.mode === "agent" && body.assign.agentId && !reaches(reach, body.assign.agentId)) return NextResponse.json({ error: "You can only assign to people in your team" }, { status: 403 });
   const mode = manager && (body?.assign?.mode === "rules" || body?.assign?.mode === "agent" || body?.assign?.mode === "none") ? body.assign.mode : "self";
   if (mode === "agent" && !body?.assign?.agentId) return NextResponse.json({ error: "Choose an agent" }, { status: 400 });
   const origin = resolveOrigin(body?.channel);

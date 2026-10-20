@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
@@ -11,7 +12,7 @@ import { reviewOryx } from "@/lib/feeds/oryxReview";
 // a plain list of the values, and what is missing or worth checking. Only the listing's owner or an
 // admin may look, as for publishing itself.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
   const listingId = Number(id);
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const head = await db!.listing.findUnique({ where: { id: listingId }, select: { createdById: true, visibility: true, status: true, availabilityStatus: true } });
   if (!head) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (head.createdById !== session!.user.id && !can(session!.user, "listings.editAll")) {
+  if (!reaches(reachOf(session!.user, "listings.editAll", teamScope), head.createdById)) {
     return NextResponse.json({ error: "You can only review your own listings" }, { status: 403 });
   }
 

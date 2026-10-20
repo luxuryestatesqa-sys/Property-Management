@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
@@ -32,9 +33,9 @@ function jsonCached(body: unknown) {
 // ?level=community&area=X -> communities within area X
 // ?level=building&area=X&community=Y -> buildings within area+community
 export async function GET(req: NextRequest) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
-  const visible = visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll"));
+  const visible = visibleListingsWhere(session!.user.id, reachOf(session!.user, "listings.viewAll", teamScope));
 
   const sp = req.nextUrl.searchParams;
   const level = sp.get("level") ?? "area";

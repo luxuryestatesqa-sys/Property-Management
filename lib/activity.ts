@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 // The activity log (Dashboard > Activities). Lead timeline entries, listing audit entries and portal
 // publish changes are copied into the Activity table by database triggers (see the activity_log
 // migration), so they can never be missed. The few events with no such source are logged here.
-export type AppActivityType = "user_login" | "user_added" | "role_changed" | "permissions_changed" | "lead_deleted";
+export type AppActivityType = "user_login" | "user_added" | "role_changed" | "permissions_changed" | "team_changed" | "lead_deleted";
 
 export async function logActivity(
   organizationId: string,

@@ -11,6 +11,8 @@ declare module "next-auth" {
       organizationId: string;
       // What this person may do (see lib/permissions.ts); Owners and Super Admins have all of them.
       permissions: string[];
+      // True for a Manager who is in charge of a team: their view is limited to that team.
+      teamScoped: boolean;
     } & DefaultSession["user"];
   }
 

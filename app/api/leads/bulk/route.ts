@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -22,13 +23,13 @@ interface Body {
 // agency; an agent only on their own, and only to change stage or groups. Deleting is for
 // admins and owners.
 export async function POST(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<Body>(req);
   if (bodyError) return bodyError;
 
   const me = session!.user.id;
-  const manager = can(session!.user, "leads.viewAll");
+  const reach = reachOf(session!.user, "leads.viewAll", teamScope);
   const action = body?.action;
   const ids = Array.isArray(body?.leadIds) ? [...new Set(body!.leadIds.filter((x) => typeof x === "string"))].slice(0, MAX_LEADS) : [];
   if (!action || ids.length === 0) return NextResponse.json({ error: "Choose some leads first" }, { status: 400 });
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: action === "delete" ? "You don't have permission to delete leads" : "You don't have permission to assign leads" }, { status: 403 });
   }
 
-  const leads = await db!.lead.findMany({ where: { id: { in: ids }, ...(manager ? {} : { assignedToId: me }) }, select: { id: true, assignedToId: true, stageId: true, firstContactedAt: true } });
+  const leads = await db!.lead.findMany({ where: { id: { in: ids }, ...leadsWhere(reach) }, select: { id: true, assignedToId: true, stageId: true, firstContactedAt: true } });
   if (leads.length === 0) return NextResponse.json({ error: "No matching leads" }, { status: 404 });
   const leadIds = leads.map((l) => l.id);
   const note = (leadId: string, type: string, text: string, data?: object) => ({ organizationId: orgId!, leadId, userId: me, type, text, ...(data ? { data } : {}) });
@@ -60,10 +61,14 @@ export async function POST(req: NextRequest) {
       const want = Array.isArray(body.agentIds) ? body.agentIds : [];
       targets = await db!.user.findMany({ where: { id: { in: want }, status: "ACTIVE" }, select: { id: true, name: true } });
       if (targets.length === 0) return NextResponse.json({ error: "Choose at least one agent" }, { status: 400 });
+      if (targets.some((t) => !reaches(reach, t.id))) return NextResponse.json({ error: "You can only assign to people in your team" }, { status: 403 });
     } else if (body?.agentId) {
       const agent = await db!.user.findFirst({ where: { id: body.agentId, status: "ACTIVE" }, select: { id: true, name: true } });
       if (!agent) return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
+      if (!reaches(reach, agent.id)) return NextResponse.json({ error: "You can only assign to people in your team" }, { status: 403 });
       targets = [agent];
+    } else if (reach !== true) {
+      return NextResponse.json({ error: "Choose someone in your team" }, { status: 400 });
     }
 
     // Work out who each lead goes to (null = back to Unassigned).

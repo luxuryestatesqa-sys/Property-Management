@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -12,7 +13,7 @@ const KINDS = {
 } as const;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ kind?: string; name?: string; text?: string; dataUrl?: string }>(req);
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const lead = await db!.lead.findFirst({ where: { id }, select: { assignedToId: true } });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  if (!can(session!.user, "leads.viewAll") && lead.assignedToId !== session!.user.id) return NextResponse.json({ error: "Not your lead" }, { status: 403 });
+  if (!reaches(reachOf(session!.user, "leads.viewAll", teamScope), lead.assignedToId)) return NextResponse.json({ error: "Not your lead" }, { status: 403 });
 
   const name = (body?.name ?? (kind === "VOICE_NOTE" ? "Voice note" : "Document")).trim().slice(0, 120) || "Attachment";
   const activity = await db!.leadActivity.create({

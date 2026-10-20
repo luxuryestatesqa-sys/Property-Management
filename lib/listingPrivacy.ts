@@ -4,17 +4,28 @@ import type { Prisma } from "@prisma/client";
 // created it (and admins); a SHARED one by every agent. Every query that
 // returns listings to a user must include visibleListingsWhere, and every
 // single-listing read must check canViewListing.
+// Who the viewer reaches: true = every agent's listings, a list = those agents' (a team manager's team), false =
+// only their own. Everyone always reaches their own.
+export type ListingReach = boolean | readonly string[];
+const reachesAll = (reach: ListingReach) => reach === true;
+// One person is matched by id; a team by the list of ids.
+const creatorFilter = (viewerId: string, reach: ListingReach): string | { in: string[] } => {
+  const ids = reachedIds(viewerId, reach);
+  return ids.length === 1 ? ids[0] : { in: ids };
+};
+const reachedIds = (viewerId: string, reach: ListingReach): string[] => (Array.isArray(reach) ? [...new Set([viewerId, ...(reach as string[])])] : [viewerId]);
+
 export function canViewListing(
   listing: { createdById: string; visibility: "PRIVATE" | "SHARED" },
   viewerId: string,
-  viewerIsAdmin: boolean
+  viewerIsAdmin: ListingReach
 ): boolean {
-  return viewerIsAdmin || listing.visibility === "SHARED" || listing.createdById === viewerId;
+  return reachesAll(viewerIsAdmin) || listing.visibility === "SHARED" || reachedIds(viewerId, viewerIsAdmin).includes(listing.createdById);
 }
 
-export function visibleListingsWhere(viewerId: string, viewerIsAdmin: boolean): Prisma.ListingWhereInput {
-  if (viewerIsAdmin) return {};
-  return { OR: [{ visibility: "SHARED" }, { createdById: viewerId }] };
+export function visibleListingsWhere(viewerId: string, viewerIsAdmin: ListingReach): Prisma.ListingWhereInput {
+  if (reachesAll(viewerIsAdmin)) return {};
+  return { OR: [{ visibility: "SHARED" }, { createdById: creatorFilter(viewerId, viewerIsAdmin) }] };
 }
 
 // Owner/title-deed details an agent enters for their own reference. These
@@ -44,13 +55,13 @@ export const UNIT_DETAIL_FIELDS = ["floor", "apartmentNumber", "dupKey"] as cons
 
 // Prisma filter fragment: listings whose floor/apartment number the viewer may
 // search on. Without it, searching "1204" would reveal which listings hide it.
-export function unitDetailsSearchableWhere(viewerId: string, viewerIsAdmin: boolean): Prisma.ListingWhereInput {
-  if (viewerIsAdmin) return {};
-  return { OR: [{ unitDetailsPrivate: false }, { createdById: viewerId }] };
+export function unitDetailsSearchableWhere(viewerId: string, viewerIsAdmin: ListingReach): Prisma.ListingWhereInput {
+  if (reachesAll(viewerIsAdmin)) return {};
+  return { OR: [{ unitDetailsPrivate: false }, { createdById: creatorFilter(viewerId, viewerIsAdmin) }] };
 }
 
-export function canViewPrivateDetails(createdById: string, viewerId: string, viewerIsAdmin: boolean): boolean {
-  return viewerIsAdmin || createdById === viewerId;
+export function canViewPrivateDetails(createdById: string, viewerId: string, viewerIsAdmin: ListingReach): boolean {
+  return reachesAll(viewerIsAdmin) || reachedIds(viewerId, viewerIsAdmin).includes(createdById);
 }
 
 // Redacted fields are nulled out rather than omitted, so a viewer can't tell
@@ -58,7 +69,7 @@ export function canViewPrivateDetails(createdById: string, viewerId: string, vie
 export function redactPrivateFields<T extends { createdById: string }>(
   listing: T,
   viewerId: string,
-  viewerIsAdmin: boolean
+  viewerIsAdmin: ListingReach
 ): T {
   if (canViewPrivateDetails(listing.createdById, viewerId, viewerIsAdmin)) return listing;
   const redacted = { ...listing } as Record<string, unknown>;
@@ -83,7 +94,7 @@ export function redactPrivateFields<T extends { createdById: string }>(
 export function redactPrivateFieldsList<T extends { createdById: string }>(
   listings: T[],
   viewerId: string,
-  viewerIsAdmin: boolean
+  viewerIsAdmin: ListingReach
 ): T[] {
   return listings.map((l) => redactPrivateFields(l, viewerId, viewerIsAdmin));
 }

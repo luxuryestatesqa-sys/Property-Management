@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { rateLimited } from "@/lib/rateLimit";
 import { storeListingPhoto } from "@/lib/storage";
@@ -18,7 +19,7 @@ const DEFAULT_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 100;
 
 export async function GET(req: NextRequest) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
 
   const sp = req.nextUrl.searchParams;
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Math.floor(Number(sp.get("page"))) || 1);
   const mine = sp.get("mine"); // "1" -> only current user's listings
 
-  const isAdmin = can(session!.user, "listings.viewAll");
+  const isAdmin = reachOf(session!.user, "listings.viewAll", teamScope);
   // Other agents' private listings never appear, whatever else is filtered.
   const conditions: Prisma.ListingWhereInput[] = [visibleListingsWhere(session!.user.id, isAdmin)];
 
@@ -62,6 +63,8 @@ export async function GET(req: NextRequest) {
     if (status === "ACTIVE" || status === "INACTIVE") {
       conditions.push({ status });
     }
+    // A team manager sees other teams' active listings and every listing of their own team.
+    if (isAdmin !== true) conditions.push({ OR: [{ status: "ACTIVE" }, { createdById: { in: isAdmin } }] });
     // admin with no status filter sees all statuses on the main search
   } else {
     // Agents only ever browse ACTIVE company listings on the main search;
@@ -168,7 +171,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   if (rateLimited(`listing-create:${session!.user.id}`, 60, 60_000)) return NextResponse.json({ error: "Too many listings created at once. Wait a minute and try again." }, { status: 429 });
 
@@ -191,7 +194,7 @@ export async function POST(req: NextRequest) {
       where: {
         dupKey,
         status: "ACTIVE",
-        ...visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll")),
+        ...visibleListingsWhere(session!.user.id, reachOf(session!.user, "listings.viewAll", teamScope)),
       },
       include: {
         createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
@@ -201,7 +204,7 @@ export async function POST(req: NextRequest) {
       take: 5,
     });
     if (existing.length > 0) {
-      const isAdmin = can(session!.user, "listings.viewAll");
+      const isAdmin = reachOf(session!.user, "listings.viewAll", teamScope);
       return NextResponse.json(
         { duplicate: true, existing: redactPrivateFieldsList(existing, session!.user.id, isAdmin) },
         { status: 200 }

@@ -1,21 +1,22 @@
+import { reachOf, reaches, leadsWhere, type Reach } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
 import { listingCode } from "@/lib/format";
 
-async function find(db: NonNullable<Awaited<ReturnType<typeof requireSession>>["db"]>, id: string, me: string, manager: boolean) {
-  return db.viewing.findFirst({ where: { id, ...(manager ? {} : { OR: [{ agentId: me }, { lead: { assignedToId: me } }] }) }, select: { id: true, leadId: true, status: true, listingId: true, scheduledAt: true, listing: { select: { buildingName: true } } } });
+async function find(db: NonNullable<Awaited<ReturnType<typeof requireSession>>["db"]>, id: string, reach: Reach) {
+  return db.viewing.findFirst({ where: { id, ...(reach === true ? {} : { OR: [{ agentId: { in: reach } }, { lead: { assignedToId: { in: reach } } }] }) }, select: { id: true, leadId: true, status: true, listingId: true, scheduledAt: true, listing: { select: { buildingName: true } } } });
 }
 
 // Mark a viewing done or cancelled.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ status?: string }>(req);
   if (bodyError) return bodyError;
   if (body?.status !== "DONE" && body?.status !== "CANCELLED" && body?.status !== "SCHEDULED") return NextResponse.json({ error: "Unknown status" }, { status: 400 });
-  const v = await find(db!, id, session!.user.id, can(session!.user, "viewings.manageAll"));
+  const v = await find(db!, id, reachOf(session!.user, "viewings.manageAll", teamScope));
   if (!v) return NextResponse.json({ error: "Viewing not found" }, { status: 404 });
   if (v.status === body.status) return NextResponse.json({ ok: true }); // already in that state: nothing to log
   if (body.status === "DONE" && v.scheduledAt.getTime() > Date.now()) return NextResponse.json({ error: "This viewing has not happened yet. Cancel or reschedule it instead." }, { status: 400 });
@@ -35,10 +36,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
-  const v = await find(db!, id, session!.user.id, can(session!.user, "viewings.manageAll"));
+  const v = await find(db!, id, reachOf(session!.user, "viewings.manageAll", teamScope));
   if (!v) return NextResponse.json({ error: "Viewing not found" }, { status: 404 });
   await db!.viewing.delete({ where: { id } });
   return NextResponse.json({ ok: true });

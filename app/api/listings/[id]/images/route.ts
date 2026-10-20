@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { rateLimited } from "@/lib/rateLimit";
 import { storeListingPhoto } from "@/lib/storage";
@@ -18,7 +19,7 @@ const bodySchema = z.object({
 // them all, so the add and edit screens send them in small batches through here, then save the final
 // order (and any removals) with one small request.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
   // One person adding photos non-stop (a script, a stuck retry loop) must not use up the server for everyone else.
   if (rateLimited(`photos:${session!.user.id}`, 120, 60_000)) return NextResponse.json({ error: "Too many photo uploads. Wait a minute and try again." }, { status: 429 });
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const listing = await db!.listing.findUnique({ where: { id: listingId }, select: { createdById: true } });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (listing.createdById !== session!.user.id && !can(session!.user, "listings.editAll")) {
+  if (!reaches(reachOf(session!.user, "listings.editAll", teamScope), listing.createdById)) {
     return NextResponse.json({ error: "You can only edit your own listings" }, { status: 403 });
   }
 

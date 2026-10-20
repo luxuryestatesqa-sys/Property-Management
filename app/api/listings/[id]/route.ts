@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
@@ -12,7 +13,7 @@ import { Prisma, PropertyCategory } from "@prisma/client";
 import { withImageLinks } from "@/lib/listingImages";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   });
   // Someone else's private listing answers exactly like a missing one.
-  if (!listing || !canViewListing(listing, session!.user.id, can(session!.user, "listings.viewAll"))) {
+  if (!listing || !canViewListing(listing, session!.user.id, reachOf(session!.user, "listings.viewAll", teamScope))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       dupKey: listing.dupKey,
       status: "ACTIVE",
       id: { not: listing.id },
-      ...visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll")),
+      ...visibleListingsWhere(session!.user.id, reachOf(session!.user, "listings.viewAll", teamScope)),
     },
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     orderBy: { createdAt: "desc" },
   });
 
-  const isAdmin = can(session!.user, "listings.viewAll");
+  const isAdmin = reachOf(session!.user, "listings.viewAll", teamScope);
   const viewerCanSeePrivate = canViewPrivateDetails(listing.createdById, session!.user.id, isAdmin);
   return NextResponse.json({
     listing: redactPrivateFields(shapedListing, session!.user.id, isAdmin),
@@ -71,11 +72,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // for its own private-details section, without leaking that via the
     // (redacted-to-null) field values themselves.
     canViewPrivateDetails: viewerCanSeePrivate,
+    // Whether this person may edit and publish it: their own, or one made by someone they manage.
+    canEdit: reaches(reachOf(session!.user, "listings.editAll", teamScope), listing.createdById),
   });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
@@ -83,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = can(session!.user, "listings.editAll");
+  const isAdmin = reaches(reachOf(session!.user, "listings.editAll", teamScope), listing.createdById);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only edit your own listings" }, { status: 403 });
   }
@@ -301,7 +304,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 // status toggle at .../status). Only the listing's own agent or an admin may
 // do this.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
@@ -313,7 +316,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = can(session!.user, "listings.editAll");
+  const isAdmin = reaches(reachOf(session!.user, "listings.editAll", teamScope), listing.createdById);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only delete your own listings" }, { status: 403 });
   }

@@ -86,6 +86,7 @@ export default function PropertyDetailPage() {
   const [imageIds, setImageIds] = useState<Record<string, string>>({});
   const [unitDetailsPrivate, setUnitDetailsPrivate] = useState(false);
   const [canViewPrivateDetails, setCanViewPrivateDetails] = useState(false);
+  const [canEditListing, setCanEditListing] = useState(false);
   const [privateDetails, setPrivateDetails] = useState<PrivateDetailsValue>(EMPTY_PRIVATE_DETAILS);
 
   const load = useCallback(async () => {
@@ -125,6 +126,7 @@ export default function PropertyDetailPage() {
       setInitialImages(urls);
       setImageIds(Object.fromEntries(data.listing.images.map((img: { id: string; url: string }) => [img.url, img.id])));
       setCanViewPrivateDetails(Boolean(data.canViewPrivateDetails));
+      setCanEditListing(Boolean(data.canEdit));
       setUnitDetailsPrivate(Boolean(data.listing.unitDetailsPrivate));
       setPrivateDetails({
         ownerName: data.listing.ownerName ?? "",
@@ -152,7 +154,7 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (!openInEditMode || !listing || !session?.user) return;
-    const canManage = session.user.id === listing.createdById || can(session.user, "listings.editAll");
+    const canManage = session.user.id === listing.createdById || canEditListing;
     if (canManage) setEditing(true);
     router.replace(`/property/${id}`, { scroll: false });
     // Only meant to fire once, right after the initial load navigated here with ?edit=1.
@@ -160,7 +162,7 @@ export default function PropertyDetailPage() {
   }, [openInEditMode, listing, session]);
 
   // Only the owner/admin can refresh Property Finder's status, so only they poll.
-  const mayPollPf = Boolean(listing && (session?.user?.id === listing.createdById || can(session?.user, "listings.editAll")));
+  const mayPollPf = Boolean(listing && (session?.user?.id === listing.createdById || canEditListing));
   usePfStatusPolling(
     mayPollPf ? listing?.id : undefined,
     listing?.propertyFinderState,
@@ -183,7 +185,7 @@ export default function PropertyDetailPage() {
   }
 
   const isOwner = session?.user?.id === listing.createdById;
-  const isAdmin = can(session?.user, "listings.editAll");
+  const isAdmin = canEditListing;
   const canManage = isOwner || isAdmin;
   const isRent = listing.listingType === "RENT";
 

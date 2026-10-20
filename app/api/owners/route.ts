@@ -1,3 +1,4 @@
+import { reachOf } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -8,16 +9,17 @@ const PHONE = /^\+?[\d\s\-()]{6,20}$/;
 // Owners / landlords of the agency's properties. They hold private contact details, so the list is for
 // managers and above, plus the agent who created the listing an owner is linked to.
 export async function GET() {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
-  const where = can(session!.user, "owners.viewAll") ? {} : { listings: { some: { createdById: session!.user.id } } };
+  const reach = reachOf(session!.user, "owners.viewAll", teamScope);
+  const where = reach === true ? {} : { listings: { some: { createdById: { in: reach } } } };
   const owners = await db!.owner.findMany({ where, orderBy: { name: "asc" }, select: { id: true, name: true, phone: true, whatsapp: true, email: true, notes: true, _count: { select: { listings: true } } }, take: 500 });
   return NextResponse.json({ owners });
 }
 
 // Anyone who adds listings can add the owner they are working with.
 export async function POST(req: NextRequest) {
-  const { db, orgId, error } = await requireSession();
+  const { db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<Record<string, unknown>>(req);
   if (bodyError) return bodyError;

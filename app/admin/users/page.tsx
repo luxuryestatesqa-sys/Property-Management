@@ -13,7 +13,8 @@ import { useIsDesktop } from "@/lib/useIsDesktop";
 import { ROLE_LABELS } from "@/lib/roles";
 import RowMenu from "@/components/desktop/RowMenu";
 import { UserPermissionsModal, RoleTemplatesModal } from "@/components/PermissionsModal";
-import { isSuperAdminRole } from "@/lib/permissions";
+import { can, isSuperAdminRole } from "@/lib/permissions";
+import TeamsPanel from "@/components/TeamsPanel";
 
 // One colour per role, used for the badge and the avatar ring.
 const ROLE_STYLE: Record<string, { bg: string; fg: string }> = {
@@ -37,6 +38,19 @@ export default function AdminUsersPage() {
   const [permUser, setPermUser] = useState<UserDTO | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const iAmSuperAdmin = isSuperAdminRole(session?.user?.role);
+  const canTeams = can(session?.user, "teams.manage");
+  const [view, setView] = useState<"people" | "teams">("people");
+  const teamLabel = (u: UserDTO) => [u.team?.name, u.managedTeams?.length ? `Manages ${u.managedTeams.map((t) => t.name).join(", ")}` : null].filter(Boolean).join(" · ");
+  // People or Teams, for those who may manage teams.
+  const viewSwitch = canTeams ? (
+    <div role="tablist" aria-label="Users or teams" className="flex gap-1 rounded-xl bg-surface-muted p-1">
+      {(["people", "teams"] as const).map((v) => (
+        <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={`rounded-lg px-4 py-2 text-[13px] font-medium ${view === v ? "bg-surface shadow-sm" : "text-muted"}`} style={view === v ? { color: "var(--primary)" } : undefined}>
+          {v === "people" ? "People" : "Teams"}
+        </button>
+      ))}
+    </div>
+  ) : null;
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roleTab, setRoleTab] = useState<"ALL" | "ADMIN" | "MANAGER" | "AGENT" | "INACTIVE">("ALL");
   const [search, setSearch] = useState("");
@@ -126,6 +140,21 @@ export default function AdminUsersPage() {
     return !needle || [u.name, u.email, u.whatsapp].some((v) => v.toLowerCase().includes(needle));
   }).sort((a, b) => (sort === "listings" ? (b.activeListingsCount ?? 0) - (a.activeListingsCount ?? 0) || a.name.localeCompare(b.name) : sort === "newest" ? +new Date(b.createdAt) - +new Date(a.createdAt) : a.name.localeCompare(b.name)));
 
+  if (view === "teams" && canTeams) {
+    return (
+      <div className={isDesktop ? "" : "px-4 pb-10"}>
+        <div className="flex flex-wrap items-end justify-between gap-4 pb-2 pt-6 lg:pb-3 lg:pt-10">
+          <div>
+            <h1 className="text-xl font-bold lg:text-[28px] lg:font-semibold lg:leading-none lg:tracking-[-0.025em]">Teams</h1>
+            <p className="mt-1 text-[14px] text-muted lg:mt-2.5 lg:text-[15px]">Group your agents under a manager. Managers see their own team only.</p>
+          </div>
+          {viewSwitch}
+        </div>
+        <TeamsPanel users={users} onChanged={load} />
+      </div>
+    );
+  }
+
   if (isDesktop) {
     const th = "whitespace-nowrap px-4 py-3";
     const ghost = "whitespace-nowrap rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:opacity-50";
@@ -137,6 +166,7 @@ export default function AdminUsersPage() {
             <p className="mt-2.5 text-[15px] text-muted">Manage your team, their access and Property Finder links.</p>
           </div>
           <div className="flex items-center gap-3">
+            {viewSwitch}
             {iAmSuperAdmin && (
               <button onClick={() => setShowTemplates(true)} className="rounded-xl border border-border bg-surface px-5 py-3 text-[14px] font-semibold transition-colors hover:bg-surface-muted">
                 Role permissions
@@ -250,6 +280,7 @@ export default function AdminUsersPage() {
                               {isSelf && <> <span className="text-[12px] font-normal text-muted">(you)</span></>}
                             </div>
                             <div className="truncate text-[12.5px] text-muted">{u.email}</div>
+                            {teamLabel(u) && <div className="truncate text-[12px] font-medium text-primary">{teamLabel(u)}</div>}
                             <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-muted">
                               {u.whatsapp}
                               {!isSelf && <WhatsAppButton number={u.whatsapp} name={u.name} size={20} />}
@@ -339,6 +370,7 @@ export default function AdminUsersPage() {
           <p className="hidden lg:block text-[14px] text-muted mt-1">Manage your team, their access and portal links.</p>
         </div>
         <div className="flex items-center gap-2">
+          {viewSwitch}
           {iAmSuperAdmin && (
             <button onClick={() => setShowTemplates(true)} className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[13px] font-semibold active:opacity-80">
               Role permissions
@@ -418,6 +450,7 @@ export default function AdminUsersPage() {
                       </span>
                     </div>
                     <p className="mt-0.5 truncate text-[13px] text-muted">{u.email}</p>
+                    {teamLabel(u) && <p className="truncate text-[12px] font-medium text-primary">{teamLabel(u)}</p>}
                     <div className="mt-1 flex items-center gap-1.5">
                       <p className="truncate text-[13px] text-muted">{u.whatsapp}</p>
                       {!isSelf && <WhatsAppButton number={u.whatsapp} name={u.name} size={26} />}

@@ -1,3 +1,5 @@
+import { reachOf } from "@/lib/scope";
+import { loadLiveUser } from "@/lib/liveUser";
 import { can } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { tenantDb } from "@/lib/tenant";
@@ -14,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   let detail: string | null = null;
   if (session?.user?.organizationId && Number.isInteger(num) && num > 0) {
     const l = await tenantDb(session.user.organizationId).listing.findUnique({ where: { id: num }, select: { id: true, buildingName: true, community: true, createdById: true, visibility: true } });
-    if (l && canViewListing(l, session.user.id, can(session.user, "listings.viewAll"))) detail = [listingCode(l.id), l.buildingName || l.community].filter(Boolean).join(" · ");
+    if (l && canViewListing(l, session.user.id, reachOf(session.user, "listings.viewAll", (await loadLiveUser(session.user.id).catch(() => null))?.scope))) detail = [listingCode(l.id), l.buildingName || l.community].filter(Boolean).join(" · ");
   }
   return pageTitle("Property", detail);
 }

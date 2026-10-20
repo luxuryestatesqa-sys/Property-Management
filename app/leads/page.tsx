@@ -241,7 +241,7 @@ function DesktopLeads() {
   // Nothing role-specific is drawn until the signed-in role is known, so an admin never sees the agent wording first.
   const roleKnown = status === "authenticated" && Boolean(session?.user?.role);
   const canManage = roleKnown && can(session?.user, "leads.viewAll");
-  const canAssign = roleKnown && can(session?.user, "leads.assign");
+  const canAssign = roleKnown && can(session?.user, "leads.assign") && !session?.user?.teamScoped;
   // Only leads still on screen count as selected, so filtering never acts on hidden ones.
   const picked = useMemo(() => visible.filter((l) => selected.has(l.id)).map((l) => l.id), [visible, selected]);
   const allPicked = visible.length > 0 && picked.length === visible.length;

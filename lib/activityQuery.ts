@@ -38,10 +38,12 @@ export const qatarEndExclusive = (day: string) => new Date(qatarStart(day).getTi
 // Rows are read as: Activity a, with Lead l, Listing p and User u joined for searching and display.
 export const ACTIVITY_FROM = Prisma.sql`"Activity" a LEFT JOIN "Lead" l ON l."id" = a."leadId" LEFT JOIN "Listing" p ON p."id" = a."listingId" LEFT JOIN "User" u ON u."id" = a."agentId"`;
 
-export function buildWhere(orgId: string, f: ActivityFilters, viewer: { id: string; manager: boolean }): Prisma.Sql {
+// `team`: for a manager of a team, the people whose activities they may see (themselves and the team); null = everyone.
+export function buildWhere(orgId: string, f: ActivityFilters, viewer: { id: string; manager: boolean; team?: string[] | null }): Prisma.Sql {
   const c: Prisma.Sql[] = [Prisma.sql`a."organizationId" = ${orgId}`];
   // An agent sees only their own activities.
   if (!viewer.manager) c.push(Prisma.sql`a."agentId" = ${viewer.id}`);
+  else if (viewer.team) c.push(Prisma.sql`a."agentId" = ANY(${viewer.team}::text[])`);
   if (f.from) c.push(Prisma.sql`a."createdAt" >= ${qatarStart(f.from)}`);
   if (f.to) c.push(Prisma.sql`a."createdAt" < ${qatarEndExclusive(f.to)}`);
   if (f.agents.length && viewer.manager) {

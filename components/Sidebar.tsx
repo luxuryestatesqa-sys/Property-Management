@@ -119,7 +119,8 @@ export default function Sidebar() {
   const org = useOrg();
   const canUsers = can(session?.user, "users.manage");
   const canDashboard = can(session?.user, "dashboard.view");
-  const canAssign = can(session?.user, "leads.assign");
+  // The assignment pages work on the agency's waiting leads, which a team manager does not see.
+  const canAssign = can(session?.user, "leads.assign") && !session?.user?.teamScoped;
   const canStages = can(session?.user, "leads.stages");
   const newLeads = useLeadBadge(!!session?.user, pathname);
   const onAdd = pathname.startsWith("/add");

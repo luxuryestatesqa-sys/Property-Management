@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere, type Reach } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -11,10 +12,10 @@ const PAGE = 50;
 // The activity list, newest first, 50 at a time (?offset=50 for the next page). Managers see every agent;
 // an agent only their own activities. All filters come from the query string.
 export async function GET(req: NextRequest) {
-  const { session, orgId, error } = await requireSession();
+  const { session, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const sp = req.nextUrl.searchParams;
-  const where = buildWhere(orgId!, parseFilters(sp), { id: session!.user.id, manager: can(session!.user, "activities.viewAll") });
+  const where = buildWhere(orgId!, parseFilters(sp), { id: session!.user.id, manager: can(session!.user, "activities.viewAll"), team: (() => { const r = reachOf(session!.user, "activities.viewAll", teamScope); return r === true ? null : r; })() });
   const offset = Math.max(0, Number(sp.get("offset")) || 0);
   const oldest = sp.get("sort") === "oldest";
 

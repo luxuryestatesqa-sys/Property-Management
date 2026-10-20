@@ -1,14 +1,15 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 
 // Streams a saved voice note or document. ?download=1 forces a download.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string; activityId: string }> }) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id, activityId } = await params;
   const activity = await db!.leadActivity.findFirst({ where: { id: activityId, leadId: id, type: { in: ["VOICE_NOTE", "DOCUMENT"] } }, include: { lead: { select: { assignedToId: true } } } });
-  if (!activity || (!can(session!.user, "leads.viewAll") && activity.lead.assignedToId !== session!.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!activity || !reaches(reachOf(session!.user, "leads.viewAll", teamScope), activity.lead.assignedToId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const d = activity.data as { name?: string; mime?: string; dataUrl?: string } | null;
   const m = /^data:[^;,]+(?:;[^;,]+)*;base64,(.+)$/.exec(d?.dataUrl ?? "");

@@ -8,7 +8,9 @@ import { ttlCache } from "@/lib/ttlCache";
 // a change reaches the person within this time instead of instantly.
 const LIVE_USER_TTL_MS = 15_000;
 
-export type LiveUser = { status: string; role: string; organizationId: string; orgStatus: string; permissions: Permission[] };
+// `scope`: the people this person's "see all" permissions reach when they manage a team (themselves plus the team
+// members), or null when they are not limited to a team. See lib/scope.ts.
+export type LiveUser = { status: string; role: string; organizationId: string; orgStatus: string; permissions: Permission[]; scope: string[] | null };
 
 const cache = ttlCache<LiveUser | null>(LIVE_USER_TTL_MS, 5000);
 
@@ -19,12 +21,22 @@ export async function loadLiveUser(userId: string): Promise<LiveUser | null> {
     where: { id: userId },
     select: { status: true, role: true, organizationId: true, permissions: true, organization: { select: { status: true, rolePermissions: true } } },
   });
+  let scope: string[] | null = null;
+  if (row && row.role === "MANAGER") {
+    // A Manager in charge of one or more teams is limited to those teams' people.
+    const teams = await prisma.team.findMany({ where: { managerId: userId, organizationId: row.organizationId }, select: { id: true } });
+    if (teams.length > 0) {
+      const members = await prisma.user.findMany({ where: { organizationId: row.organizationId, teamId: { in: teams.map((t) => t.id) } }, select: { id: true } });
+      scope = [...new Set([userId, ...members.map((m) => m.id)])];
+    }
+  }
   const live: LiveUser | null = row && {
     status: row.status,
     role: row.role,
     organizationId: row.organizationId,
     orgStatus: row.organization.status,
     permissions: effectivePermissions(row.role, row.permissions, row.organization.rolePermissions as never),
+    scope,
   };
   cache.set(userId, live);
   return live;

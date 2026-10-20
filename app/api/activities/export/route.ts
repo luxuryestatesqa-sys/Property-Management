@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere, type Reach } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -12,9 +13,9 @@ const qatar = (d: Date) => new Date(d).toLocaleString("en-GB", { timeZone: "Asia
 
 // Every row matching the current filters (not just the loaded page) as a CSV file.
 export async function GET(req: NextRequest) {
-  const { session, orgId, error } = await requireSession();
+  const { session, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
-  const where = buildWhere(orgId!, parseFilters(req.nextUrl.searchParams), { id: session!.user.id, manager: can(session!.user, "activities.viewAll") });
+  const where = buildWhere(orgId!, parseFilters(req.nextUrl.searchParams), { id: session!.user.id, manager: can(session!.user, "activities.viewAll"), team: (() => { const r = reachOf(session!.user, "activities.viewAll", teamScope); return r === true ? null : r; })() });
   const rows = await prisma.$queryRaw<ActivityRow[]>(Prisma.sql`SELECT ${ROW_SELECT} FROM ${ACTIVITY_FROM} WHERE ${where} ORDER BY a."createdAt" DESC, a."id" LIMIT ${MAX_ROWS}`);
   const head = ["Date & time (Qatar)", "Agent", "Type", "Lead", "Lead phone", "Property", "Details", "Source"];
   const lines = rows.map((r) => [qatar(new Date(r.createdAt)), r.agentName ?? (r.agentId ? "Former team member" : "System"), typeLabel(r.type), r.leadName ?? "", r.leadPhone ?? "", r.listingId ? `LST-${String(r.listingId).padStart(6, "0")} ${r.listingName ?? ""}`.trim() : "", describe(r), r.source ?? ""].map(esc).join(","));

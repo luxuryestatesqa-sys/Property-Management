@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
@@ -7,12 +8,12 @@ import { qatarEndOfDay } from "@/lib/qatarTime";
 // What needs the signed-in person's attention right now: follow-ups that are overdue
 // or due today, and new leads nobody has contacted for a while.
 export async function GET() {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const org = await prisma.organization.findUnique({ where: { id: orgId! }, select: { contactSlaHours: true } });
   const waitingMs = (org?.contactSlaHours ?? 2) * 3600_000;
   const me = session!.user.id;
-  const manager = can(session!.user, "leads.viewAll");
+  const reach = reachOf(session!.user, "leads.viewAll", teamScope);
   const now = new Date();
   const endOfToday = qatarEndOfDay();
 
@@ -24,11 +25,11 @@ export async function GET() {
   });
 
   const first = await db!.leadStage.findFirst({ orderBy: { position: "asc" } });
-  const waitingWhere = first ? { stageId: first.id, firstContactedAt: null, receivedAt: { lte: new Date(now.getTime() - waitingMs) }, ...(manager ? {} : { assignedToId: me }) } : null;
+  const waitingWhere = first ? { stageId: first.id, firstContactedAt: null, receivedAt: { lte: new Date(now.getTime() - waitingMs) }, ...leadsWhere(reach) } : null;
   const waitingCount = waitingWhere ? await db!.lead.count({ where: waitingWhere }) : 0;
   const waiting = first
     ? await db!.lead.findMany({
-        where: { stageId: first.id, firstContactedAt: null, receivedAt: { lte: new Date(now.getTime() - waitingMs) }, ...(manager ? {} : { assignedToId: me }) },
+        where: { stageId: first.id, firstContactedAt: null, receivedAt: { lte: new Date(now.getTime() - waitingMs) }, ...leadsWhere(reach) },
         orderBy: { receivedAt: "asc" },
         take: 20,
         select: { id: true, name: true, receivedAt: true, assignedTo: { select: { name: true } } },

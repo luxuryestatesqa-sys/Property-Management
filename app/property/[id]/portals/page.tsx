@@ -69,6 +69,7 @@ export default function MultiPortalPublishingPage() {
 
   const [activeTab, setActiveTab] = useState<"PF" | "CHANNELS">("PF");
   const [listing, setListing] = useState<ListingDTO | null>(null);
+  const [canEditListing, setCanEditListing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Property Finder Form State
@@ -121,6 +122,7 @@ export default function MultiPortalPublishingPage() {
     if (res.ok) {
       const data = await res.json();
       const l: ListingDTO = data.listing;
+      setCanEditListing(Boolean(data.canEdit));
       setListing(l);
       setTitle(l.title ?? "");
       setDescription(l.description ?? "");
@@ -243,7 +245,7 @@ export default function MultiPortalPublishingPage() {
   }
 
   const isOwner = session?.user?.id === listing.createdById;
-  const isAdmin = can(session?.user, "listings.editAll");
+  const isAdmin = canEditListing;
   const canManage = isOwner || isAdmin;
 
   if (!canManage) {

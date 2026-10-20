@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere, type Reach } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -9,11 +10,13 @@ import { ACTIVITY_FROM, buildWhere, parseFilters, qatarEndExclusive, qatarStart 
 // Numbers above the list: KPI cards, the agent leaderboard and activities per day. All of it is computed in
 // the database for the same filters as the list.
 export async function GET(req: NextRequest) {
-  const { session, orgId, error } = await requireSession();
+  const { session, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const manager = can(session!.user, "activities.viewAll");
+  const reach = reachOf(session!.user, "activities.viewAll", teamScope);
+  const team = reach === true ? null : reach;
   const f = parseFilters(req.nextUrl.searchParams);
-  const where = buildWhere(orgId!, f, { id: session!.user.id, manager });
+  const where = buildWhere(orgId!, f, { id: session!.user.id, manager, team });
 
   const wonStages = Prisma.sql`SELECT "name" FROM "LeadStage" WHERE "organizationId" = ${orgId!} AND "kind"::text = 'WON'`;
   const range = [f.from ? Prisma.sql`l2."firstContactedAt" >= ${qatarStart(f.from)}` : null, f.to ? Prisma.sql`l2."firstContactedAt" < ${qatarEndExclusive(f.to)}` : null].filter((x): x is Prisma.Sql => x !== null);
@@ -41,13 +44,13 @@ export async function GET(req: NextRequest) {
     prisma.$queryRaw<{ agentId: string | null; minutes: number }[]>(Prisma.sql`
       SELECT l2."assignedToId" AS "agentId", (avg(extract(epoch FROM (l2."firstContactedAt" - l2."receivedAt"))) / 60)::float AS minutes
       FROM "Lead" l2 WHERE l2."organizationId" = ${orgId!} AND l2."firstContactedAt" IS NOT NULL AND l2."firstContactedAt" >= l2."receivedAt" AND l2."assignedToId" IS NOT NULL
-      ${manager ? Prisma.empty : Prisma.sql`AND l2."assignedToId" = ${session!.user.id}`}
+      ${!manager ? Prisma.sql`AND l2."assignedToId" = ${session!.user.id}` : team ? Prisma.sql`AND l2."assignedToId" = ANY(${team}::text[])` : Prisma.empty}
       ${range.length ? Prisma.sql`AND ${Prisma.join(range, " AND ")}` : Prisma.empty}
       GROUP BY l2."assignedToId"`),
     prisma.$queryRaw<{ day: string; n: number }[]>(Prisma.sql`
       SELECT to_char(((a."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Qatar')::date, 'YYYY-MM-DD') AS day, count(*)::int AS n
       FROM ${ACTIVITY_FROM} WHERE ${where} GROUP BY 1 ORDER BY 1`),
-    manager ? prisma.user.findMany({ where: { organizationId: orgId!, status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    manager ? prisma.user.findMany({ where: { organizationId: orgId!, status: "ACTIVE", ...(team ? { id: { in: team } } : {}) }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     prisma.leadStage.findMany({ where: { organizationId: orgId! }, orderBy: { position: "asc" }, select: { name: true } }),
     // stage names that were used before a rename or delete still show on old entries, so keep them filterable
     prisma.activity.findMany({ where: { organizationId: orgId!, type: "stage_changed" }, distinct: ["newValue"], select: { newValue: true }, take: 50 }),

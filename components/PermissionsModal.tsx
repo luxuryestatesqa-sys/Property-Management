@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { extractErrorMessage } from "@/lib/errors";
 import { ALL_PERMISSIONS, isSuperAdminRole, normalizePermissions, type Permission } from "@/lib/permissions";
@@ -37,9 +37,10 @@ const primaryBtn = "w-full rounded-xl py-3.5 text-base font-semibold text-white 
 // The permissions the signed-in person may NOT hand out: everything they do not have themselves.
 export function useLockedPermissions(): string[] {
   const { data: session } = useSession();
-  if (isSuperAdminRole(session?.user?.role)) return [];
-  const mine = session?.user?.permissions ?? [];
-  return ALL_PERMISSIONS.filter((p) => !mine.includes(p));
+  const role = session?.user?.role;
+  const mine = session?.user?.permissions;
+  // Same list (same object) until the person's permissions change, so screens can depend on it.
+  return useMemo(() => (isSuperAdminRole(role) ? [] : ALL_PERMISSIONS.filter((p) => !(mine ?? []).includes(p))), [role, mine]);
 }
 
 // What one person may do. Saved on their account; "Use the role's template" makes them follow the template again.

@@ -45,6 +45,7 @@ export const PERMISSION_GROUPS = [
     title: "Team and settings",
     items: [
       { key: "users.manage", label: "Manage users", hint: "Add people, change their details and permissions, deactivate them. Cannot touch Super Admins" },
+      { key: "teams.manage", label: "Teams", hint: "Create teams, choose each team's manager and who is in it" },
       { key: "settings.agency", label: "Agency profile", hint: "Change the agency name, logo and colour" },
       { key: "settings.integrations", label: "Portals and integrations", hint: "Property Finder, Qatar Living, Oryx, Meta, feeds and AI settings" },
     ],

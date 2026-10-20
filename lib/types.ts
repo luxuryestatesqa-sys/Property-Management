@@ -186,4 +186,7 @@ export interface UserDTO {
   // What this person may do now (keys from lib/permissions.ts), and whether it was set for them personally.
   permissions?: string[];
   customPermissions?: boolean;
+  // The team they work in, and the teams they are the manager of.
+  team?: { id: string; name: string } | null;
+  managedTeams?: { id: string; name: string }[];
 }

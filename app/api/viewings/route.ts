@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -18,13 +19,13 @@ const SELECT = {
 // ?leadId= | ?listingId= | ?upcoming=1 (from now on, soonest first). Managers see the whole agency's viewings;
 // an agent only those of their own leads or those booked for them.
 export async function GET(req: NextRequest) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const sp = req.nextUrl.searchParams;
   const me = session!.user.id;
-  const manager = can(session!.user, "viewings.manageAll");
+  const reach = reachOf(session!.user, "viewings.manageAll", teamScope);
   const where: Prisma.ViewingWhereInput = {};
-  if (!manager) where.OR = [{ agentId: me }, { lead: { assignedToId: me } }];
+  if (reach !== true) where.OR = [{ agentId: { in: reach } }, { lead: { assignedToId: { in: reach } } }];
   if (sp.get("leadId")) where.leadId = sp.get("leadId")!;
   if (sp.get("listingId")) where.listingId = Number(sp.get("listingId"));
   if (sp.get("upcoming") === "1") {
@@ -38,27 +39,27 @@ export async function GET(req: NextRequest) {
 // Book a viewing: one lead, optionally one property and an agent, at a time. It is written to the lead's
 // timeline, and counts as first contact when the lead had not been contacted yet.
 export async function POST(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<{ leadId?: string; listingId?: number | string | null; agentId?: string | null; scheduledAt?: string; notes?: string }>(req);
   if (bodyError) return bodyError;
   const me = session!.user.id;
-  const manager = can(session!.user, "viewings.manageAll");
+  const reach = reachOf(session!.user, "viewings.manageAll", teamScope);
 
-  const lead = body?.leadId ? await db!.lead.findFirst({ where: { id: body.leadId, ...(manager ? {} : { assignedToId: me }) }, select: { id: true, name: true, listingId: true, firstContactedAt: true } }) : null;
+  const lead = body?.leadId ? await db!.lead.findFirst({ where: { id: body.leadId, ...leadsWhere(reach) }, select: { id: true, name: true, listingId: true, firstContactedAt: true } }) : null;
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   const when = body?.scheduledAt ? new Date(body.scheduledAt) : null;
   if (!when || Number.isNaN(when.getTime())) return NextResponse.json({ error: "Choose a date and time" }, { status: 400 });
 
   const listingNum = body?.listingId ? Number(String(body.listingId).replace(/\D/g, "")) : lead.listingId;
-  const listing = listingNum ? await db!.listing.findFirst({ where: { id: listingNum, ...visibleListingsWhere(me, can(session!.user, "listings.viewAll")) }, select: { id: true, buildingName: true } }) : null;
+  const listing = listingNum ? await db!.listing.findFirst({ where: { id: listingNum, ...visibleListingsWhere(me, reachOf(session!.user, "listings.viewAll", teamScope)) }, select: { id: true, buildingName: true } }) : null;
   if (listingNum && !listing) return NextResponse.json({ error: "No property found with that ID" }, { status: 404 });
 
   let agentId: string | null = me;
   if (body?.agentId !== undefined) {
     agentId = body.agentId || null;
     if (agentId) {
-      if (!manager && agentId !== me) return NextResponse.json({ error: "Only managers can book a viewing for someone else" }, { status: 403 });
+      if (!reaches(reach, agentId)) return NextResponse.json({ error: "Only managers can book a viewing for someone else" }, { status: 403 });
       if (!(await db!.user.findFirst({ where: { id: agentId, status: "ACTIVE" }, select: { id: true } }))) return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
     }
   }

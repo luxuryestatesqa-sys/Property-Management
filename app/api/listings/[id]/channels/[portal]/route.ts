@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
@@ -13,7 +14,7 @@ import { Portal } from "@prisma/client";
 const CHANNEL_PORTALS = new Set<Portal>(["WEBSITE", "QATAR_LIVING", "PROPERTY_ORYX", "OTHER_PORTALS"]);
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; portal: string }> }) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
 
   const { id, portal: portalParam } = await params;
@@ -30,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = can(session!.user, "listings.editAll");
+  const isAdmin = reaches(reachOf(session!.user, "listings.editAll", teamScope), listing.createdById);
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only publish your own listings" }, { status: 403 });
   }

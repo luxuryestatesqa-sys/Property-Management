@@ -11,12 +11,8 @@ const current = vi.hoisted(() => ({ session: null as null | { user: { id: string
 // The real helpers pull in next-auth, which can't load under vitest, so the session is faked.
 vi.mock("@/lib/api-helpers", async () => {
   const { tenantDb } = await import("../tenant");
-  const ctx = () => ({ session: current.session as never, db: tenantDb(current.orgId), orgId: current.orgId, error: null });
-  return {
-    requireSession: async () => ctx(),
-    requireAdmin: async () => ctx(),
-    parseJsonBody: async (req: NextRequest) => ({ value: await req.json(), error: null }),
-  };
+  const { fakeApiHelpers } = await import("../testing/apiHelpersMock");
+  return fakeApiHelpers(() => current, tenantDb);
 });
 
 const json = (body: unknown) => new NextRequest("http://x.test/api", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
@@ -39,7 +35,7 @@ describe.skipIf(!run)("lead follow-ups and groups (real database)", () => {
     manager = await mk(org, "mgr", "ADMIN");
     const { ensureStages } = await import("./stages");
     const stages = await ensureStages(org);
-    leadId = (await prisma.lead.create({ data: { organizationId: org, source: "MANUAL", externalId: `${tag}-1`, name: "Buyer", channel: "WHATSAPP", stageId: stages[0].id, assignedToId: agent, receivedAt: new Date(Date.now() - 3600_000) } })).id;
+    leadId = (await prisma.lead.create({ data: { organizationId: org, source: "MANUAL", externalId: `${tag}-1`, name: "Buyer", channel: "WHATSAPP", stageId: stages[0].id, assignedToId: agent, receivedAt: new Date(Date.now() - 3 * 3600_000) } })).id; // older than the 2 hour wait
   });
 
   afterAll(async () => {

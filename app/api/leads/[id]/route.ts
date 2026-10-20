@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -10,10 +11,11 @@ import { themedStages, stageThemeColor } from "@/lib/leads/stages";
 // Everything the lead detail page needs: the lead, its listing, the timeline,
 // the other leads from the same phone number, and the pickers (stages, agents).
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
   const manager = can(session!.user, "leads.viewAll");
+  const reach = reachOf(session!.user, "leads.viewAll", teamScope);
 
   const lead = await db!.lead.findFirst({
     where: { id },
@@ -31,14 +33,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       groupLinks: { select: { group: { select: { id: true, name: true, color: true } } } },
     },
   });
-  if (!lead || (!manager && lead.assignedToId !== session!.user.id)) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  if (!lead || !reaches(reach, lead.assignedToId)) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 
   const [stages, agents, related, groups] = await Promise.all([
     db!.leadStage.findMany({ orderBy: { position: "asc" } }),
-    manager ? db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    manager ? db!.user.findMany({ where: { status: "ACTIVE", ...(reach === true ? {} : { id: { in: reach } }) }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     lead.phone
       ? db!.lead.findMany({
-          where: { phone: lead.phone, NOT: { id: lead.id }, ...(manager ? {} : { assignedToId: session!.user.id }) },
+          where: { phone: lead.phone, NOT: { id: lead.id }, ...leadsWhere(reach) },
           orderBy: { receivedAt: "desc" },
           take: 5,
           select: { id: true, name: true, receivedAt: true, listingReference: true, stage: { select: { name: true, kind: true, color: true } } },
@@ -63,7 +65,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // their own. The move is written to the lead's timeline, and the first move out of
 // the starting stage counts as the first response.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ stageId?: string; assignedToId?: string | null; listing?: string | number | null }>(req);
@@ -72,12 +74,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const lead = await db!.lead.findFirst({ where: { id }, include: { stage: true } });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  if (!can(session!.user, "leads.viewAll") && lead.assignedToId !== session!.user.id) {
+  const reach = reachOf(session!.user, "leads.viewAll", teamScope);
+  if (!reaches(reach, lead.assignedToId)) {
     return NextResponse.json({ error: "Not your lead" }, { status: 403 });
   }
   // Reassigning is for managers and above only.
   if (body.assignedToId !== undefined) {
     if (!can(session!.user, "leads.assign")) return NextResponse.json({ error: "Only managers can reassign leads" }, { status: 403 });
+    // A team manager moves leads between their own team's people only.
+    if (reach !== true && (!body.assignedToId || !reaches(reach, body.assignedToId))) return NextResponse.json({ error: "You can only assign to people in your team" }, { status: 403 });
     if (body.assignedToId !== lead.assignedToId) {
       const target = body.assignedToId ? await db!.user.findFirst({ where: { id: body.assignedToId, status: "ACTIVE" }, select: { id: true, name: true } }) : null;
       if (body.assignedToId && !target) return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
@@ -93,7 +98,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     let target: { id: number; buildingName: string } | null = null;
     if (body.listing !== null && body.listing !== "") {
       const n = Number(String(body.listing).replace(/\D/g, ""));
-      target = Number.isFinite(n) && n > 0 ? await db!.listing.findFirst({ where: { id: n, ...visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll")) }, select: { id: true, buildingName: true } }) : null;
+      target = Number.isFinite(n) && n > 0 ? await db!.listing.findFirst({ where: { id: n, ...visibleListingsWhere(session!.user.id, reachOf(session!.user, "listings.viewAll", teamScope)) }, select: { id: true, buildingName: true } }) : null;
       if (!target) return NextResponse.json({ error: "No property found with that ID" }, { status: 404 });
     }
     await db!.lead.update({ where: { id }, data: { listingId: target?.id ?? null, listingReference: target ? listingCode(target.id) : null } });

@@ -1,3 +1,4 @@
+import { reachOf, reaches } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
@@ -12,7 +13,7 @@ const PORTAL = "PROPERTY_FINDER" as const;
 // resetPropertyFinderListing's own comment for why this needs to be a
 // separate, deliberate action rather than unpublish's default behavior.
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   if (!can(session!.user, "listings.editAll")) {
     return NextResponse.json({ error: "Only an admin can reset a Property Finder listing" }, { status: 403 });
@@ -20,8 +21,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params;
   const listingId = Number(id);
-  const listing = await db!.listing.findUnique({ where: { id: listingId }, select: { id: true } });
+  const listing = await db!.listing.findUnique({ where: { id: listingId }, select: { id: true, createdById: true } });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!reaches(reachOf(session!.user, "listings.editAll", teamScope), listing.createdById)) {
+    return NextResponse.json({ error: "Only an admin can reset a Property Finder listing" }, { status: 403 });
+  }
 
   await resetPropertyFinderListing(orgId!, listingId);
 

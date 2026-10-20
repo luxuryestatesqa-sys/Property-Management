@@ -11,10 +11,8 @@ const run = process.env.RUN_TENANT_DB_TESTS === "1";
 const current = vi.hoisted(() => ({ session: null as null | { user: { id: string; role: string } }, orgId: "" }));
 vi.mock("@/lib/api-helpers", async () => {
   const { tenantDb } = await import("../tenant");
-  return {
-    requireSession: async () => ({ session: current.session as never, db: tenantDb(current.orgId), orgId: current.orgId, error: null }),
-    parseJsonBody: async (req: NextRequest) => ({ value: await req.json(), error: null }),
-  };
+  const { fakeApiHelpers } = await import("../testing/apiHelpersMock");
+  return fakeApiHelpers(() => current, tenantDb);
 });
 
 const photo = (tag: string) => `data:image/jpeg;base64,${Buffer.from(`photo-${tag}`).toString("base64")}`;

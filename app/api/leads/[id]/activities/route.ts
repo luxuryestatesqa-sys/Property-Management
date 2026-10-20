@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -8,7 +9,7 @@ const TYPES = new Set(["NOTE", "CALL_LOGGED", "WHATSAPP_LOGGED", "VIEWING_BOOKED
 // Adds an entry to a lead's timeline: a note, or a quick log of a call / WhatsApp /
 // viewing. The first logged contact counts as the agent's first response.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ type?: string; text?: string }>(req);
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const lead = await db!.lead.findFirst({ where: { id } });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  if (!can(session!.user, "leads.viewAll") && lead.assignedToId !== session!.user.id) {
+  if (!reaches(reachOf(session!.user, "leads.viewAll", teamScope), lead.assignedToId)) {
     return NextResponse.json({ error: "Not your lead" }, { status: 403 });
   }
 

@@ -34,7 +34,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "You cannot deactivate your own account" }, { status: 400 });
   }
 
-  const guard = await ownerProtected(db!, id, session!.user.role);
+  // Changing your own account runs into the specific checks below (own role, own permissions, deactivating yourself).
+  const guard = id === session!.user.id ? { notFound: false, forbidden: false, message: "" } : await ownerProtected(db!, id, session!.user.role);
   if (guard.notFound) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (guard.forbidden) return NextResponse.json({ error: guard.message }, { status: 403 });
 
@@ -57,6 +58,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const missing = permissions.filter((p) => !can(session!.user, p));
       if (missing.length) return NextResponse.json({ error: "You can only give permissions you have yourself" }, { status: 403 });
     } else return NextResponse.json({ error: "Invalid permissions" }, { status: 400 });
+  }
+
+  // Team: put the person in a team (or take them out with null). Needs the Teams permission.
+  let teamId: string | null | undefined;
+  if (body.teamId !== undefined) {
+    if (!can(session!.user, "teams.manage")) return NextResponse.json({ error: "You don't have permission to put people in teams" }, { status: 403 });
+    if (body.teamId !== null && typeof body.teamId !== "string") return NextResponse.json({ error: "Invalid team" }, { status: 400 });
+    if (body.teamId && !(await db!.team.findFirst({ where: { id: body.teamId }, select: { id: true } }))) return NextResponse.json({ error: "Team not found" }, { status: 404 });
+    if (body.teamId && (await db!.user.findFirst({ where: { id, role: { in: ["OWNER", "ADMIN"] } }, select: { id: true } }))) return NextResponse.json({ error: "Admins are not part of a team" }, { status: 400 });
+    teamId = body.teamId;
   }
 
   let whatsapp: string | undefined;
@@ -105,6 +116,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(whatsapp ? { whatsapp } : {}),
       ...(passwordHash ? { passwordHash } : {}),
       ...(pfPublicProfileId !== undefined ? { pfPublicProfileId } : {}),
+      ...(teamId !== undefined ? { teamId } : {}),
+      // Moving to Admin takes someone out of their team.
+      ...(role === "ADMIN" ? { teamId: null } : {}),
       ...(savedPermissions !== undefined ? { permissions: savedPermissions === null ? Prisma.DbNull : savedPermissions } : {}),
     },
     select: {
@@ -122,7 +136,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (role && before && before.role !== role) await logActivity(orgId!, { type: "role_changed", agentId: session!.user.id, oldValue: before.role, newValue: role, note: user.name });
   if (status) await setIdentityDisabled(id, status === "INACTIVE");
-  if (role || status || permissions !== undefined) forgetLiveUsers();
+  // Only a Manager can be in charge of a team, so a person who stops being one stops managing their teams.
+  if (role && role !== "MANAGER") await db!.team.updateMany({ where: { managerId: id }, data: { managerId: null } });
+  if (role || status || permissions !== undefined || teamId !== undefined) forgetLiveUsers();
   if (permissions !== undefined) await logActivity(orgId!, { type: "permissions_changed", agentId: session!.user.id, newValue: permissions === null ? "role template" : `${permissions.length} permissions`, note: user.name });
   return NextResponse.json({ user });
 }

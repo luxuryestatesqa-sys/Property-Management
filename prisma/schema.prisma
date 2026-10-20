@@ -43,6 +43,7 @@ model Organization {
   createdAt  DateTime  @default(now())
 
   users           User[]
+  teams           Team[]
   listings        Listing[]
   credentials     PortalCredential[]
   leads           Lead[]
@@ -151,6 +152,12 @@ model User {
   // for their role. Owners and Super Admins always have everything, whatever is saved here.
   permissions    Json?
 
+  // The team this person works in (Sales Team A, Marketing...). A Manager sees and manages the teams they are
+  // the manager of; see lib/scope.ts.
+  teamId       String?
+  team         Team?  @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  managedTeams Team[] @relation("TeamManager")
+
   // This agent's Property Finder public profile id (GET /v1/users), picked by
   // an admin from the real PF account list - never free text - so listings
   // this agent publishes are correctly attributed and their leads route to
@@ -167,6 +174,24 @@ model User {
   @@index([status])
   @@index([role])
   @@index([organizationId])
+  @@index([teamId])
+}
+
+// A group inside an agency (Sales Team A, Marketing...). Its manager sees the listings, leads and dashboard
+// of the people in it, and nothing of other teams. People belong to one team at most.
+model Team {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  managerId      String?
+  manager        User?        @relation("TeamManager", fields: [managerId], references: [id], onDelete: SetNull)
+  members        User[]       @relation("TeamMembers")
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([managerId])
 }
 
 // Property Finder's mandatory sale details (Qatar): the project status and how the buyer can pay.

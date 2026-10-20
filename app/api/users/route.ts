@@ -25,6 +25,8 @@ export async function GET() {
       createdAt: true,
       pfPublicProfileId: true,
       permissions: true,
+      team: { select: { id: true, name: true } },
+      managedTeams: { select: { id: true, name: true } },
       _count: { select: { listings: true } },
     },
   });
@@ -61,6 +63,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Only the Super Admin can add an Admin" }, { status: 403 });
   }
   const permissions = data.permissions === undefined ? null : normalizePermissions(data.permissions);
+  if (data.teamId) {
+    if (!can(session!.user, "teams.manage")) return NextResponse.json({ error: "You don't have permission to put people in teams" }, { status: 403 });
+    if (data.role === "ADMIN") return NextResponse.json({ error: "Admins are not part of a team" }, { status: 400 });
+    if (!(await db!.team.findFirst({ where: { id: data.teamId }, select: { id: true } }))) return NextResponse.json({ error: "Team not found" }, { status: 404 });
+  }
   if (permissions && permissions.some((p) => !can(session!.user, p))) {
     return NextResponse.json({ error: "You can only give permissions you have yourself" }, { status: 403 });
   }
@@ -82,6 +89,7 @@ export async function POST(req: NextRequest) {
       role: data.role,
       passwordHash,
       ...(permissions ? { permissions } : {}),
+      ...(data.teamId ? { teamId: data.teamId } : {}),
     },
     select: { id: true, name: true, email: true, whatsapp: true, avatarUrl: true, role: true, status: true, createdAt: true },
   });

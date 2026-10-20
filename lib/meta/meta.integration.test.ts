@@ -12,13 +12,8 @@ const run = process.env.RUN_TENANT_DB_TESTS === "1";
 const current = vi.hoisted(() => ({ session: null as null | { user: { id: string; role: string } }, orgId: "" }));
 vi.mock("@/lib/api-helpers", async () => {
   const { tenantDb } = await import("../tenant");
-  const { NextResponse } = await import("next/server");
-  const ctx = () => ({ session: current.session as never, db: tenantDb(current.orgId), orgId: current.orgId, error: null });
-  return {
-    requireSession: async () => ctx(),
-    requireAdmin: async () => (["OWNER", "ADMIN"].includes(current.session?.user.role ?? "") ? ctx() : { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Admin only" }, { status: 403 }) }),
-    parseJsonBody: async (req: NextRequest) => ({ value: await req.json().catch(() => ({})), error: null }),
-  };
+  const { fakeApiHelpers } = await import("../testing/apiHelpersMock");
+  return fakeApiHelpers(() => current, tenantDb);
 });
 
 const SECRET = "meta-app-secret";

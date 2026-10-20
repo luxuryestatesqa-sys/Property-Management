@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { qatarStartOfDay } from "@/lib/qatarTime";
 import { NextRequest, NextResponse } from "next/server";
@@ -11,9 +12,9 @@ function forbid() {
 // Everything the Leads Assignment page shows: the Unassigned inbox, each agent's
 // workload, the routing rules, and the latest assignment changes.
 export async function GET() {
-  const { session, db, error } = await requireSession();
+  const { session, db, scope: teamScope, error } = await requireSession();
   if (error) return error;
-  if (!can(session!.user, "leads.assign")) return forbid();
+  if (!can(session!.user, "leads.assign") || reachOf(session!.user, "leads.assign", teamScope) !== true) return forbid();
 
   const startOfToday = qatarStartOfDay();
   const weekAgo = new Date(Date.now() - 7 * 86400000);
@@ -70,9 +71,9 @@ export async function GET() {
 // { action: "assign", leadIds: [...], agentId }  - hand leads to one agent
 // { action: "apply-rules" }                      - run the rules over the Unassigned inbox
 export async function POST(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
-  if (!can(session!.user, "leads.assign")) return forbid();
+  if (!can(session!.user, "leads.assign") || reachOf(session!.user, "leads.assign", teamScope) !== true) return forbid();
   const { value: body, error: bodyError } = await parseJsonBody<{ action?: string; leadIds?: string[]; agentId?: string }>(req);
   if (bodyError) return bodyError;
 

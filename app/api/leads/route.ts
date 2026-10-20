@@ -1,3 +1,4 @@
+import { reachOf, reaches, leadsWhere } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -18,9 +19,11 @@ const MAX_LEADS = 300;
 // managers, admins and owners get the whole agency and can narrow by agent with
 // ?assignee=<userId> | unassigned. Everything is already scoped to the agency by `db`.
 export async function GET(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const manager = can(session!.user, "leads.viewAll");
+  // Whose leads this person may see: everyone's, their team's, or only their own.
+  const reach = reachOf(session!.user, "leads.viewAll", teamScope);
   const me = session!.user.id;
   const sp = req.nextUrl.searchParams;
 
@@ -34,8 +37,9 @@ export async function GET(req: NextRequest) {
     where.assignedToId = me;
   } else {
     const assignee = sp.get("assignee");
-    if (assignee === "unassigned") where.assignedToId = null;
-    else if (assignee && assignee !== "all") where.assignedToId = assignee;
+    if (assignee === "unassigned") where.assignedToId = reach === true ? null : { in: [] };
+    else if (assignee && assignee !== "all") where.assignedToId = reaches(reach, assignee) ? assignee : { in: [] };
+    else if (reach !== true) where.assignedToId = { in: reach };
   }
   const stage = sp.get("stage");
   if (stage && stage !== "all") where.stageId = stage;
@@ -91,20 +95,20 @@ export async function GET(req: NextRequest) {
   delete gridWhere.assignedToId;
   delete gridWhere.stageId;
   delete gridWhere.tasks; // the follow-up tabs do not change the overall numbers
-  if (!manager) gridWhere.assignedToId = me;
+  if (reach !== true) gridWhere.assignedToId = { in: reach };
   const grouped = await db!.lead.groupBy({ by: ["assignedToId", "stageId"], where: gridWhere, _count: { _all: true } });
   const countGrid = grouped.map((g) => ({ assignedToId: g.assignedToId, stageId: g.stageId, count: g._count._all }));
   let agents: { id: string; name: string; avatarUrl: string | null }[] = [];
   let agentCounts: { assignedToId: string | null; count: number }[] = [];
   if (manager) {
-    agents = (await db!.user.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } })).map((a) => avatarLink(a)!);
+    agents = (await db!.user.findMany({ where: { status: "ACTIVE", ...(reach === true ? {} : { id: { in: reach } }) }, select: { id: true, name: true, avatarUrl: true }, orderBy: { name: "asc" } })).map((a) => avatarLink(a)!);
     agentCounts = [...new Set(countGrid.map((c) => c.assignedToId))].map((id) => ({ assignedToId: id, count: agentCount(countGrid, id) }));
   }
 
   // Leads that share a phone number or email with another lead the person may see: the "Duplicate" badge.
   const phones = [...new Set(leads.flatMap((l) => (l.phone ? [l.phone] : [])))];
   const emails = [...new Set(leads.flatMap((l) => (l.email ? [l.email.toLowerCase()] : [])))];
-  const scope: Prisma.LeadWhereInput = manager ? {} : { assignedToId: me };
+  const scope: Prisma.LeadWhereInput = leadsWhere(reach);
   const [phoneGroups, emailGroups] = await Promise.all([
     phones.length ? db!.lead.groupBy({ by: ["phone"], where: { ...scope, phone: { in: phones } }, _count: { _all: true } }) : [],
     emails.length ? db!.lead.groupBy({ by: ["email"], where: { ...scope, email: { in: emails, mode: "insensitive" } }, _count: { _all: true } }) : [],
@@ -119,9 +123,9 @@ export async function GET(req: NextRequest) {
   const [dueToday, overdue] = await Promise.all([db!.lead.count({ where: { ...tabBase, ...dueWhere("today") } }), db!.lead.count({ where: { ...tabBase, ...dueWhere("overdue") } })]);
 
   const newStageId = stages.find((s) => s.kind === "OPEN")?.id;
-  const newCount = await db!.lead.count({ where: { ...(manager ? {} : { assignedToId: me }), stageId: newStageId } });
+  const newCount = await db!.lead.count({ where: { ...leadsWhere(reach), stageId: newStageId } });
   // Leads with no agent, whatever filters are on (the badge on the More button must not change with them).
-  const unassignedCount = manager ? await db!.lead.count({ where: { assignedToId: null } }) : 0;
+  const unassignedCount = manager && reach === true ? await db!.lead.count({ where: { assignedToId: null } }) : 0;
 
   return NextResponse.json({
     leads: leads.map((l) => ({
@@ -165,7 +169,7 @@ export async function GET(req: NextRequest) {
 // chooses the agent, lets the assignment rules decide, or leaves it Unassigned. A phone number
 // or email we already have is refused unless `force` is sent ("add anyway").
 export async function POST(req: NextRequest) {
-  const { session, db, orgId, error } = await requireSession();
+  const { session, db, orgId, scope: teamScope, error } = await requireSession();
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<{ name?: string; phone?: string; email?: string; region?: string; notes?: string; channel?: string; assign?: { mode?: string; agentId?: string }; stageId?: string; force?: boolean }>(req);
   if (bodyError) return bodyError;
@@ -175,6 +179,10 @@ export async function POST(req: NextRequest) {
   if (String(body?.phone ?? "").trim() && !normalizePhone(body?.phone)) return NextResponse.json({ error: "Enter a valid phone number" }, { status: 400 });
 
   const manager = can(session!.user, "leads.viewAll");
+  const reach = reachOf(session!.user, "leads.viewAll", teamScope);
+  // A team manager gives leads to their own team only, so the agency-wide rules are not theirs to run.
+  if (reach !== true && body?.assign?.mode === "rules") return NextResponse.json({ error: "Assignment rules are run by your agency admin" }, { status: 403 });
+  if (body?.assign?.mode === "agent" && body.assign.agentId && !reaches(reach, body.assign.agentId)) return NextResponse.json({ error: "You can only assign to people in your team" }, { status: 403 });
   const mode = manager && (body?.assign?.mode === "rules" || body?.assign?.mode === "agent" || body?.assign?.mode === "none") ? body.assign.mode : "self";
   if (mode === "agent" && !body?.assign?.agentId) return NextResponse.json({ error: "Choose an agent" }, { status: 400 });
   const origin = resolveOrigin(body?.channel);
