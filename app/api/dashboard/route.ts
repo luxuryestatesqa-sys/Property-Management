@@ -2,16 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { isManagerRole } from "@/lib/roles";
 import { averageMinutes, percent, portalStatus } from "@/lib/dashboardStats";
+import { ttlCache } from "@/lib/ttlCache";
 import { qatarDay, shiftDay, qatarStartOfDay } from "@/lib/qatarTime";
 
 const DAY = 86400000;
+
+// The numbers cover a whole agency and cost about twenty queries, so every manager who opens the page with the
+// same filters within 30 seconds gets the same answer.
+const answers = ttlCache<unknown>(30_000, 500);
 
 // Filters change the answer on every request, so this is never cached.
 export const dynamic = "force-dynamic";
 
 // Numbers for the dashboard. Managers, admins and owners only: it covers the whole agency.
 export async function GET(req: NextRequest) {
-  const { session, db, error } = await requireSession();
+  const { session, db, orgId, error } = await requireSession();
   if (error) return error;
   if (!isManagerRole(session!.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -22,6 +27,10 @@ export async function GET(req: NextRequest) {
   const typeQ = q.get("type") === "SALE" || q.get("type") === "RENT" ? (q.get("type") as "SALE" | "RENT") : null;
   const sourceQ = ["PROPERTY_FINDER", "META", "MANUAL", "IMPORT"].includes(q.get("source") ?? "") ? (q.get("source") as "PROPERTY_FINDER" | "META" | "MANUAL" | "IMPORT") : null;
   const agentId = agentQ && agentQ !== "unassigned" ? agentQ : null;
+
+  const cacheKey = `${orgId}|${q.toString()}`;
+  const cached = answers.get(cacheKey);
+  if (cached) return NextResponse.json(cached);
 
   const leadBase = { ...(sourceQ ? { source: sourceQ } : {}), ...(typeQ ? { listing: { listingType: typeQ } } : {}) };
   const leadWhere = { ...leadBase, ...(agentQ === "unassigned" ? { assignedToId: null } : agentId ? { assignedToId: agentId } : {}) };
@@ -99,7 +108,7 @@ export async function GET(req: NextRequest) {
   const perAgentRows = perAgentAll.length > 8 ? [...perAgentAll.slice(0, 7), { id: null, name: `Other (${perAgentAll.length - 7})`, count: perAgentAll.slice(7).reduce((n, r) => n + r.count, 0) }] : perAgentAll;
   const stageCount = new Map(stageCounts.map((r) => [r.stageId, r._count._all]));
 
-  return NextResponse.json({
+  const payload = {
     filters: { days, agent: agentQ, type: typeQ, source: sourceQ },
     agents: agents.map((a) => ({ id: a.id, name: a.name })).sort((a, b) => a.name.localeCompare(b.name)),
     leadsDaily: dayList.map((d) => ({ day: d, count: perDay.get(d) ?? 0 })),
@@ -126,5 +135,7 @@ export async function GET(req: NextRequest) {
     }),
     viewings,
     leases: leases.map((l) => ({ id: l.id, name: l.buildingName, community: l.community, leaseEndDate: l.leaseEndDate, daysLeft: Math.ceil((l.leaseEndDate!.getTime() - now) / DAY) })),
-  });
+  };
+  answers.set(cacheKey, payload);
+  return NextResponse.json(payload);
 }

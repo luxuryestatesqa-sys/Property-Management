@@ -8,7 +8,7 @@ vi.mock("@/lib/tenant", () => ({
   tenantDb: () => ({ listing: { findMany: (...args: unknown[]) => findMany(...args) } }),
 }));
 
-const { FEED_SLUGS, generateFeed } = await import("./generateFeed");
+const { FEED_SLUGS, generateFeed, clearFeedCache } = await import("./generateFeed");
 const { toQatarLivingListing } = await import("@/lib/qatarLiving/listingMapper");
 
 // Every Listing column that is private or internal. None of these names, and
@@ -74,6 +74,7 @@ const ROW = {
 
 describe("feed privacy", () => {
   beforeEach(() => {
+    clearFeedCache();
     findMany.mockReset();
     findMany.mockResolvedValue([ROW]);
     process.env.APP_BASE_URL = "https://crm.example.com";

@@ -1,3 +1,4 @@
+import { rateLimited } from "@/lib/rateLimit";
 import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -19,6 +20,8 @@ const bodySchema = z.object({
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, db, error } = await requireSession();
   if (error) return error;
+  // One person adding photos non-stop (a script, a stuck retry loop) must not use up the server for everyone else.
+  if (rateLimited(`photos:${session!.user.id}`, 120, 60_000)) return NextResponse.json({ error: "Too many photo uploads. Wait a minute and try again." }, { status: 429 });
   const { id } = await params;
   const listingId = Number(id);
   if (!Number.isInteger(listingId)) return NextResponse.json({ error: "Not found" }, { status: 404 });

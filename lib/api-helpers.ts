@@ -3,6 +3,13 @@ import { auth } from "@/auth";
 import { tenantDb } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { isAdminRole } from "@/lib/roles";
+import { ttlCache } from "@/lib/ttlCache";
+
+// Every request re-checks the user against the database; with thousands of agents that is the busiest
+// query, so the answer is reused for a few seconds. A deactivated user or suspended agency is locked
+// out within this time instead of instantly.
+const LIVE_USER_TTL_MS = 15_000;
+const liveUsers = ttlCache<{ status: string; role: string; organizationId: string; organization: { status: string } } | null>(LIVE_USER_TTL_MS, 5000);
 
 // Every authenticated route starts here. Besides the session it returns `db`,
 // a database client locked to the caller's agency (see lib/tenant.ts) - use it
@@ -16,10 +23,14 @@ export async function requireSession() {
   // The signed-in token can outlive the account it was issued for, so every request
   // is checked against the database: a removed or deactivated user, a suspended
   // agency, or a changed role takes effect immediately, not when the token expires.
-  const live = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { status: true, role: true, organizationId: true, organization: { select: { status: true } } },
-  });
+  let live = liveUsers.get(session.user.id);
+  if (live === undefined) {
+    live = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { status: true, role: true, organizationId: true, organization: { select: { status: true } } },
+    });
+    liveUsers.set(session.user.id, live);
+  }
   if (!live || live.organizationId !== session.user.organizationId) {
     return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }

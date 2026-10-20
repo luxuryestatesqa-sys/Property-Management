@@ -1,3 +1,4 @@
+import { ttlCache } from "@/lib/ttlCache";
 import { createHash } from "crypto";
 import { Portal, Prisma } from "@prisma/client";
 import { tenantDb } from "@/lib/tenant";
@@ -193,9 +194,18 @@ function computeEtag(portal: Portal, listings: FeedListing[]): string {
 // separate cache-clearing step needed.
 const bodyCache = new Map<string, string>();
 
+// Portals poll often and an agency's feed is the same for everyone who asks within a minute, so the finished
+// result is reused for 60 seconds instead of querying every listing and photo again.
+const feedResults = ttlCache<FeedResult>(60_000, 500);
+export const clearFeedCache = () => feedResults.clear();
+
 export async function generateFeed(orgId: string, slug: string, filters: FeedFilters = {}, requestOrigin?: string): Promise<FeedResult | null> {
   const entry = FEED_SLUGS[slug];
   if (!entry) return null;
+
+  const cacheKey = JSON.stringify([orgId, slug, filters.type ?? null, filters.updatedSince?.toISOString() ?? null, requestOrigin ?? null]);
+  const cached = feedResults.get(cacheKey);
+  if (cached) return cached;
 
   const listings = await loadFeedListings(orgId, entry.portal, filters, requestOrigin);
   const etag = computeEtag(entry.portal, listings);
@@ -212,5 +222,7 @@ export async function generateFeed(orgId: string, slug: string, filters: FeedFil
     }
   }
 
-  return { body, etag };
+  const result = { body, etag };
+  feedResults.set(cacheKey, result);
+  return result;
 }

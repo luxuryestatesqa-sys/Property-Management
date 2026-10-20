@@ -1,3 +1,4 @@
+import { rateLimited } from "@/lib/rateLimit";
 import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -169,6 +170,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
+  if (rateLimited(`listing-create:${session!.user.id}`, 60, 60_000)) return NextResponse.json({ error: "Too many listings created at once. Wait a minute and try again." }, { status: 429 });
 
   const { value: body, error: bodyError } = await parseJsonBody(req);
   if (bodyError) return bodyError;
