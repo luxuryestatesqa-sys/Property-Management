@@ -1,8 +1,8 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { visibleListingsWhere } from "@/lib/listingPrivacy";
 import { QATAR_AREAS, QATAR_COMMUNITIES_BY_AREA, QATAR_LOCATION_SUGGESTIONS, LocationSuggestion } from "@/lib/qatarLocations";
-import { isAdminRole } from "@/lib/roles";
 
 // Merges real DB values with a curated list, case-insensitively deduped and
 // sorted, so suggestions are useful even where no listing exists yet.
@@ -34,7 +34,7 @@ function jsonCached(body: unknown) {
 export async function GET(req: NextRequest) {
   const { session, db, error } = await requireSession();
   if (error) return error;
-  const visible = visibleListingsWhere(session!.user.id, isAdminRole(session!.user.role));
+  const visible = visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll"));
 
   const sp = req.nextUrl.searchParams;
   const level = sp.get("level") ?? "area";

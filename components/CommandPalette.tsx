@@ -1,9 +1,9 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { isAdminRole } from "@/lib/roles";
 import { IconSearch, IconPlus, IconBuilding, IconList, IconChevronRight, IconUsers, IconSettings } from "./desktop/icons";
 
 export const OPEN_PALETTE_EVENT = "open-command-palette";
@@ -27,7 +27,7 @@ export default function CommandPalette() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const isAdmin = isAdminRole(session?.user?.role);
+  const isAdmin = can(session?.user, "users.manage");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

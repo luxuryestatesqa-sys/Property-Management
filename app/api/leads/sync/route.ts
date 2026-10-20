@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { syncPropertyFinderLeads, LeadsScopeError } from "@/lib/leads/sync";
 import { describePropertyFinderError, PropertyFinderApiError } from "@/lib/propertyFinder/client";
 import { PropertyFinderNotConfiguredError } from "@/lib/propertyFinder/auth";
@@ -8,7 +8,7 @@ import { PropertyFinderNotConfiguredError } from "@/lib/propertyFinder/auth";
 // this agency. Webhooks keep things current in real time; this backfills history
 // and catches anything a webhook missed.
 export async function POST() {
-  const { orgId, error } = await requireAdmin();
+  const { orgId, error } = await requirePermission("settings.integrations");
   if (error) return error;
   try {
     const result = await syncPropertyFinderLeads(orgId!);

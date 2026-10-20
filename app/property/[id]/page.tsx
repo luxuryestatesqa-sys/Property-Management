@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import ViewingsCard from "@/components/ViewingsCard";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -49,7 +50,6 @@ import PropertyDetailSkeleton from "@/components/PropertyDetailSkeleton";
 import PublishToPortalsCard from "@/components/PublishToPortalsCard";
 import { usePfStatusPolling } from "@/lib/usePfStatusPolling";
 import { bathroomsToInputValue, bathroomsFromInputValue, pfLayoutNote } from "@/lib/propertyFinder/mapping";
-import { isAdminRole } from "@/lib/roles";
 import { splitPhotoBatches } from "@/lib/photoBatches";
 import SaleDetailsFields, { SaleDetailsSummary, saleDetailsPayload, saleDetailsProblem, type SaleDetailsValue } from "@/components/SaleDetailsFields";
 
@@ -152,7 +152,7 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (!openInEditMode || !listing || !session?.user) return;
-    const canManage = session.user.id === listing.createdById || isAdminRole(session.user.role);
+    const canManage = session.user.id === listing.createdById || can(session.user, "listings.editAll");
     if (canManage) setEditing(true);
     router.replace(`/property/${id}`, { scroll: false });
     // Only meant to fire once, right after the initial load navigated here with ?edit=1.
@@ -160,7 +160,7 @@ export default function PropertyDetailPage() {
   }, [openInEditMode, listing, session]);
 
   // Only the owner/admin can refresh Property Finder's status, so only they poll.
-  const mayPollPf = Boolean(listing && (session?.user?.id === listing.createdById || isAdminRole(session?.user?.role)));
+  const mayPollPf = Boolean(listing && (session?.user?.id === listing.createdById || can(session?.user, "listings.editAll")));
   usePfStatusPolling(
     mayPollPf ? listing?.id : undefined,
     listing?.propertyFinderState,
@@ -183,7 +183,7 @@ export default function PropertyDetailPage() {
   }
 
   const isOwner = session?.user?.id === listing.createdById;
-  const isAdmin = isAdminRole(session?.user?.role);
+  const isAdmin = can(session?.user, "listings.editAll");
   const canManage = isOwner || isAdmin;
   const isRent = listing.listingType === "RENT";
 

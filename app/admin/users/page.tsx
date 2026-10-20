@@ -12,6 +12,8 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { ROLE_LABELS } from "@/lib/roles";
 import RowMenu from "@/components/desktop/RowMenu";
+import { UserPermissionsModal, RoleTemplatesModal } from "@/components/PermissionsModal";
+import { isSuperAdminRole } from "@/lib/permissions";
 
 // One colour per role, used for the badge and the avatar ring.
 const ROLE_STYLE: Record<string, { bg: string; fg: string }> = {
@@ -32,6 +34,9 @@ export default function AdminUsersPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [resetUser, setResetUser] = useState<UserDTO | null>(null);
   const [pfLinkUser, setPfLinkUser] = useState<UserDTO | null>(null);
+  const [permUser, setPermUser] = useState<UserDTO | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const iAmSuperAdmin = isSuperAdminRole(session?.user?.role);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roleTab, setRoleTab] = useState<"ALL" | "ADMIN" | "MANAGER" | "AGENT" | "INACTIVE">("ALL");
   const [search, setSearch] = useState("");
@@ -74,7 +79,7 @@ export default function AdminUsersPage() {
   async function changeRole(u: UserDTO, role: "ADMIN" | "MANAGER" | "AGENT") {
     const confirmed = await confirm({
       title: `Make ${ROLE_LABELS[role]}?`,
-      message: `${u.name} will become ${role === "ADMIN" ? "an Admin with full access to settings, users and every listing" : role === "MANAGER" ? "a Manager who can see and assign all of the agency's work" : "an Agent"}.`,
+      message: `${u.name} will become ${role === "ADMIN" ? "a Super Admin with full access to settings, users and every listing" : role === "MANAGER" ? "a Manager who can see and assign all of the agency's work" : "an Agent"}.`,
       confirmLabel: "Change role",
     });
     if (!confirmed) return;
@@ -131,13 +136,20 @@ export default function AdminUsersPage() {
             <h1 className="text-[28px] font-semibold leading-none tracking-[-0.025em]">Users</h1>
             <p className="mt-2.5 text-[15px] text-muted">Manage your team, their access and Property Finder links.</p>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-            style={{ background: "var(--primary)" }}
-          >
-            + Add User
-          </button>
+          <div className="flex items-center gap-3">
+            {iAmSuperAdmin && (
+              <button onClick={() => setShowTemplates(true)} className="rounded-xl border border-border bg-surface px-5 py-3 text-[14px] font-semibold transition-colors hover:bg-surface-muted">
+                Role permissions
+              </button>
+            )}
+            <button
+              onClick={() => setShowAdd(true)}
+              className="rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+              style={{ background: "var(--primary)" }}
+            >
+              + Add User
+            </button>
+          </div>
         </div>
 
         {(() => {
@@ -169,7 +181,7 @@ export default function AdminUsersPage() {
             {(
               [
                 ["ALL", "All", users.length],
-                ["ADMIN", "Admins", users.filter((u) => u.role === "OWNER" || u.role === "ADMIN").length],
+                ["ADMIN", "Super Admins", users.filter((u) => u.role === "OWNER" || u.role === "ADMIN").length],
                 ["MANAGER", "Managers", users.filter((u) => u.role === "MANAGER").length],
                 ["AGENT", "Agents", users.filter((u) => u.role === "AGENT").length],
                 ["INACTIVE", "Inactive", users.filter((u) => u.status === "INACTIVE").length],
@@ -283,10 +295,11 @@ export default function AdminUsersPage() {
                               disabled={busyId === u.id}
                               items={[
                                 { label: "Reset password", onClick: () => setResetUser(u) },
+{ label: "Permissions…", onClick: () => setPermUser(u), hidden: u.role === "OWNER" || u.role === "ADMIN" },
                                 { label: u.pfPublicProfileId ? "Property Finder account…" : "Link Property Finder…", onClick: () => setPfLinkUser(u) },
                                 { label: "Make Agent", onClick: () => changeRole(u, "AGENT"), hidden: u.role === "AGENT" || u.role === "OWNER", separator: true },
                                 { label: "Make Manager", onClick: () => changeRole(u, "MANAGER"), hidden: u.role === "MANAGER" || u.role === "OWNER", separator: u.role === "AGENT" ? true : false },
-                                { label: "Make Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" },
+                                { label: "Make Super Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" || !iAmSuperAdmin },
                                 { label: u.status === "ACTIVE" ? "Deactivate user" : "Activate user", onClick: () => toggleStatus(u), separator: true },
                                 { label: "Remove user", onClick: () => removeUser(u), danger: true },
                               ]}
@@ -310,6 +323,8 @@ export default function AdminUsersPage() {
         )}
 
         {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onCreated={load} />}
+{permUser && <UserPermissionsModal user={permUser} onClose={() => setPermUser(null)} onSaved={load} />}
+{showTemplates && <RoleTemplatesModal onClose={() => setShowTemplates(false)} />}
         {resetUser && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />}
         {pfLinkUser && <LinkPropertyFinderModal user={pfLinkUser} onClose={() => setPfLinkUser(null)} onSaved={load} />}
       </div>
@@ -323,13 +338,20 @@ export default function AdminUsersPage() {
           <h1 className="text-xl font-bold lg:text-3xl lg:tracking-tight">Users</h1>
           <p className="hidden lg:block text-[14px] text-muted mt-1">Manage your team, their access and portal links.</p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="rounded-xl px-4 py-2.5 text-[13px] font-semibold text-white active:opacity-80 lg:px-5 lg:hover:opacity-90"
-          style={{ background: "var(--primary)" }}
-        >
-          + Add User
-        </button>
+        <div className="flex items-center gap-2">
+          {iAmSuperAdmin && (
+            <button onClick={() => setShowTemplates(true)} className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[13px] font-semibold active:opacity-80">
+              Role permissions
+            </button>
+          )}
+          <button
+            onClick={() => setShowAdd(true)}
+            className="rounded-xl px-4 py-2.5 text-[13px] font-semibold text-white active:opacity-80 lg:px-5 lg:hover:opacity-90"
+            style={{ background: "var(--primary)" }}
+          >
+            + Add User
+          </button>
+        </div>
       </div>
 
       {/* Phones: the numbers scroll sideways, then search and a role filter */}
@@ -359,7 +381,7 @@ export default function AdminUsersPage() {
             {(
               [
                 ["ALL", "All"],
-                ["ADMIN", "Admins"],
+                ["ADMIN", "Super Admins"],
                 ["MANAGER", "Managers"],
                 ["AGENT", "Agents"],
                 ["INACTIVE", "Inactive"],
@@ -407,10 +429,11 @@ export default function AdminUsersPage() {
                       disabled={busyId === u.id}
                       items={[
                         { label: "Reset password", onClick: () => setResetUser(u) },
+{ label: "Permissions…", onClick: () => setPermUser(u), hidden: u.role === "OWNER" || u.role === "ADMIN" },
                         { label: u.pfPublicProfileId ? "Property Finder account…" : "Link Property Finder…", onClick: () => setPfLinkUser(u) },
                         { label: "Make Agent", onClick: () => changeRole(u, "AGENT"), hidden: u.role === "AGENT" || u.role === "OWNER", separator: true },
                         { label: "Make Manager", onClick: () => changeRole(u, "MANAGER"), hidden: u.role === "MANAGER" || u.role === "OWNER" },
-                        { label: "Make Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" },
+                        { label: "Make Super Admin", onClick: () => changeRole(u, "ADMIN"), hidden: u.role === "ADMIN" || u.role === "OWNER" || !iAmSuperAdmin },
                         { label: u.status === "ACTIVE" ? "Deactivate user" : "Activate user", onClick: () => toggleStatus(u), separator: true },
                         { label: "Remove user", onClick: () => removeUser(u), danger: true },
                       ]}
@@ -443,6 +466,8 @@ export default function AdminUsersPage() {
       )}
 
       {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onCreated={load} />}
+{permUser && <UserPermissionsModal user={permUser} onClose={() => setPermUser(null)} onSaved={load} />}
+{showTemplates && <RoleTemplatesModal onClose={() => setShowTemplates(false)} />}
       {resetUser && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />}
       {pfLinkUser && <LinkPropertyFinderModal user={pfLinkUser} onClose={() => setPfLinkUser(null)} onSaved={load} />}
     </div>

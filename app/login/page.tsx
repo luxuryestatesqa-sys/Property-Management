@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,8 +33,8 @@ function LoginForm() {
     // Admins land on the dashboard; everyone else on the property search (unless they were sent here from a page).
     let home = "/";
     try {
-      const role = (await (await fetch("/api/auth/session")).json())?.user?.role;
-      if (role === "OWNER" || role === "ADMIN") home = "/dashboard";
+      const sessionUser = (await (await fetch("/api/auth/session")).json())?.user;
+      if (can(sessionUser, "dashboard.view")) home = "/dashboard";
     } catch {}
     router.push(searchParams.get("callbackUrl") ?? home);
     router.refresh();

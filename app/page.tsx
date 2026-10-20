@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -15,7 +16,6 @@ import SegmentedCounts from "@/components/desktop/SegmentedCounts";
 import QuickFilters from "@/components/desktop/QuickFilters";
 import { IconSearch, IconFilter, IconClose, IconGrid, IconList } from "@/components/desktop/icons";
 import { useIsDesktop } from "@/lib/useIsDesktop";
-import { isAdminRole } from "@/lib/roles";
 
 // The filter sheet pulls in range sliders, chip selects and location
 // autocomplete - all dead weight until the user actually opens it, so it's
@@ -37,7 +37,7 @@ function QuerySync({ onQuery, written }: { onQuery: (q: string) => void; written
 
 export default function PropertiesPage() {
   const { data: session, status: sessionStatus } = useSession();
-  const isAdmin = isAdminRole(session?.user?.role);
+  const isAdmin = can(session?.user, "listings.viewAll");
   const isDesktop = useIsDesktop();
 
   // Desktop-only: cards or a dense table. Remembered per browser.

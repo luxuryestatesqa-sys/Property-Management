@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { averageMinutes, percent, portalStatus } from "@/lib/dashboardStats";
 import { ttlCache } from "@/lib/ttlCache";
 import { qatarDay, shiftDay, qatarStartOfDay } from "@/lib/qatarTime";
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
-  if (!isManagerRole(session!.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!can(session!.user, "dashboard.view")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Filters from the page: ?days=7|30|90 &agent=<userId>|unassigned &type=SALE|RENT &source=PROPERTY_FINDER|META|MANUAL|IMPORT
   const q = req.nextUrl.searchParams;

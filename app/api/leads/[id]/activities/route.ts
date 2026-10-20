@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { advanceOnFirstContact } from "@/lib/leads/stages";
 
 const TYPES = new Set(["NOTE", "CALL_LOGGED", "WHATSAPP_LOGGED", "VIEWING_BOOKED"]);
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const lead = await db!.lead.findFirst({ where: { id } });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  if (!isManagerRole(session!.user.role) && lead.assignedToId !== session!.user.id) {
+  if (!can(session!.user, "leads.viewAll") && lead.assignedToId !== session!.user.id) {
     return NextResponse.json({ error: "Not your lead" }, { status: 403 });
   }
 

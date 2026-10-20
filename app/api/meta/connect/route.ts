@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { signValue } from "@/lib/crypto";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 import { META_CALLBACK_PATH, missingMetaEnv } from "@/lib/meta/config";
@@ -10,7 +10,7 @@ const back = (req: NextRequest, meta: string) => NextResponse.redirect(new URL(`
 // Starts "Connect Facebook": sends the admin to Facebook to choose which Pages to share. The signed
 // `state` ties the way back to this agency and this person.
 export async function GET(req: NextRequest) {
-  const { session, orgId, error } = await requireAdmin();
+  const { session, orgId, error } = await requirePermission("settings.integrations");
   if (error) return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
   if (missingMetaEnv().length) return back(req, "not_configured");
 

@@ -223,6 +223,8 @@ export const userCreateSchema = z.object({
   password: passwordSchema,
   // OWNER is only ever created by signing an agency up, never assigned here.
   role: z.enum(["ADMIN", "MANAGER", "AGENT"]).default("AGENT"),
+  // What a Manager or Agent may do (keys from lib/permissions.ts). Left out = follow the role's template.
+  permissions: z.array(z.string()).max(50).optional(),
 });
 
 export const orgUpdateSchema = z.object({

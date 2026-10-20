@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { getCreditBalance, describePropertyFinderError } from "@/lib/propertyFinder/client";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 
@@ -59,7 +59,7 @@ async function checkImageReachability(): Promise<ImageReachabilityResult> {
 // confirms this app's own listing-photo URLs are publicly reachable, since
 // Property Finder needs both to actually show a listing with working photos.
 export async function POST() {
-  const { orgId, error } = await requireAdmin();
+  const { orgId, error } = await requirePermission("settings.integrations");
   if (error) return error;
 
   const imageReachability = await checkImageReachability();

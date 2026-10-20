@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -19,7 +20,6 @@ import SearchableSelect from "@/components/SearchableSelect";
 import SegmentedControl from "@/components/SegmentedControl";
 import PropertyFinderPreviewSheet from "@/components/PropertyFinderPreviewSheet";
 import PortalPreviewSheet from "@/components/PortalPreviewSheet";
-import { isAdminRole } from "@/lib/roles";
 
 interface PFUserOption {
   publicProfileId: number;
@@ -243,7 +243,7 @@ export default function MultiPortalPublishingPage() {
   }
 
   const isOwner = session?.user?.id === listing.createdById;
-  const isAdmin = isAdminRole(session?.user?.role);
+  const isAdmin = can(session?.user, "listings.editAll");
   const canManage = isOwner || isAdmin;
 
   if (!canManage) {

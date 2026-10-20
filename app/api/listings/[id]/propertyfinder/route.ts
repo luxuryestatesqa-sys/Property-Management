@@ -1,3 +1,4 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import {
@@ -7,7 +8,6 @@ import {
   unpublishListingFromPropertyFinder,
   resetPropertyFinderListing,
 } from "@/lib/propertyFinder/sync";
-import { isAdminRole } from "@/lib/roles";
 
 // Publishing can retry for several seconds while Property Finder finishes creating a new listing.
 export const maxDuration = 60;
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.editAll");
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only publish your own listings" }, { status: 403 });
   }

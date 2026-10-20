@@ -1,8 +1,8 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { avatarLink } from "@/lib/avatar";
 import { ACTIVITY_FROM, buildWhere, parseFilters, qatarEndExclusive, qatarStart } from "@/lib/activityQuery";
 
@@ -11,7 +11,7 @@ import { ACTIVITY_FROM, buildWhere, parseFilters, qatarEndExclusive, qatarStart 
 export async function GET(req: NextRequest) {
   const { session, orgId, error } = await requireSession();
   if (error) return error;
-  const manager = isManagerRole(session!.user.role);
+  const manager = can(session!.user, "activities.viewAll");
   const f = parseFilters(req.nextUrl.searchParams);
   const where = buildWhere(orgId!, f, { id: session!.user.id, manager });
 

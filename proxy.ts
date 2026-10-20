@@ -1,11 +1,10 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { isAdminRole } from "@/lib/roles";
+import { can } from "@/lib/permissions";
 
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
-  const role = req.auth?.user?.role;
 
   const isAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password"].includes(nextUrl.pathname);
   const isAdminPage = nextUrl.pathname.startsWith("/admin");
@@ -57,7 +56,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/", nextUrl));
   }
 
-  if (isAdminPage && !isAdminRole(role)) {
+  if (isAdminPage && !can(req.auth?.user, "users.manage")) {
     return NextResponse.redirect(new URL("/", nextUrl));
   }
 

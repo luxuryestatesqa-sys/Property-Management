@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, verifyValue } from "@/lib/crypto";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
@@ -12,7 +12,7 @@ const back = (req: NextRequest, meta: string, extra = "") => NextResponse.redire
 // they manage and save each one (switched off) with its own Page token, encrypted. The admin then
 // turns on the Pages they want in Settings.
 export async function GET(req: NextRequest) {
-  const { session, orgId, error } = await requireAdmin();
+  const { session, orgId, error } = await requirePermission("settings.integrations");
   if (error) return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
   const sp = req.nextUrl.searchParams;
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, parseJsonBody } from "@/lib/api-helpers";
+import { requirePermission, parseJsonBody } from "@/lib/api-helpers";
 
 // { active: boolean } turns a rule on/off; { direction: "up" | "down" } moves it in the order.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("leads.rules");
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ active?: boolean; direction?: string }>(req);
@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("leads.rules");
   if (error) return error;
   const { id } = await params;
   const r = await db!.assignmentRule.deleteMany({ where: { id } });

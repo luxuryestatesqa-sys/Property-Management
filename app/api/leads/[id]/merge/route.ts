@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 
 // Merge a duplicate lead INTO this one. Everything the duplicate had (timeline, follow-ups, viewings,
 // groups) moves over, blanks on this lead are filled from it, and the duplicate is removed. Nothing is
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const fromId = body?.fromId;
   if (!fromId || fromId === id) return NextResponse.json({ error: "Choose a different lead to merge" }, { status: 400 });
 
-  const mine = isManagerRole(session!.user.role) ? {} : { assignedToId: session!.user.id };
+  const mine = can(session!.user, "leads.viewAll") ? {} : { assignedToId: session!.user.id };
   const [keep, dupe] = await Promise.all([db!.lead.findFirst({ where: { id, ...mine } }), db!.lead.findFirst({ where: { id: fromId, ...mine } })]);
   if (!keep || !dupe) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 

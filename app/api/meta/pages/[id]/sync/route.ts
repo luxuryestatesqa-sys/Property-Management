@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { friendlyGraphError, recordPageError, syncPage } from "@/lib/meta/sync";
 
 // "Fetch leads now": pulls the leads Meta still holds for this Page (up to 90 days) and saves any we
 // don't have yet. Useful right after connecting, and to catch anything a webhook missed. Send
 // { formId } to fetch just one form. Forms the agency switched off are skipped.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("settings.integrations");
   if (error) return error;
   const { id } = await params;
   const body = (await req.json().catch(() => null)) as { formId?: unknown } | null;

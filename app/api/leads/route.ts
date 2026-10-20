@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { ensureStages, themedStages } from "@/lib/leads/stages";
 import { createLeads, IntakeError } from "@/lib/leads/intake";
 import { normalizeEmail, normalizePhone, resolveOrigin } from "@/lib/leads/csv";
@@ -20,7 +20,7 @@ const MAX_LEADS = 300;
 export async function GET(req: NextRequest) {
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
-  const manager = isManagerRole(session!.user.role);
+  const manager = can(session!.user, "leads.viewAll");
   const me = session!.user.id;
   const sp = req.nextUrl.searchParams;
 
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
   if (String(body?.email ?? "").trim() && !normalizeEmail(body?.email)) return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
   if (String(body?.phone ?? "").trim() && !normalizePhone(body?.phone)) return NextResponse.json({ error: "Enter a valid phone number" }, { status: 400 });
 
-  const manager = isManagerRole(session!.user.role);
+  const manager = can(session!.user, "leads.viewAll");
   const mode = manager && (body?.assign?.mode === "rules" || body?.assign?.mode === "agent" || body?.assign?.mode === "none") ? body.assign.mode : "self";
   if (mode === "agent" && !body?.assign?.agentId) return NextResponse.json({ error: "Choose an agent" }, { status: 400 });
   const origin = resolveOrigin(body?.channel);

@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { createLeads, IntakeError, type NewLeadInput } from "@/lib/leads/intake";
 import { parseReceivedAt, resolveOrigin } from "@/lib/leads/csv";
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   if (rows.length === 0) return NextResponse.json({ error: "The file has no leads in it" }, { status: 400 });
   if (rows.length > MAX_ROWS) return NextResponse.json({ error: `Import up to ${MAX_ROWS} leads at a time. This file has ${rows.length}.` }, { status: 400 });
 
-  const manager = isManagerRole(session!.user.role);
+  const manager = can(session!.user, "leads.assign");
   const mode = manager && (body?.assign?.mode === "rules" || body?.assign?.mode === "agent" || body?.assign?.mode === "none") ? body.assign.mode : "self";
   if (mode === "agent" && !body?.assign?.agentId) return NextResponse.json({ error: "Choose an agent" }, { status: 400 });
   const origin = resolveOrigin(body?.channel);

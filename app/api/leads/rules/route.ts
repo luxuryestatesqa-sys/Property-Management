@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, parseJsonBody } from "@/lib/api-helpers";
+import { requirePermission, parseJsonBody } from "@/lib/api-helpers";
 import { shareOf } from "@/lib/leads/rules";
 
 // Create a routing rule (admins and owners). Added at the end of the list; rules
 // run top to bottom and the first match wins.
 export async function POST(req: NextRequest) {
-  const { db, orgId, error } = await requireAdmin();
+  const { db, orgId, error } = await requirePermission("leads.rules");
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<{ name?: string; kind?: string; matchText?: string; agentIds?: string[]; shares?: Record<string, number> }>(req);
   if (bodyError) return bodyError;

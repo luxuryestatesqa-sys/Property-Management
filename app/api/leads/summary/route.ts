@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 
 // Cheap counts for the sidebar badge: leads still in the first (New) stage that the
 // caller may see, plus the caller's own follow-ups that are now due.
@@ -13,6 +13,6 @@ export async function GET() {
     db!.leadStage.findFirst({ orderBy: { position: "asc" } }),
   ]);
   if (!first) return NextResponse.json({ newCount: 0, overdueCount });
-  const newCount = await db!.lead.count({ where: { stageId: first.id, ...(isManagerRole(session!.user.role) ? {} : { assignedToId: me }) } });
+  const newCount = await db!.lead.count({ where: { stageId: first.id, ...(can(session!.user, "leads.viewAll") ? {} : { assignedToId: me }) } });
   return NextResponse.json({ newCount, overdueCount });
 }

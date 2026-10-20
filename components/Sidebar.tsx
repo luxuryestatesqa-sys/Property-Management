@@ -6,7 +6,8 @@ import { signOut, useSession } from "next-auth/react";
 import Avatar from "./Avatar";
 import { useLeadBadge } from "@/lib/useLeadBadge";
 import { useOrg } from "./OrgProvider";
-import { isAdminRole, isManagerRole, ROLE_LABELS } from "@/lib/roles";
+import { ROLE_LABELS } from "@/lib/roles";
+import { can } from "@/lib/permissions";
 
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
@@ -116,16 +117,18 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const org = useOrg();
-  const isAdmin = isAdminRole(session?.user?.role);
-  const isManager = isManagerRole(session?.user?.role);
+  const canUsers = can(session?.user, "users.manage");
+  const canDashboard = can(session?.user, "dashboard.view");
+  const canAssign = can(session?.user, "leads.assign");
+  const canStages = can(session?.user, "leads.stages");
   const newLeads = useLeadBadge(!!session?.user, pathname);
   const onAdd = pathname.startsWith("/add");
   const onProperties = pathname === "/" || pathname.startsWith("/property");
   const onLeads = pathname.startsWith("/leads");
   const leadPages = [
     { href: "/leads", label: "All leads", active: pathname === "/leads" || /^\/leads\/(?!assignment|rules|stages)/.test(pathname) },
-    ...(isManager ? [{ href: "/leads/assignment", label: "Assignment", active: pathname.startsWith("/leads/assignment") }, { href: "/leads/rules", label: "Assignment rules", active: pathname.startsWith("/leads/rules") }] : []),
-    ...(isAdmin ? [{ href: "/leads/stages", label: "Stages", active: pathname.startsWith("/leads/stages") }] : []),
+    ...(canAssign ? [{ href: "/leads/assignment", label: "Assignment", active: pathname.startsWith("/leads/assignment") }, { href: "/leads/rules", label: "Assignment rules", active: pathname.startsWith("/leads/rules") }] : []),
+    ...(canStages ? [{ href: "/leads/stages", label: "Stages", active: pathname.startsWith("/leads/stages") }] : []),
   ];
   const initial = org.name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase() || "•";
 
@@ -161,7 +164,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex shrink-0 flex-1 flex-col gap-0.5 px-4 pb-2 pt-1 max-xl:px-3">
-        {isManager ? (
+        {canDashboard ? (
           <>
             <Section>Overview</Section>
             <NavLink href="/dashboard" label="Dashboard" icon={icons.dashboard} active={pathname.startsWith("/dashboard")}>
@@ -189,7 +192,7 @@ export default function Sidebar() {
         <NavLink href="/leads" label="Leads" icon={icons.leads} active={onLeads} badge={newLeads}>
           {onLeads && leadPages.length > 1 && <SubNav items={leadPages} />}
         </NavLink>
-        {isAdmin && (
+        {canUsers && (
           <>
             <Section>Team</Section>
             <NavLink href="/admin/users" label="Users" icon={icons.users} active={pathname.startsWith("/admin/users")} />

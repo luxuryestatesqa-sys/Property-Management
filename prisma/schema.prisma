@@ -38,6 +38,8 @@ model Organization {
   status     OrgStatus @default(ACTIVE)
   // A new lead nobody has contacted within this many hours shows under "Needs attention".
   contactSlaHours Int      @default(2)
+  // Permission templates for Manager and Agent, as {"MANAGER":[...],"AGENT":[...]}; null = the built-in defaults.
+  rolePermissions Json?
   createdAt  DateTime  @default(now())
 
   users           User[]
@@ -145,6 +147,9 @@ model User {
   role           Role         @default(AGENT)
   status         UserStatus   @default(ACTIVE)
   createdAt      DateTime     @default(now())
+  // What this person may do (a list of keys from lib/permissions.ts). Null = follow the agency's template
+  // for their role. Owners and Super Admins always have everything, whatever is saved here.
+  permissions    Json?
 
   // This agent's Property Finder public profile id (GET /v1/users), picked by
   // an admin from the real PF account list - never free text - so listings

@@ -1,3 +1,4 @@
+import { can } from "@/lib/permissions";
 import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
@@ -8,7 +9,6 @@ import { canViewListing, visibleListingsWhere, canViewPrivateDetails, redactPriv
 import { unpublishListingFromPropertyFinder } from "@/lib/propertyFinder/sync";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
 import { Prisma, PropertyCategory } from "@prisma/client";
-import { isAdminRole } from "@/lib/roles";
 import { withImageLinks } from "@/lib/listingImages";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   });
   // Someone else's private listing answers exactly like a missing one.
-  if (!listing || !canViewListing(listing, session!.user.id, isAdminRole(session!.user.role))) {
+  if (!listing || !canViewListing(listing, session!.user.id, can(session!.user, "listings.viewAll"))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       dupKey: listing.dupKey,
       status: "ACTIVE",
       id: { not: listing.id },
-      ...visibleListingsWhere(session!.user.id, isAdminRole(session!.user.role)),
+      ...visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll")),
     },
     include: {
       createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     orderBy: { createdAt: "desc" },
   });
 
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.viewAll");
   const viewerCanSeePrivate = canViewPrivateDetails(listing.createdById, session!.user.id, isAdmin);
   return NextResponse.json({
     listing: redactPrivateFields(shapedListing, session!.user.id, isAdmin),
@@ -83,7 +83,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.editAll");
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only edit your own listings" }, { status: 403 });
   }
@@ -313,7 +313,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.editAll");
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only delete your own listings" }, { status: 403 });
   }

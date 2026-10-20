@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { Portal } from "@prisma/client";
 import { TOKEN_PORTALS } from "@/lib/feeds/generateFeed";
 
@@ -8,7 +8,7 @@ import { TOKEN_PORTALS } from "@/lib/feeds/generateFeed";
 // this portal (old token no longer matches) - the settings page warns about
 // this before calling it.
 export async function POST(_req: Request, { params }: { params: Promise<{ portal: string }> }) {
-  const { db, orgId, error } = await requireAdmin();
+  const { db, orgId, error } = await requirePermission("settings.integrations");
   if (error) return error;
 
   const { portal } = await params;

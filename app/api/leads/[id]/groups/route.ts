@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 
 // { groupIds: [...] } - set exactly which groups this lead is in.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +13,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const lead = await db!.lead.findFirst({ where: { id }, include: { groupLinks: { include: { group: true } } } });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  if (!isManagerRole(session!.user.role) && lead.assignedToId !== session!.user.id) return NextResponse.json({ error: "Not your lead" }, { status: 403 });
+  if (!can(session!.user, "leads.viewAll") && lead.assignedToId !== session!.user.id) return NextResponse.json({ error: "Not your lead" }, { status: 403 });
 
   const wanted = await db!.leadGroup.findMany({ where: { id: { in: body.groupIds } } });
   const before = new Set(lead.groupLinks.map((l) => l.groupId));

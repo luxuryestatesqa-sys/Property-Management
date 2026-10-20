@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 
 // Group chip colours come from the theme: cobalt, deep navy, muted status colours and greys.
 const COLORS = ["#2b4fc0", "#0d1f5c", "#3e8e6a", "#b7862b", "#b5474b", "#5a6690"];
@@ -10,7 +10,7 @@ export async function GET() {
   if (error) return error;
   const groups = await db!.leadGroup.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { links: true } } } });
   // Agents only see the groups' names; counts would reveal other agents' leads.
-  const manager = isManagerRole(session!.user.role);
+  const manager = can(session!.user, "leads.viewAll");
   return NextResponse.json({ groups: groups.map((g) => ({ id: g.id, name: g.name, color: g.color, count: manager ? g._count.links : null })) });
 }
 
@@ -18,7 +18,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
-  if (!isManagerRole(session!.user.role)) return NextResponse.json({ error: "Only managers can create groups" }, { status: 403 });
+  if (!can(session!.user, "leads.assign")) return NextResponse.json({ error: "Only managers can create groups" }, { status: 403 });
   const { value: body, error: bodyError } = await parseJsonBody<{ name?: string }>(req);
   if (bodyError) return bodyError;
   const name = (body?.name ?? "").trim().slice(0, 40);

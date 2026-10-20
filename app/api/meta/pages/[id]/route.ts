@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, parseJsonBody } from "@/lib/api-helpers";
+import { requirePermission, parseJsonBody } from "@/lib/api-helpers";
 import { decryptSecret } from "@/lib/crypto";
 import { subscribePage, unsubscribePage } from "@/lib/meta/graph";
 import { friendlyGraphError } from "@/lib/meta/sync";
@@ -7,7 +7,7 @@ import { friendlyGraphError } from "@/lib/meta/sync";
 // Turn a connected Page on or off. "On" subscribes the Page to Meta's lead webhook, so new leads are
 // sent here the moment they are submitted; "off" stops that.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("settings.integrations");
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ enabled?: boolean }>(req);
@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 // Remove a Page: stop the webhook and forget its token.
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("settings.integrations");
   if (error) return error;
   const { id } = await params;
   const page = await db!.metaPage.findFirst({ where: { id } });

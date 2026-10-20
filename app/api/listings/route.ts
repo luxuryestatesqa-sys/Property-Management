@@ -1,3 +1,4 @@
+import { can } from "@/lib/permissions";
 import { rateLimited } from "@/lib/rateLimit";
 import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,7 +10,6 @@ import { normalizeBuildingName, normalizeUnitValue } from "@/lib/propertyCategor
 import { redactPrivateFieldsList, unitDetailsSearchableWhere, visibleListingsWhere } from "@/lib/listingPrivacy";
 import { parseBedroomKeywords, parseBareBedroomQuery } from "@/lib/searchKeywords";
 import { Prisma, PropertyCategory, BedroomCount } from "@prisma/client";
-import { isAdminRole } from "@/lib/roles";
 import { avatarLink } from "@/lib/avatar";
 import { collapseSpaces, escapeLike } from "@/lib/search";
 import { fetchPfLocationSnapshot } from "@/lib/propertyFinder/location";
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Math.floor(Number(sp.get("page"))) || 1);
   const mine = sp.get("mine"); // "1" -> only current user's listings
 
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.viewAll");
   // Other agents' private listings never appear, whatever else is filtered.
   const conditions: Prisma.ListingWhereInput[] = [visibleListingsWhere(session!.user.id, isAdmin)];
 
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     if (status === "ACTIVE" || status === "INACTIVE") {
       conditions.push({ status });
     }
-  } else if (isAdminRole(session!.user.role)) {
+  } else if (can(session!.user, "listings.viewAll")) {
     if (status === "ACTIVE" || status === "INACTIVE") {
       conditions.push({ status });
     }
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
       where: {
         dupKey,
         status: "ACTIVE",
-        ...visibleListingsWhere(session!.user.id, isAdminRole(session!.user.role)),
+        ...visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll")),
       },
       include: {
         createdBy: { select: { id: true, name: true, whatsapp: true, avatarUrl: true } },
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
       take: 5,
     });
     if (existing.length > 0) {
-      const isAdmin = isAdminRole(session!.user.role);
+      const isAdmin = can(session!.user, "listings.viewAll");
       return NextResponse.json(
         { duplicate: true, existing: redactPrivateFieldsList(existing, session!.user.id, isAdmin) },
         { status: 200 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { listWebhooks, subscribeWebhook, describePropertyFinderError } from "@/lib/propertyFinder/client";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 
@@ -16,7 +16,7 @@ const LEAD_EVENTS = ["lead.created", "lead.updated", "lead.assigned"];
 // delivers separately), so this checks existing subscriptions first to
 // avoid creating duplicates on repeat calls.
 export async function GET() {
-  const { orgId, error } = await requireAdmin();
+  const { orgId, error } = await requirePermission("settings.integrations");
   if (error) return error;
   // On a local or private address Property Finder can't call us back: say so plainly, not as a failure.
   try {
@@ -40,7 +40,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const { db, orgId, error } = await requireAdmin();
+  const { db, orgId, error } = await requirePermission("settings.integrations");
   if (error) return error;
 
   try {

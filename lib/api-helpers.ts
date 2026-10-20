@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { tenantDb } from "@/lib/tenant";
-import { prisma } from "@/lib/prisma";
 import { isAdminRole } from "@/lib/roles";
-import { ttlCache } from "@/lib/ttlCache";
-
-// Every request re-checks the user against the database; with thousands of agents that is the busiest
-// query, so the answer is reused for a few seconds. A deactivated user or suspended agency is locked
-// out within this time instead of instantly.
-const LIVE_USER_TTL_MS = 15_000;
-const liveUsers = ttlCache<{ status: string; role: string; organizationId: string; organization: { status: string } } | null>(LIVE_USER_TTL_MS, 5000);
+import { loadLiveUser } from "@/lib/liveUser";
+import { can, type Permission } from "@/lib/permissions";
 
 // Every authenticated route starts here. Besides the session it returns `db`,
 // a database client locked to the caller's agency (see lib/tenant.ts) - use it
@@ -22,24 +16,28 @@ export async function requireSession() {
   }
   // The signed-in token can outlive the account it was issued for, so every request
   // is checked against the database: a removed or deactivated user, a suspended
-  // agency, or a changed role takes effect immediately, not when the token expires.
-  let live = liveUsers.get(session.user.id);
-  if (live === undefined) {
-    live = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { status: true, role: true, organizationId: true, organization: { select: { status: true } } },
-    });
-    liveUsers.set(session.user.id, live);
-  }
+  // agency, or changed permissions take effect within seconds, not when the token expires.
+  const live = await loadLiveUser(session.user.id);
   if (!live || live.organizationId !== session.user.organizationId) {
     return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  if (live.status !== "ACTIVE" || live.organization.status !== "ACTIVE") {
+  if (live.status !== "ACTIVE" || live.orgStatus !== "ACTIVE") {
     return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "Account inactive" }, { status: 403 }) };
   }
   session.user.role = live.role as typeof session.user.role;
+  session.user.permissions = live.permissions;
   const orgId = live.organizationId;
   return { session, db: tenantDb(orgId), orgId, error: null };
+}
+
+// Requires one permission (Owners and Super Admins have them all).
+export async function requirePermission(permission: Permission) {
+  const result = await requireSession();
+  if (result.error) return result;
+  if (!can(result.session!.user, permission)) {
+    return { session: null, db: null, orgId: null, error: NextResponse.json({ error: "You don't have permission to do this" }, { status: 403 }) };
+  }
+  return result;
 }
 
 export async function requireAdmin() {

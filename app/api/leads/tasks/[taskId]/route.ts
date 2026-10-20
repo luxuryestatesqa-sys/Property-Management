@@ -1,13 +1,13 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 
 async function loadOwnTask(taskId: string) {
   const { session, db, orgId, error } = await requireSession();
   if (error) return { error } as const;
   const task = await db!.leadTask.findFirst({ where: { id: taskId } });
   if (!task) return { error: NextResponse.json({ error: "Follow-up not found" }, { status: 404 }) } as const;
-  if (!isManagerRole(session!.user.role) && task.assignedToId !== session!.user.id) {
+  if (!can(session!.user, "leads.viewAll") && task.assignedToId !== session!.user.id) {
     return { error: NextResponse.json({ error: "Not your follow-up" }, { status: 403 }) } as const;
   }
   return { session, db: db!, orgId: orgId!, task } as const;

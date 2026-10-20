@@ -1,7 +1,7 @@
+import { can } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { resetPropertyFinderListing } from "@/lib/propertyFinder/sync";
-import { isAdminRole } from "@/lib/roles";
 
 const PORTAL = "PROPERTY_FINDER" as const;
 
@@ -14,7 +14,7 @@ const PORTAL = "PROPERTY_FINDER" as const;
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
-  if (!isAdminRole(session!.user.role)) {
+  if (!can(session!.user, "listings.editAll")) {
     return NextResponse.json({ error: "Only an admin can reset a Property Finder listing" }, { status: 403 });
   }
 

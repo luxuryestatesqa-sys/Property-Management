@@ -9,6 +9,8 @@ declare module "next-auth" {
       role: Role;
       status: "ACTIVE" | "INACTIVE";
       organizationId: string;
+      // What this person may do (see lib/permissions.ts); Owners and Super Admins have all of them.
+      permissions: string[];
     } & DefaultSession["user"];
   }
 

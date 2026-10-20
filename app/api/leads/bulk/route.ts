@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { openLeadCounts, pickLeastLoaded } from "@/lib/leads/rules";
 import { resolveOrigin } from "@/lib/leads/csv";
 import { logActivity } from "@/lib/activity";
@@ -28,13 +28,12 @@ export async function POST(req: NextRequest) {
   if (bodyError) return bodyError;
 
   const me = session!.user.id;
-  const role = session!.user.role;
-  const manager = isManagerRole(role);
+  const manager = can(session!.user, "leads.viewAll");
   const action = body?.action;
   const ids = Array.isArray(body?.leadIds) ? [...new Set(body!.leadIds.filter((x) => typeof x === "string"))].slice(0, MAX_LEADS) : [];
   if (!action || ids.length === 0) return NextResponse.json({ error: "Choose some leads first" }, { status: 400 });
-  if (((action === "assign" || action === "source") && !manager) || (action === "delete" && !isAdminRole(role))) {
-    return NextResponse.json({ error: action === "delete" ? "Only admins can delete leads" : "Only managers can assign leads" }, { status: 403 });
+  if (((action === "assign" || action === "source") && !can(session!.user, "leads.assign")) || (action === "delete" && !can(session!.user, "leads.delete"))) {
+    return NextResponse.json({ error: action === "delete" ? "You don't have permission to delete leads" : "You don't have permission to assign leads" }, { status: 403 });
   }
 
   const leads = await db!.lead.findMany({ where: { id: { in: ids }, ...(manager ? {} : { assignedToId: me }) }, select: { id: true, assignedToId: true, stageId: true, firstContactedAt: true } });

@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -245,7 +246,7 @@ function ActivitiesInner() {
     }
   }
 
-  const manager = summary?.meta.canSeeAll ?? ["OWNER", "ADMIN", "MANAGER"].includes(session?.user?.role ?? "");
+  const manager = summary?.meta.canSeeAll ?? can(session?.user, "activities.viewAll");
   const agentOptions: Option[] = [...(summary?.meta.agents ?? []).map((a) => ({ value: a.id, label: a.name, avatar: { name: a.name, avatarUrl: a.avatarUrl } })), { value: "system", label: "System / Unassigned" }];
   const sourceOptions: Option[] = SOURCE_FILTERS.map((s) => ({ value: s.key, label: s.label }));
   const agentAvatar = useMemo(() => new Map((summary?.meta.agents ?? []).map((a) => [a.id, a])), [summary]);

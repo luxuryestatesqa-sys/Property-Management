@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 import { graphVersion, META_CALLBACK_PATH, META_SCOPES, META_WEBHOOK_PATH, missingMetaEnv } from "@/lib/meta/config";
 
 // What the Settings card shows: is Meta set up on the server, the addresses to give Meta, and this
 // agency's connected Pages. Tokens never leave the server.
 export async function GET(req: NextRequest) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("settings.integrations");
   if (error) return error;
 
   let base = req.nextUrl.origin;

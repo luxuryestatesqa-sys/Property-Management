@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, parseJsonBody } from "@/lib/api-helpers";
+import { requirePermission, parseJsonBody } from "@/lib/api-helpers";
 import { decryptSecret } from "@/lib/crypto";
 import { listFormsDetailed } from "@/lib/meta/graph";
 import { friendlyGraphError, recordPageError } from "@/lib/meta/sync";
 
 // The lead forms on a connected Page, read live from Facebook, with whether this agency imports each one.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("settings.integrations");
   if (error) return error;
   const { id } = await params;
   const page = await db!.metaPage.findFirst({ where: { id } });
@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // { formId, enabled } or { formIds: [...], enabled } - choose which forms' leads come in. A form is on
 // until you switch it off, so a new form someone creates later is picked up automatically.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("settings.integrations");
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ formId?: string; formIds?: string[]; enabled?: boolean }>(req);

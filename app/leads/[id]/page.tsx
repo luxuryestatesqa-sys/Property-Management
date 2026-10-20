@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -849,7 +850,7 @@ export default function LeadDetailPage() {
   // ------------------------------------------------------------------------------------------
   // Phone layout: a title block, quick actions, then three tabs (Overview, Details, Timeline).
   if (!isDesktop) {
-    const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
+    const isAdmin = can(session?.user, "leads.delete");
     const next = openTasks[0];
     const dayDiff = (iso: string) => qatarDayDiff(iso, now);
     const followLabel = (iso: string) => {

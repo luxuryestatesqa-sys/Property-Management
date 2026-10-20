@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession, requireAdmin, parseJsonBody } from "@/lib/api-helpers";
+import { requireSession, requirePermission, parseJsonBody } from "@/lib/api-helpers";
 import { prisma } from "@/lib/prisma";
 import { orgUpdateSchema } from "@/lib/validation";
 
@@ -13,7 +13,7 @@ export async function GET() {
 
 // Admins/owners edit their agency's branding.
 export async function PATCH(req: NextRequest) {
-  const { orgId, error } = await requireAdmin();
+  const { orgId, error } = await requirePermission("settings.agency");
   if (error) return error;
 
   const { value, error: bodyError } = await parseJsonBody(req);

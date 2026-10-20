@@ -1,7 +1,7 @@
+import { can } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { tenantDb } from "@/lib/tenant";
 import { canViewListing } from "@/lib/listingPrivacy";
-import { isAdminRole } from "@/lib/roles";
 import { listingCode } from "@/lib/format";
 import { pageTitle } from "@/lib/pageTitle";
 
@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   let detail: string | null = null;
   if (session?.user?.organizationId && Number.isInteger(num) && num > 0) {
     const l = await tenantDb(session.user.organizationId).listing.findUnique({ where: { id: num }, select: { id: true, buildingName: true, community: true, createdById: true, visibility: true } });
-    if (l && canViewListing(l, session.user.id, isAdminRole(session.user.role))) detail = [listingCode(l.id), l.buildingName || l.community].filter(Boolean).join(" · ");
+    if (l && canViewListing(l, session.user.id, can(session.user, "listings.viewAll"))) detail = [listingCode(l.id), l.buildingName || l.community].filter(Boolean).join(" · ");
   }
   return pageTitle("Property", detail);
 }

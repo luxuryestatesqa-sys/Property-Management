@@ -1,7 +1,7 @@
+import { can } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { listUsers, describePropertyFinderError } from "@/lib/propertyFinder/client";
-import { isAdminRole } from "@/lib/roles";
 
 // Proxy for GET /v1/users - keeps the Property Finder API key/secret
 // server-side. Read-only. An admin gets the full agency directory (needed to
@@ -28,7 +28,7 @@ export async function GET() {
         email: u.email,
       }));
 
-    if (isAdminRole(session!.user.role)) {
+    if (can(session!.user, "settings.integrations")) {
       return NextResponse.json({ users: active });
     }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
@@ -15,7 +16,7 @@ import MasterFeedCard from "@/components/MasterFeedCard";
 import OpenAiSettingsCard from "@/components/OpenAiSettingsCard";
 import QatarLivingApiCard from "@/components/QatarLivingApiCard";
 import AgencyBrandingCard from "@/components/AgencyBrandingCard";
-import { isAdminRole, ROLE_LABELS } from "@/lib/roles";
+import { ROLE_LABELS } from "@/lib/roles";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { IconUsers, IconBuilding, IconGlobe, IconLock, IconSettings } from "@/components/desktop/icons";
 
@@ -103,7 +104,11 @@ export default function ProfilePage() {
 
   if (!session || loadingProfile) return <ProfileSkeleton />;
   const user = session.user;
-  const isAdmin = isAdminRole(user.role);
+  const canAgency = can(user, "settings.agency");
+  const canIntegrations = can(user, "settings.integrations");
+  const canUsers = can(user, "users.manage");
+  const isAdmin = canAgency || canIntegrations || canUsers;
+  const sectionAllowed = (key: string | null) => key === "profile" || key === "security" || (key === "agency" ? canAgency : key === "integrations" || key === "lead-sources" || key === "ai" ? canIntegrations : false);
 
   async function handleAvatarSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -200,15 +205,15 @@ export default function ProfilePage() {
   }
 
   if (isDesktop) {
-    const nav: { key: SettingsTab; label: string; hint: string; icon: React.ReactNode; admin?: boolean }[] = [
+    const nav: { key: SettingsTab; label: string; hint: string; icon: React.ReactNode; admin?: "agency" | "integrations" }[] = [
       { key: "profile", label: "Profile", hint: "Your details and photo", icon: <IconUsers size={18} /> },
       { key: "security", label: "Security", hint: "Password and sign out", icon: <IconLock size={18} /> },
-      { key: "agency", label: "Agency", hint: "Name and logo", icon: <IconBuilding size={18} />, admin: true },
-      { key: "integrations", label: "Portals & feeds", hint: "Property Finder and more", icon: <IconGlobe size={18} />, admin: true },
-      { key: "lead-sources", label: "Lead sources", hint: "Facebook & Instagram ads", icon: <IconUsers size={18} />, admin: true },
-      { key: "ai", label: "AI writing", hint: "OpenAI key", icon: <IconSettings size={18} />, admin: true },
+      { key: "agency", label: "Agency", hint: "Name and logo", icon: <IconBuilding size={18} />, admin: "agency" },
+      { key: "integrations", label: "Portals & feeds", hint: "Property Finder and more", icon: <IconGlobe size={18} />, admin: "integrations" },
+      { key: "lead-sources", label: "Lead sources", hint: "Facebook & Instagram ads", icon: <IconUsers size={18} />, admin: "integrations" },
+      { key: "ai", label: "AI writing", hint: "OpenAI key", icon: <IconSettings size={18} />, admin: "integrations" },
     ];
-    const visible = nav.filter((n) => !n.admin || isAdmin);
+    const visible = nav.filter((n) => !n.admin || (n.admin === "agency" ? canAgency : canIntegrations));
     const roleLabel = ROLE_LABELS[user.role];
 
     return (
@@ -386,14 +391,14 @@ export default function ProfilePage() {
               </>
             )}
 
-            {tab === "agency" && isAdmin && (
+            {tab === "agency" && canAgency && (
               <>
                 <TabIntro title="Agency" text="How your agency appears in the sidebar, on shared listing pages and in WhatsApp messages." />
                 <AgencyBrandingCard />
               </>
             )}
 
-            {tab === "integrations" && isAdmin && (
+            {tab === "integrations" && canIntegrations && (
               <>
                 <TabIntro title="Portals & feeds" text="Connect Property Finder and give other portals and your website a feed of your listings." />
                 <div className="flex flex-col gap-5">
@@ -407,14 +412,14 @@ export default function ProfilePage() {
               </>
             )}
 
-            {tab === "lead-sources" && isAdmin && (
+            {tab === "lead-sources" && canIntegrations && (
               <>
                 <TabIntro title="Lead sources" text="Bring leads in from your ads automatically." />
                 <MetaLeadsSettingsCard />
               </>
             )}
 
-            {tab === "ai" && isAdmin && (
+            {tab === "ai" && canIntegrations && (
               <>
                 <TabIntro title="AI writing" text="Powers the Write with AI buttons for listing titles and descriptions. Your key is stored securely on the server." />
                 <OpenAiSettingsCard />
@@ -461,7 +466,7 @@ export default function ProfilePage() {
     </>
   );
 
-  if (!section || (section !== "profile" && section !== "security" && !isAdmin)) {
+  if (!section || !sectionAllowed(section)) {
     return (
       <div className="page-in px-4 pb-10">
         <div className="safe-top pb-3 pt-4">
@@ -503,7 +508,7 @@ export default function ProfilePage() {
         <p className="mb-2 mt-6 px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">Insights</p>
         <div className="surface-card divide-y divide-slate-100 overflow-hidden">
           {[
-            ...(["OWNER", "ADMIN", "MANAGER"].includes(user.role) ? [{ href: "/dashboard", label: "Dashboard", hint: "Leads, listings and charts for the whole agency" }] : []),
+            ...(can(user, "dashboard.view") ? [{ href: "/dashboard", label: "Dashboard", hint: "Leads, listings and charts for the whole agency" }] : []),
             { href: "/dashboard/activities", label: "Activities", hint: "A timeline of everything that was done" },
           ].map((r) => (
             <Link key={r.href} href={r.href} className="flex items-center gap-3.5 px-4 py-3.5 active:bg-surface-muted">
@@ -649,9 +654,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {section === "agency" && isAdmin && <AgencyBrandingCard />}
-        {section === "lead-sources" && isAdmin && <MetaLeadsSettingsCard />}
-        {section === "integrations" && isAdmin && (
+        {section === "agency" && canAgency && <AgencyBrandingCard />}
+        {section === "lead-sources" && canIntegrations && <MetaLeadsSettingsCard />}
+        {section === "integrations" && canIntegrations && (
           <>
             <PropertyFinderSettingsCard />
             <PortalFeedCard portal="WEBSITE" slug="website.json" label="Website" />
@@ -661,7 +666,7 @@ export default function ProfilePage() {
             <MasterFeedCard />
           </>
         )}
-        {section === "ai" && isAdmin && <OpenAiSettingsCard />}
+        {section === "ai" && canIntegrations && <OpenAiSettingsCard />}
       </div>
     </div>
   );

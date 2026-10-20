@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { Portal } from "@prisma/client";
 import { clearCachedToken } from "@/lib/propertyFinder/auth";
 
@@ -20,7 +20,7 @@ function mask(value: string | null): string | null {
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ portal: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("settings.integrations");
   if (error) return error;
 
   const { portal } = await params;
@@ -49,7 +49,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ por
 // never has the real values to send back anyway, since GET only returns
 // masked previews.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ portal: string }> }) {
-  const { db, orgId, error } = await requireAdmin();
+  const { db, orgId, error } = await requirePermission("settings.integrations");
   if (error) return error;
 
   const { portal } = await params;

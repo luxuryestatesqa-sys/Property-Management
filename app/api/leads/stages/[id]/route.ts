@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, parseJsonBody } from "@/lib/api-helpers";
+import { requirePermission, parseJsonBody } from "@/lib/api-helpers";
 import { resequence, STAGE_COLORS } from "@/lib/leads/stageOrder";
 
 // Rename, recolour or move a stage up/down within its group (admins and owners).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("leads.stages");
   if (error) return error;
   const { id } = await params;
   const { value: body, error: bodyError } = await parseJsonBody<{ name?: string; color?: string; direction?: "up" | "down" }>(req);
@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 // Delete a stage. If leads are in it, ?moveTo=<stageId> says where they go. The pipeline always
 // keeps at least one open stage, because that is where new leads start.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { db, error } = await requireAdmin();
+  const { db, error } = await requirePermission("leads.stages");
   if (error) return error;
   const { id } = await params;
   const moveTo = req.nextUrl.searchParams.get("moveTo");

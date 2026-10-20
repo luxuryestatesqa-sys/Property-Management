@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { qatarEndOfDay } from "@/lib/qatarTime";
 
@@ -12,7 +12,7 @@ export async function GET() {
   const org = await prisma.organization.findUnique({ where: { id: orgId! }, select: { contactSlaHours: true } });
   const waitingMs = (org?.contactSlaHours ?? 2) * 3600_000;
   const me = session!.user.id;
-  const manager = isManagerRole(session!.user.role);
+  const manager = can(session!.user, "leads.viewAll");
   const now = new Date();
   const endOfToday = qatarEndOfDay();
 

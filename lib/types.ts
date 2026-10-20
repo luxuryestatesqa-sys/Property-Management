@@ -183,4 +183,7 @@ export interface UserDTO {
   activeListingsCount?: number;
   // This agent's Property Finder public profile id, if an admin has linked one.
   pfPublicProfileId: number | null;
+  // What this person may do now (keys from lib/permissions.ts), and whether it was set for them personally.
+  permissions?: string[];
+  customPermissions?: boolean;
 }

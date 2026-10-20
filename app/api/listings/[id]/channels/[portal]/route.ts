@@ -1,8 +1,8 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { getEligibilityForPortal } from "@/lib/portals/eligibility";
 import { Portal } from "@prisma/client";
-import { isAdminRole } from "@/lib/roles";
 
 // The pull-based channels this route handles - each is just a
 // PortalListing.enabled flag read by the public listing page or the
@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.editAll");
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only publish your own listings" }, { status: 403 });
   }

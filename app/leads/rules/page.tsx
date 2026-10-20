@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -24,8 +25,8 @@ const card = "rounded-2xl border border-border bg-surface shadow-sm";
 
 export default function AssignmentRulesPage() {
   const { data: session, status } = useSession();
-  const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
-  const isManager = isAdmin || session?.user?.role === "MANAGER";
+  const isAdmin = can(session?.user, "leads.rules");
+  const isManager = isAdmin || can(session?.user, "leads.assign");
   const [data, setData] = useState<Data | null>(null);
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);

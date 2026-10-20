@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession, requireAdmin, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
+import { requireSession, requirePermission, parseJsonBody } from "@/lib/api-helpers";
 import { ensureStages } from "@/lib/leads/stages";
 import { MAX_STAGES, resequence, STAGE_COLORS } from "@/lib/leads/stageOrder";
 
@@ -8,7 +8,7 @@ import { MAX_STAGES, resequence, STAGE_COLORS } from "@/lib/leads/stageOrder";
 export async function GET() {
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
-  if (!isManagerRole(session!.user.role)) return NextResponse.json({ error: "Only managers can see this" }, { status: 403 });
+  if (!can(session!.user, "leads.viewAll")) return NextResponse.json({ error: "Only managers can see this" }, { status: 403 });
   const stages = await ensureStages(orgId!);
   const counts = await db!.lead.groupBy({ by: ["stageId"], _count: { _all: true } });
   return NextResponse.json({
@@ -21,7 +21,7 @@ export async function GET() {
 // Add a stage (admins and owners). At most MAX_STAGES per agency. It goes at the end of its
 // group: open stages, then won, then lost.
 export async function POST(req: NextRequest) {
-  const { db, orgId, error } = await requireAdmin();
+  const { db, orgId, error } = await requirePermission("leads.stages");
   if (error) return error;
   const { value: body, error: bodyError } = await parseJsonBody<{ name?: string; kind?: string; color?: string }>(req);
   if (bodyError) return bodyError;

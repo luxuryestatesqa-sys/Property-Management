@@ -1,19 +1,25 @@
+import { Prisma } from "@prisma/client";
+import { can, isSuperAdminRole, normalizePermissions, type Permission } from "@/lib/permissions";
+import { forgetLiveUsers } from "@/lib/liveUser";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { whatsappSchema, adminResetPasswordSchema } from "@/lib/validation";
 import { setIdentityPassword, setIdentityDisabled, deleteIdentity } from "@/lib/identity";
 import { logActivity } from "@/lib/activity";
 
-// Only the OWNER can touch the OWNER account (deactivate, remove, reset password, change role).
-async function ownerProtected(db: NonNullable<Awaited<ReturnType<typeof requireAdmin>>["db"]>, id: string, callerRole: string) {
+// Only the OWNER can touch the OWNER account (deactivate, remove, reset password, change role), and only a
+// Super Admin can touch another Super Admin: someone who may manage users but is not one cannot reach upward.
+async function ownerProtected(db: NonNullable<Awaited<ReturnType<typeof requirePermission>>["db"]>, id: string, callerRole: string) {
   const target = await db.user.findUnique({ where: { id }, select: { role: true } });
-  if (!target) return { notFound: true as const, forbidden: false };
-  return { notFound: false as const, forbidden: target.role === "OWNER" && callerRole !== "OWNER" };
+  if (!target) return { notFound: true as const, forbidden: false, message: "" };
+  if (target.role === "OWNER" && callerRole !== "OWNER") return { notFound: false as const, forbidden: true, message: "Only the agency owner can change the owner account" };
+  if (target.role === "ADMIN" && !isSuperAdminRole(callerRole)) return { notFound: false as const, forbidden: true, message: "Only a Super Admin can change a Super Admin" };
+  return { notFound: false as const, forbidden: false, message: "" };
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, orgId, error } = await requireAdmin();
+  const { session, db, orgId, error } = await requirePermission("users.manage");
   if (error) return error;
 
   const { id } = await params;
@@ -30,13 +36,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const guard = await ownerProtected(db!, id, session!.user.role);
   if (guard.notFound) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (guard.forbidden) return NextResponse.json({ error: "Only the agency owner can change the owner account" }, { status: 403 });
+  if (guard.forbidden) return NextResponse.json({ error: guard.message }, { status: 403 });
 
   let role: "ADMIN" | "MANAGER" | "AGENT" | undefined;
   if (body.role !== undefined) {
     if (!["ADMIN", "MANAGER", "AGENT"].includes(body.role)) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     if (id === session!.user.id) return NextResponse.json({ error: "You cannot change your own role" }, { status: 400 });
+    if (body.role === "ADMIN" && !isSuperAdminRole(session!.user.role)) return NextResponse.json({ error: "Only a Super Admin can make someone a Super Admin" }, { status: 403 });
     role = body.role;
+  }
+
+  // Permissions: a list of keys, or null to follow the role's template again. You cannot change your own, and
+  // you can only give what you have yourself (a Super Admin has everything).
+  let permissions: Permission[] | null | undefined;
+  if (body.permissions !== undefined) {
+    if (id === session!.user.id) return NextResponse.json({ error: "You cannot change your own permissions" }, { status: 400 });
+    if (body.permissions === null) permissions = null;
+    else if (Array.isArray(body.permissions)) {
+      permissions = normalizePermissions(body.permissions);
+      const missing = permissions.filter((p) => !can(session!.user, p));
+      if (missing.length) return NextResponse.json({ error: "You can only give permissions you have yourself" }, { status: 403 });
+    } else return NextResponse.json({ error: "Invalid permissions" }, { status: 400 });
   }
 
   let whatsapp: string | undefined;
@@ -75,6 +95,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const before = role ? await db!.user.findUnique({ where: { id }, select: { role: true } }) : null;
+  // A new role starts from that role's template unless permissions were chosen in the same change.
+  const savedPermissions = permissions !== undefined ? permissions : role && before && before.role !== role ? null : undefined;
   const user = await db!.user.update({
     where: { id },
     data: {
@@ -83,6 +105,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(whatsapp ? { whatsapp } : {}),
       ...(passwordHash ? { passwordHash } : {}),
       ...(pfPublicProfileId !== undefined ? { pfPublicProfileId } : {}),
+      ...(savedPermissions !== undefined ? { permissions: savedPermissions === null || role === "ADMIN" ? Prisma.DbNull : savedPermissions } : {}),
     },
     select: {
       id: true,
@@ -99,11 +122,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (role && before && before.role !== role) await logActivity(orgId!, { type: "role_changed", agentId: session!.user.id, oldValue: before.role, newValue: role, note: user.name });
   if (status) await setIdentityDisabled(id, status === "INACTIVE");
+  if (role || status || permissions !== undefined) forgetLiveUsers();
+  if (permissions !== undefined) await logActivity(orgId!, { type: "permissions_changed", agentId: session!.user.id, newValue: permissions === null ? "role template" : `${permissions.length} permissions`, note: user.name });
   return NextResponse.json({ user });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, db, error } = await requireAdmin();
+  const { session, db, error } = await requirePermission("users.manage");
   if (error) return error;
 
   const { id } = await params;
@@ -113,7 +138,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const guard = await ownerProtected(db!, id, session!.user.role);
   if (guard.notFound) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (guard.forbidden) return NextResponse.json({ error: "Only the agency owner can remove the owner account" }, { status: 403 });
+  if (guard.forbidden) return NextResponse.json({ error: guard.message }, { status: 403 });
 
   const listingCount = await db!.listing.count({ where: { createdById: id } });
   if (listingCount > 0) {
@@ -132,5 +157,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   await db!.user.delete({ where: { id } });
   await deleteIdentity(id);
+  forgetLiveUsers();
   return NextResponse.json({ removed: true });
 }

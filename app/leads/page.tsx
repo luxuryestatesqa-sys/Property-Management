@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -239,7 +240,8 @@ function DesktopLeads() {
   const visible = useMemo(() => (stageFilter === "all" ? all : all.filter((l) => l.stageId === stageFilter)), [all, stageFilter]);
   // Nothing role-specific is drawn until the signed-in role is known, so an admin never sees the agent wording first.
   const roleKnown = status === "authenticated" && Boolean(session?.user?.role);
-  const canManage = roleKnown && ["OWNER", "ADMIN", "MANAGER"].includes(session?.user?.role ?? "");
+  const canManage = roleKnown && can(session?.user, "leads.viewAll");
+  const canAssign = roleKnown && can(session?.user, "leads.assign");
   // Only leads still on screen count as selected, so filtering never acts on hidden ones.
   const picked = useMemo(() => visible.filter((l) => selected.has(l.id)).map((l) => l.id), [visible, selected]);
   const allPicked = visible.length > 0 && picked.length === visible.length;
@@ -250,7 +252,8 @@ function DesktopLeads() {
       else n.add(id);
       return n;
     });
-  const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
+  const canStages = can(session?.user, "leads.stages");
+  const canSync = can(session?.user, "settings.integrations");
 
   // Every number below comes from the server's one (agent x stage) grid, never from the rows on screen.
   const grid = useMemo(() => data?.countGrid ?? [], [data]);
@@ -298,10 +301,10 @@ function DesktopLeads() {
                 <div role="menu" className="absolute right-0 top-12 z-40 w-72 overflow-hidden rounded-2xl border border-border bg-surface p-1.5 shadow-xl">
                   {[
                     { show: true, label: "Import leads", hint: "From a CSV or Excel file", icon: "M12 16V4M7 9l5-5 5 5M5 20h14", onClick: () => setIntake("import") },
-                    { show: canManage, label: "Assignment", hint: "Give waiting leads to an agent", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6", href: "/leads/assignment", badge: data?.unassignedCount ?? 0 },
-                    { show: canManage, label: "Assignment rules", hint: "Round robin or manual", icon: "M4 6h16M4 12h16M4 18h10", href: "/leads/rules" },
-                    { show: isAdmin, label: "Lead stages", hint: "Add, rename or reorder stages", icon: "M5 12h14M13 6l6 6-6 6", href: "/leads/stages" },
-                    { show: isAdmin, label: syncing ? "Syncing…" : "Sync from Property Finder", hint: "Fetch the latest leads now", icon: "M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M3 21v-5h5", onClick: syncNow, disabled: syncing },
+                    { show: canAssign, label: "Assignment", hint: "Give waiting leads to an agent", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6", href: "/leads/assignment", badge: data?.unassignedCount ?? 0 },
+                    { show: canAssign, label: "Assignment rules", hint: "Round robin or manual", icon: "M4 6h16M4 12h16M4 18h10", href: "/leads/rules" },
+                    { show: canStages, label: "Lead stages", hint: "Add, rename or reorder stages", icon: "M5 12h14M13 6l6 6-6 6", href: "/leads/stages" },
+                    { show: canSync, label: syncing ? "Syncing…" : "Sync from Property Finder", hint: "Fetch the latest leads now", icon: "M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M3 21v-5h5", onClick: syncNow, disabled: syncing },
                   ]
                     .filter((i) => i.show)
                     .map((i) => {
@@ -575,11 +578,11 @@ function DesktopLeads() {
             </div>
             <p className="text-[17px] font-semibold">No leads yet</p>
             <p className="mx-auto mt-1.5 max-w-md text-[14px] text-muted">
-              {isAdmin
+              {canSync
                 ? "New Property Finder enquiries appear here the moment they arrive. To load the last 3 months now, press Sync. If it asks for permission, your Property Finder API key needs the Leads scope."
                 : "When someone enquires about one of your listings on Property Finder, it will show up here."}
             </p>
-            {isAdmin && (
+            {canSync && (
               <button type="button" onClick={syncNow} disabled={syncing} className="mt-5 rounded-xl px-5 py-2.5 text-[14px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--primary)" }}>
                 {syncing ? "Syncing…" : "Sync from Property Finder"}
               </button>
@@ -755,8 +758,8 @@ function DesktopLeads() {
               setSelected(new Set());
               load();
             }}
-            canManage={canManage}
-            isAdmin={isAdmin}
+            canManage={canAssign}
+            isAdmin={can(session?.user, "leads.delete")}
             stages={stages}
             agents={data?.agents ?? []}
             groups={groups}

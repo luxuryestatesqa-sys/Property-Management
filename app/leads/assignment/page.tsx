@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -60,7 +61,7 @@ const isRawRef = (v: string | null) => Boolean(v && /^[A-Z0-9]{14,}$/.test(v));
 
 export default function AssignmentPage() {
   const { data: session, status } = useSession();
-  const isManager = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
+  const isManager = can(session?.user, "leads.assign");
   const [data, setData] = useState<Data | null>(null);
   const [denied, setDenied] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());

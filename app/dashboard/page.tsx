@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -307,7 +308,7 @@ export default function DashboardPage() {
   }, [menu]);
   const show = (id: WidgetId) => !hidden.includes(id);
   const filtered = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
-  const isManager = ["OWNER", "ADMIN", "MANAGER"].includes(session?.user?.role ?? "");
+  const isManager = can(session?.user, "dashboard.view");
 
   const load = useCallback(() => {
     const qs = new URLSearchParams({ days: String(filters.days) });

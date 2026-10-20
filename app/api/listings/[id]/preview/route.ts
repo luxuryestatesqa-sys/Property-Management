@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
-import { isAdminRole } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getAppBaseUrl } from "@/lib/propertyFinder/sync";
 import { FEED_LISTING_SELECT, toFeedListing } from "@/lib/feeds/generateFeed";
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const row = await db!.listing.findUnique({ where: { id: listingId }, select: { ...FEED_LISTING_SELECT, createdById: true } });
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (row.createdById !== session!.user.id && !isAdminRole(session!.user.role)) {
+  if (row.createdById !== session!.user.id && !can(session!.user, "listings.editAll")) {
     return NextResponse.json({ error: "You can only preview your own listings" }, { status: 403 });
   }
 

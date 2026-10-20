@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -126,7 +127,8 @@ function Select({ label, value, onChange, children }: { label: string; value: st
 // filters tucked behind one button.
 export default function MobileLeads() {
   const { data: session, status } = useSession();
-  const isAdmin = session?.user?.role === "OWNER" || session?.user?.role === "ADMIN";
+  const canStages = can(session?.user, "leads.stages");
+  const canSync = can(session?.user, "settings.integrations");
 
   const [now] = useState(() => Date.now());
   const [q, setQ] = useState("");
@@ -271,8 +273,8 @@ export default function MobileLeads() {
     { show: true, label: "Import leads", hint: "From a CSV or Excel file", d: I.import, onClick: () => { setSheet(null); setIntake("import"); } },
     { show: canManage, label: "Assignment", hint: "Give waiting leads to an agent", d: I.user, href: "/leads/assignment", badge: meta?.unassigned },
     { show: canManage, label: "Assignment rules", hint: "Round robin or manual", d: I.rules, href: "/leads/rules" },
-    { show: isAdmin, label: "Lead stages", hint: "Add, rename or reorder", d: I.stages, href: "/leads/stages" },
-    { show: isAdmin, label: syncing ? "Syncing…" : "Sync from Property Finder", hint: "Fetch the latest leads now", d: I.sync, onClick: syncNow },
+    { show: canStages, label: "Lead stages", hint: "Add, rename or reorder", d: I.stages, href: "/leads/stages" },
+    { show: canSync, label: syncing ? "Syncing…" : "Sync from Property Finder", hint: "Fetch the latest leads now", d: I.sync, onClick: syncNow },
   ].filter((m) => m.show);
 
   return (

@@ -4,6 +4,7 @@ import { verifyPassword, IdentityError } from "@/lib/identity";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import type { Role } from "@/lib/types";
+import { loadLiveUser } from "@/lib/liveUser";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -74,6 +75,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as Role;
         session.user.organizationId = token.organizationId as string;
         session.user.status = token.status as "ACTIVE" | "INACTIVE";
+        // Role and permissions come from the database (reused for a few seconds), not the sign-in token, so a
+        // change made by an admin shows in the person's open screens without signing in again.
+        const live = await loadLiveUser(session.user.id).catch(() => null);
+        if (live) session.user.role = live.role as Role;
+        session.user.permissions = live?.permissions ?? [];
       }
       return session;
     },

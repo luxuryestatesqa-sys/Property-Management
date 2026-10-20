@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const PHONE = /^\+?[\d\s\-()]{6,20}$/;
@@ -10,7 +10,7 @@ const PHONE = /^\+?[\d\s\-()]{6,20}$/;
 export async function GET() {
   const { session, db, error } = await requireSession();
   if (error) return error;
-  const where = isManagerRole(session!.user.role) ? {} : { listings: { some: { createdById: session!.user.id } } };
+  const where = can(session!.user, "owners.viewAll") ? {} : { listings: { some: { createdById: session!.user.id } } };
   const owners = await db!.owner.findMany({ where, orderBy: { name: "asc" }, select: { id: true, name: true, phone: true, whatsapp: true, email: true, notes: true, _count: { select: { listings: true } } }, take: 500 });
   return NextResponse.json({ owners });
 }

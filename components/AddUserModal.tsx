@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { extractErrorMessage } from "@/lib/errors";
+import { DEFAULT_PERMISSIONS, isSuperAdminRole, type Permission } from "@/lib/permissions";
+import PermissionPicker from "@/components/PermissionPicker";
+import { useLockedPermissions } from "@/components/PermissionsModal";
 
 export default function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
@@ -11,6 +15,23 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
   const [role, setRole] = useState<"AGENT" | "MANAGER" | "ADMIN">("AGENT");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { data: session } = useSession();
+  const locked = useLockedPermissions();
+  const [templates, setTemplates] = useState<{ MANAGER: Permission[]; AGENT: Permission[] }>(DEFAULT_PERMISSIONS);
+  const [permissions, setPermissions] = useState<Permission[]>(DEFAULT_PERMISSIONS.AGENT);
+  const [touched, setTouched] = useState(false);
+  const canMakeSuperAdmin = isSuperAdminRole(session?.user?.role);
+
+  // A new person starts from the agency's template for their role; the boxes below can then be changed.
+  useEffect(() => {
+    fetch("/api/org/permissions")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.templates && setTemplates(d.templates))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (role !== "ADMIN" && !touched) setPermissions(templates[role].filter((p) => !locked.includes(p)));
+  }, [role, templates, touched, locked]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +41,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, whatsapp, password, role }),
+        body: JSON.stringify({ name, email, whatsapp, password, role, ...(role === "ADMIN" ? {} : { permissions }) }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -37,7 +58,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-[rgba(13,31,92,0.4)] backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative bg-background rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[88vh] overflow-y-auto">
+      <div className="relative bg-background rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <form onSubmit={submit} className="px-5 py-6 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Add User</h2>
@@ -93,19 +114,39 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
           <div>
             <label className="text-sm font-medium block mb-1.5">Role</label>
             <div className="flex bg-surface-muted rounded-xl p-1 gap-1">
-              {(["AGENT", "MANAGER", "ADMIN"] as const).map((r) => (
+              {(["AGENT", "MANAGER", "ADMIN"] as const).filter((r) => r !== "ADMIN" || canMakeSuperAdmin).map((r) => (
                 <button
                   key={r}
                   type="button"
-                  onClick={() => setRole(r)}
+                  onClick={() => {
+                    setRole(r);
+                    setTouched(false);
+                  }}
                   className={`flex-1 text-[13px] font-medium py-2.5 rounded-lg ${role === r ? "bg-surface shadow-sm" : "text-muted"}`}
                   style={role === r ? { color: "var(--primary)" } : undefined}
                 >
-                  {r === "AGENT" ? "Agent" : r === "MANAGER" ? "Manager" : "Admin"}
+                  {r === "AGENT" ? "Agent" : r === "MANAGER" ? "Manager" : "Super Admin"}
                 </button>
               ))}
             </div>
           </div>
+
+          {role === "ADMIN" ? (
+            <p className="rounded-xl bg-surface-muted px-4 py-3 text-[13px] text-muted">A Super Admin can do everything in the agency, including managing users and settings.</p>
+          ) : (
+            <div>
+              <label className="text-sm font-medium block mb-1.5">Permissions</label>
+              <p className="text-[12px] text-muted mb-2">Starts from the {role === "MANAGER" ? "Manager" : "Agent"} template. Tick what this person may do.</p>
+              <PermissionPicker
+                value={permissions}
+                locked={locked}
+                onChange={(next) => {
+                  setTouched(true);
+                  setPermissions(next);
+                }}
+              />
+            </div>
+          )}
 
           {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
 

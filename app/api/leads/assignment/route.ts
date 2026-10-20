@@ -1,7 +1,7 @@
+import { can } from "@/lib/permissions";
 import { qatarStartOfDay } from "@/lib/qatarTime";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { applyRulesToUnassigned } from "@/lib/leads/rules";
 
 function forbid() {
@@ -13,7 +13,7 @@ function forbid() {
 export async function GET() {
   const { session, db, error } = await requireSession();
   if (error) return error;
-  if (!isManagerRole(session!.user.role)) return forbid();
+  if (!can(session!.user, "leads.assign")) return forbid();
 
   const startOfToday = qatarStartOfDay();
   const weekAgo = new Date(Date.now() - 7 * 86400000);
@@ -72,7 +72,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const { session, db, orgId, error } = await requireSession();
   if (error) return error;
-  if (!isManagerRole(session!.user.role)) return forbid();
+  if (!can(session!.user, "leads.assign")) return forbid();
   const { value: body, error: bodyError } = await parseJsonBody<{ action?: string; leadIds?: string[]; agentId?: string }>(req);
   if (bodyError) return bodyError;
 

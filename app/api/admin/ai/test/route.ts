@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requirePermission } from "@/lib/api-helpers";
 import { testOpenAiKey } from "@/lib/ai/openai";
 
 // Admin-only "does the saved OpenAI key work" check for the Settings card.
 export async function POST() {
-  const { orgId, error } = await requireAdmin();
+  const { orgId, error } = await requirePermission("settings.integrations");
   if (error) return error;
   try {
     await testOpenAiKey(orgId!);

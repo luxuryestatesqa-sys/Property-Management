@@ -1,8 +1,8 @@
+import { can } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { refreshPropertyFinderListingStatus } from "@/lib/propertyFinder/sync";
 import { describePropertyFinderError } from "@/lib/propertyFinder/client";
-import { isAdminRole } from "@/lib/roles";
 
 const PORTAL = "PROPERTY_FINDER" as const;
 
@@ -21,7 +21,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.editAll");
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only view this for your own listings" }, { status: 403 });
   }

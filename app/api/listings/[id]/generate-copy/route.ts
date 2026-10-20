@@ -1,9 +1,9 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-helpers";
 import { feedLocationFor } from "@/lib/propertyFinder/location";
 import { OpenAiNotConfiguredError } from "@/lib/ai/openai";
 import { generateListingCopy } from "@/lib/ai/generateCopy";
-import { isAdminRole } from "@/lib/roles";
 
 function fieldFrom(value: unknown): "title" | "description" | "both" {
   return value === "title" || value === "description" ? value : "both";
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = listing.createdById === session!.user.id;
-  const isAdmin = isAdminRole(session!.user.role);
+  const isAdmin = can(session!.user, "listings.editAll");
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "You can only generate text for your own listings" }, { status: 403 });
   }

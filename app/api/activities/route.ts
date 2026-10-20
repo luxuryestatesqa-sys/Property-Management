@@ -1,8 +1,8 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-helpers";
-import { isManagerRole } from "@/lib/roles";
 import { ACTIVITY_FROM, ROW_SELECT, buildWhere, parseFilters } from "@/lib/activityQuery";
 import type { ActivityRow } from "@/lib/activityTypes";
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const { session, orgId, error } = await requireSession();
   if (error) return error;
   const sp = req.nextUrl.searchParams;
-  const where = buildWhere(orgId!, parseFilters(sp), { id: session!.user.id, manager: isManagerRole(session!.user.role) });
+  const where = buildWhere(orgId!, parseFilters(sp), { id: session!.user.id, manager: can(session!.user, "activities.viewAll") });
   const offset = Math.max(0, Number(sp.get("offset")) || 0);
   const oldest = sp.get("sort") === "oldest";
 

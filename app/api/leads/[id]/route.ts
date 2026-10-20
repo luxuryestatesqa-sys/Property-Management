@@ -1,6 +1,6 @@
+import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isManagerRole, isAdminRole } from "@/lib/roles";
 import { visibleListingsWhere } from "@/lib/listingPrivacy";
 import { listingCode } from "@/lib/format";
 import { listingImageUrl } from "@/lib/listingImages";
@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { session, db, error } = await requireSession();
   if (error) return error;
   const { id } = await params;
-  const manager = isManagerRole(session!.user.role);
+  const manager = can(session!.user, "leads.viewAll");
 
   const lead = await db!.lead.findFirst({
     where: { id },
@@ -72,12 +72,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const lead = await db!.lead.findFirst({ where: { id }, include: { stage: true } });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  if (!isManagerRole(session!.user.role) && lead.assignedToId !== session!.user.id) {
+  if (!can(session!.user, "leads.viewAll") && lead.assignedToId !== session!.user.id) {
     return NextResponse.json({ error: "Not your lead" }, { status: 403 });
   }
   // Reassigning is for managers and above only.
   if (body.assignedToId !== undefined) {
-    if (!isManagerRole(session!.user.role)) return NextResponse.json({ error: "Only managers can reassign leads" }, { status: 403 });
+    if (!can(session!.user, "leads.assign")) return NextResponse.json({ error: "Only managers can reassign leads" }, { status: 403 });
     if (body.assignedToId !== lead.assignedToId) {
       const target = body.assignedToId ? await db!.user.findFirst({ where: { id: body.assignedToId, status: "ACTIVE" }, select: { id: true, name: true } }) : null;
       if (body.assignedToId && !target) return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     let target: { id: number; buildingName: string } | null = null;
     if (body.listing !== null && body.listing !== "") {
       const n = Number(String(body.listing).replace(/\D/g, ""));
-      target = Number.isFinite(n) && n > 0 ? await db!.listing.findFirst({ where: { id: n, ...visibleListingsWhere(session!.user.id, isAdminRole(session!.user.role)) }, select: { id: true, buildingName: true } }) : null;
+      target = Number.isFinite(n) && n > 0 ? await db!.listing.findFirst({ where: { id: n, ...visibleListingsWhere(session!.user.id, can(session!.user, "listings.viewAll")) }, select: { id: true, buildingName: true } }) : null;
       if (!target) return NextResponse.json({ error: "No property found with that ID" }, { status: 404 });
     }
     await db!.lead.update({ where: { id }, data: { listingId: target?.id ?? null, listingReference: target ? listingCode(target.id) : null } });

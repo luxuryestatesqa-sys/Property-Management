@@ -1,9 +1,9 @@
+import { can } from "@/lib/permissions";
 import { rateLimited } from "@/lib/rateLimit";
 import { storeListingPhoto } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession, parseJsonBody } from "@/lib/api-helpers";
-import { isAdminRole } from "@/lib/roles";
 import { MAX_LISTING_IMAGES } from "@/lib/constants";
 import { listingImageSchema } from "@/lib/validation";
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const listing = await db!.listing.findUnique({ where: { id: listingId }, select: { createdById: true } });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (listing.createdById !== session!.user.id && !isAdminRole(session!.user.role)) {
+  if (listing.createdById !== session!.user.id && !can(session!.user, "listings.editAll")) {
     return NextResponse.json({ error: "You can only edit your own listings" }, { status: 403 });
   }
 
