@@ -17,23 +17,30 @@ if (!bucketName) throw new Error("Set PHOTO_BUCKET");
 const db = new PrismaClient();
 const bucket = new Storage().bucket(bucketName);
 
-const rows = await db.listingImage.findMany({ where: { url: { startsWith: "data:" } }, select: { id: true, listingId: true }, orderBy: { createdAt: "asc" } });
-console.log(`${rows.length} photos still in the database${dry ? " (dry run)" : ""}`);
-let moved = 0;
-let bytes = 0;
-for (const { id, listingId } of rows) {
-  const row = await db.listingImage.findUnique({ where: { id }, select: { url: true } });
-  if (!row?.url.startsWith("data:")) continue;
-  if (dry) { bytes += row.url.length; moved++; continue; }
-  const { buffer, contentType } = dataUrlToBuffer(row.url);
-  const name = `listings/${listingId}/${randomUUID()}.jpg`;
-  await bucket.file(name).save(buffer, { contentType, resumable: false });
-  const [exists] = await bucket.file(name).exists();
-  if (!exists) throw new Error(`Upload of ${id} not found afterwards, stopping`);
-  await db.listingImage.update({ where: { id }, data: { url: `gcs:${name}` } });
-  bytes += buffer.length;
-  moved++;
-  if (moved % 25 === 0) console.log(`${moved}/${rows.length}`);
+async function main() {
+  const rows = await db.listingImage.findMany({ where: { url: { startsWith: "data:" } }, select: { id: true, listingId: true }, orderBy: { createdAt: "asc" } });
+  console.log(`${rows.length} photos still in the database${dry ? " (dry run)" : ""}`);
+  let moved = 0;
+  let bytes = 0;
+  for (const { id, listingId } of rows) {
+    const row = await db.listingImage.findUnique({ where: { id }, select: { url: true } });
+    if (!row?.url.startsWith("data:")) continue;
+    if (dry) { bytes += row.url.length; moved++; continue; }
+    const { buffer, contentType } = dataUrlToBuffer(row.url);
+    const name = `listings/${listingId}/${randomUUID()}.jpg`;
+    await bucket.file(name).save(buffer, { contentType, resumable: false });
+    const [exists] = await bucket.file(name).exists();
+    if (!exists) throw new Error(`Upload of ${id} not found afterwards, stopping`);
+    await db.listingImage.update({ where: { id }, data: { url: `gcs:${name}` } });
+    bytes += buffer.length;
+    moved++;
+    if (moved % 25 === 0) console.log(`${moved}/${rows.length}`);
+  }
+  console.log(`${dry ? "Would move" : "Moved"} ${moved} photos, ${(bytes / 1048576).toFixed(1)} MB`);
+  await db.$disconnect();
 }
-console.log(`${dry ? "Would move" : "Moved"} ${moved} photos, ${(bytes / 1048576).toFixed(1)} MB`);
-await db.$disconnect();
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
