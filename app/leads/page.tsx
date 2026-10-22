@@ -1,5 +1,6 @@
 "use client";
 
+import { csvCell } from "@/lib/csv";
 import { can } from "@/lib/permissions";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -83,6 +84,8 @@ function DesktopLeads() {
   const [overStage, setOverStage] = useState<string | null>(null);
   const [group, setGroup] = useState("all");
   const [followup, setFollowup] = useState<"all" | "today" | "overdue">("all");
+  // Which source the list shows: Meta ads to start with, or every source.
+  const [source, setSource] = useState<"META" | "PROPERTY_FINDER" | "all">("META");
   const [groups, setGroups] = useState<LeadGroupDTO[]>([]);
   const [attention, setAttention] = useState<Attention | null>(null);
   const [attentionOpen, setAttentionOpen] = useState(false);
@@ -129,6 +132,7 @@ function DesktopLeads() {
     if (debounced) p.set("q", debounced);
     if (group !== "all") p.set("group", group);
     if (followup !== "all") p.set("followup", followup);
+    if (source !== "all") p.set("source", source);
     p.set("limit", "100");
     try {
       const res = await fetch(`/api/leads?${p.toString()}`);
@@ -136,7 +140,7 @@ function DesktopLeads() {
     } finally {
       setLoading(false);
     }
-  }, [assignee, channel, debounced, group, followup]);
+  }, [assignee, channel, debounced, group, followup, source]);
 
   const loadSide = useCallback(async () => {
     const [gRes, aRes] = await Promise.all([fetch("/api/leads/groups"), fetch("/api/leads/attention")]);
@@ -155,7 +159,8 @@ function DesktopLeads() {
 
   // After adding a lead, show everything again: a search or filter left on could hide the new lead.
   function showAllLeads() {
-    const filtered = query || debounced || assignee !== "all" || channel !== "ALL" || stageFilter !== "all" || group !== "all" || followup !== "all";
+    const filtered = query || debounced || assignee !== "all" || channel !== "ALL" || stageFilter !== "all" || group !== "all" || followup !== "all" || source !== "all";
+    setSource("all");
     setQuery("");
     setDebounced("");
     setAssignee("all");
@@ -176,6 +181,7 @@ function DesktopLeads() {
     if (debounced) p.set("q", debounced);
     if (group !== "all") p.set("group", group);
     if (followup !== "all") p.set("followup", followup);
+    if (source !== "all") p.set("source", source);
     p.set("limit", "100");
     p.set("cursor", data.nextCursor);
     try {
@@ -205,7 +211,7 @@ function DesktopLeads() {
   // Download the ticked leads as a CSV file (what is on screen, with the stage and agent names).
   function exportPicked() {
     const stageName = new Map(stages.map((st) => [st.id, st.name]));
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const esc = csvCell;
     const head = ["Name", "Phone", "Email", "Source", "Channel", "Stage", "Agent", "Area", "Received"];
     const rows = visible.filter((l) => selected.has(l.id)).map((l) => [l.name, l.phone, l.email, l.sourceLabel ?? l.source, l.channel, stageName.get(l.stageId), l.assignedTo?.name ?? "Unassigned", l.region, l.receivedAt]);
     const blob = new Blob(["\ufeff" + [head, ...rows].map((r) => r.map(esc).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
@@ -453,6 +459,15 @@ function DesktopLeads() {
           </div>
         );
       })()}
+
+      {/* Source */}
+      <div className="mt-4 flex gap-2" role="group" aria-label="Lead source">
+        {([["META", "Meta"], ["PROPERTY_FINDER", "Property Finder"], ["all", "All"]] as const).map(([v, l]) => (
+          <button key={v} type="button" aria-pressed={source === v} onClick={() => setSource(v)} className={`rounded-full px-4 py-2 text-[13px] font-medium ring-1 transition-colors ${source === v ? "bg-primary text-white ring-primary" : "bg-surface text-muted ring-border hover:text-foreground"}`}>
+            {l}
+          </button>
+        ))}
+      </div>
 
       {/* Follow-up tabs (list and board) */}
       <div className="mt-4 flex gap-1.5" role="tablist" aria-label="Follow-ups">

@@ -1,3 +1,4 @@
+import { rateLimited } from "@/lib/rateLimit";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { verifyPassword, IdentityError } from "@/lib/identity";
@@ -19,10 +20,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request) => {
         const email = (credentials?.email as string | undefined)?.toLowerCase().trim();
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
+        // Slows down password guessing: too many tries for one account, or from one address, in a short time are
+        // refused outright (the same plain "wrong email or password" answer, so it reveals nothing).
+        const ip = request?.headers?.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+        if (rateLimited(`login-email:${email}`, 10, 15 * 60_000) || rateLimited(`login-ip:${ip}`, 60, 15 * 60_000)) return null;
 
         const user = await prisma.user.findUnique({ where: { email }, include: { organization: { select: { status: true } } } });
         if (!user) return null;

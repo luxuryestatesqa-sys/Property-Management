@@ -29,9 +29,19 @@ describe("public share link", () => {
     expect(listingFindFirst.mock.calls[0][0].where).toEqual({ shareToken: "abc123token" });
   });
 
-  it("still opens an old numeric link by default", async () => {
+  it("still opens an old numeric link by default, but only for a listing that was already shared back then", async () => {
     await call("7");
-    expect(listingFindFirst.mock.calls[0][0].where).toEqual({ id: 7 });
+    const where = listingFindFirst.mock.calls[0][0].where;
+    expect(where).toMatchObject({ id: 7, visibility: "SHARED" });
+    expect(where.createdAt.lt).toBeInstanceOf(Date); // newer listings can only be reached with their random token
+    expect(where.createdAt.lt.getTime()).toBeLessThan(Date.now() + 24 * 3600_000);
+  });
+
+  it("never lets a number reach a private listing or one made after tokens", async () => {
+    await call("7");
+    const where = listingFindFirst.mock.calls[0][0].where;
+    expect(where.visibility).toBe("SHARED");
+    expect(where).not.toHaveProperty("shareToken");
   });
 
   it("refuses numeric links once ALLOW_NUMERIC_SHARE_LINKS=false", async () => {

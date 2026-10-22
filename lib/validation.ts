@@ -60,7 +60,7 @@ export const whatsappSchema = z
   .min(1, "WhatsApp number is required")
   .regex(WHATSAPP_REGEX, "Enter a valid WhatsApp number, e.g. +974 5000 0000");
 
-export const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+export const passwordSchema = z.string().min(8, "Password must be at least 8 characters").max(200, "Password is too long");
 
 // Private, agent-only fields - optional, loosely validated since they're
 // free-form reference info (owner contact, title deed, notes) rather than

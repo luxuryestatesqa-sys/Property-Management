@@ -131,7 +131,7 @@ export default function AddUserModal({ onClose, onCreated }: { onClose: () => vo
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1.5">Temporary Password</label>
-                <input type="text" required value={password} onChange={(e) => setPassword(e.target.value)} className={input} placeholder="At least 6 characters" />
+                <input type="text" required value={password} onChange={(e) => setPassword(e.target.value)} className={input} placeholder="At least 8 characters" />
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1.5">Role</label>

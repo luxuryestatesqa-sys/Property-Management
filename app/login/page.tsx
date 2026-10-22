@@ -1,5 +1,6 @@
 "use client";
 
+import { safeCallbackPath } from "@/lib/safeRedirect";
 import { can } from "@/lib/permissions";
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
@@ -36,7 +37,7 @@ function LoginForm() {
       const sessionUser = (await (await fetch("/api/auth/session")).json())?.user;
       if (can(sessionUser, "dashboard.view")) home = "/dashboard";
     } catch {}
-    router.push(searchParams.get("callbackUrl") ?? home);
+    router.push(safeCallbackPath(searchParams.get("callbackUrl"), home));
     router.refresh();
   }
 

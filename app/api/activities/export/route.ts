@@ -1,3 +1,4 @@
+import { csvCell } from "@/lib/csv";
 import { reachOf, reaches, leadsWhere, type Reach } from "@/lib/scope";
 import { can } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
@@ -8,7 +9,7 @@ import { typeLabel, describe, type ActivityRow } from "@/lib/activityTypes";
 import { ACTIVITY_FROM, ROW_SELECT, buildWhere, parseFilters } from "@/lib/activityQuery";
 
 const MAX_ROWS = 100_000;
-const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+const esc = csvCell;
 const qatar = (d: Date) => new Date(d).toLocaleString("en-GB", { timeZone: "Asia/Qatar", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 
 // Every row matching the current filters (not just the loaded page) as a CSV file.

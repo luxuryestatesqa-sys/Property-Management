@@ -1,7 +1,23 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+// Browser protections sent with every page and API answer: the app cannot be shown inside another site's frame
+// (clickjacking), browsers must not guess file types, the full address is not leaked to other sites, and the
+// connection must stay on HTTPS. The microphone is for voice notes on a lead; camera and location are never used.
+const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self), payment=(), usb=()" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
   images: {
     // Listing photos are served by our own image route; the optimizer resizes them (and caches the result)
     // so a card downloads a thumbnail, not the full photo.

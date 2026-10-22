@@ -50,8 +50,8 @@ function ResetForm() {
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
-            <input type="password" required minLength={6} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className={input} placeholder="New password (min 6 characters)" />
-            <input type="password" required minLength={6} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={input} placeholder="Repeat new password" />
+            <input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className={input} placeholder="New password (min 6 characters)" />
+            <input type="password" required minLength={8} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={input} placeholder="Repeat new password" />
             {error && <div className="rounded-xl bg-danger-bg text-danger text-sm px-4 py-3">{error}</div>}
             <button type="submit" disabled={loading} className="w-full rounded-xl py-3.5 text-base font-semibold text-white disabled:opacity-60" style={{ background: "var(--primary)" }}>
               {loading ? "Saving..." : "Change password"}

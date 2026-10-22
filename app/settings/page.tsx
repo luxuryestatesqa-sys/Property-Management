@@ -150,7 +150,7 @@ export default function ProfilePage() {
     e.preventDefault();
     setError("");
     if (newPassword.length < 6) {
-      setError("New password must be at least 6 characters");
+      setError("New password must be at least 8 characters");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -346,7 +346,7 @@ export default function ProfilePage() {
               <>
                 <div className="surface-card p-7">
                   <h3 className="text-[16px] font-semibold tracking-[-0.01em]">Password</h3>
-                  <p className="mt-0.5 text-[13px] text-muted">Use at least 6 characters. You will stay signed in on this device.</p>
+                  <p className="mt-0.5 text-[13px] text-muted">Use at least 8 characters. You will stay signed in on this device.</p>
                   {!changingPassword ? (
                     <button type="button" onClick={() => setChangingPassword(true)} className="mt-5 rounded-xl bg-surface-muted px-5 py-2.5 text-[14px] font-semibold hover:bg-border">
                       Change password
@@ -620,7 +620,7 @@ export default function ProfilePage() {
         {section === "security" && (
           <div className="surface-card p-4">
             <h3 className="text-[15px] font-semibold">Password</h3>
-            <p className="mt-0.5 text-[13px] text-muted">Use at least 6 characters.</p>
+            <p className="mt-0.5 text-[13px] text-muted">Use at least 8 characters.</p>
             {!changingPassword ? (
               <button type="button" onClick={() => setChangingPassword(true)} className="mt-4 w-full rounded-xl bg-surface-muted py-3.5 text-[14px] font-semibold active:opacity-70">
                 Change password

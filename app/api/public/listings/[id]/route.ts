@@ -8,6 +8,11 @@ import { withImageLinks } from "@/lib/listingImages";
 // exposed is the agent named by `?agent=`, i.e. whoever generated the link.
 // The floor and unit number are deliberately never selected: a client sees the
 // building, never the exact unit, whatever the listing's own privacy setting.
+// Links sent before random tokens existed used the plain listing number. A number can be counted through, so those
+// old links only open listings that were already shared when tokens were introduced; a listing created after this
+// date can only be reached with its random token, and a private listing never by number at all.
+const NUMERIC_LINKS_CREATED_BEFORE = new Date("2026-10-21T00:00:00Z");
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   // Links carry the listing's random shareToken. Links sent before tokens existed used the plain
@@ -15,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const numeric = /^\d+$/.test(id);
   if (numeric && process.env.ALLOW_NUMERIC_SHARE_LINKS === "false") return NextResponse.json({ error: "Not found" }, { status: 404 });
   const listing = await prisma.listing.findFirst({
-    where: numeric ? { id: Number(id) } : { shareToken: id },
+    where: numeric ? { id: Number(id), visibility: "SHARED", createdAt: { lt: NUMERIC_LINKS_CREATED_BEFORE } } : { shareToken: id },
     select: {
       id: true,
       organizationId: true,

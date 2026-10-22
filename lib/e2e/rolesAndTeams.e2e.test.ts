@@ -160,7 +160,7 @@ describe.skipIf(!run)("roles, permissions and teams (real database, real routes)
       expect((await read(await (await R.dashboard()).GET(req("/api/dashboard")))).status).toBe(403);
       expect((await read(await (await R.assignment()).GET())).status).toBe(403);
       expect((await read(await (await R.users()).GET())).status).toBe(403);
-      expect((await read(await (await R.users()).POST(req("/api/users", "POST", { name: "n", email: `${tag}-n@x.test`, whatsapp: "+97450000001", password: "abcdef", role: "AGENT" })))).status).toBe(403);
+      expect((await read(await (await R.users()).POST(req("/api/users", "POST", { name: "n", email: `${tag}-n@x.test`, whatsapp: "+97450000001", password: "abcdefgh1", role: "AGENT" })))).status).toBe(403);
       expect((await read(await (await R.teams()).GET())).status).toBe(403);
       expect((await read(await (await R.teams()).POST(req("/api/teams", "POST", { name: "Mine" })))).status).toBe(403);
       expect((await read(await (await R.org()).PATCH(req("/api/org", "PATCH", { name: "Hacked" })))).status).toBe(403);
@@ -557,7 +557,7 @@ describe.skipIf(!run)("roles, permissions and teams (real database, real routes)
 
   // ---------------------------------------------------------------------------------------- Hierarchy
   describe("Super Admin, Admin and who may create whom", () => {
-    const newUser = (email: string, role: string, extra: object = {}) => ({ name: email, email: `${tag}-${email}@x.test`, whatsapp: "+97450000002", password: "abcdef", role, ...extra });
+    const newUser = (email: string, role: string, extra: object = {}) => ({ name: email, email: `${tag}-${email}@x.test`, whatsapp: "+97450000002", password: "abcdefgh1", role, ...extra });
 
     it("an Admin cannot create an Admin; the Super Admin (Owner) can", async () => {
       as("admin");
@@ -586,7 +586,7 @@ describe.skipIf(!run)("roles, permissions and teams (real database, real routes)
       const { PATCH, DELETE } = await R.user();
       as("admin");
       expect((await read(await PATCH(req("/x", "PATCH", { status: "INACTIVE" }), P({ id: ids.admin2 })))).status).toBe(403);
-      expect((await read(await PATCH(req("/x", "PATCH", { newPassword: "zzzzzz" }), P({ id: ids.owner })))).status).toBe(403);
+      expect((await read(await PATCH(req("/x", "PATCH", { newPassword: "zzzzzzzz1" }), P({ id: ids.owner })))).status).toBe(403);
       expect((await read(await DELETE(req("/x", "DELETE"), P({ id: ids.admin2 })))).status).toBe(403);
       expect((await read(await PATCH(req("/x", "PATCH", { role: "ADMIN" }), P({ id: ids.mgrL })))).status).toBe(403); // cannot promote anyone to Admin
       as("owner");
