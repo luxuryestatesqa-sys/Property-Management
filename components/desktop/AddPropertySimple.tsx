@@ -186,7 +186,7 @@ export default function AddPropertySimple({ form, setForm, update, aside, error,
 
   return (
     <div className="page-in @container">
-      <div className="px-4 pb-4 pt-3 lg:px-0 lg:pb-7 lg:pt-10">
+      <div className="safe-top px-4 pb-4 pt-3 lg:px-0 lg:pb-7 lg:pt-10">
         <h1 className="text-[26px] font-semibold leading-none tracking-[-0.025em] @lg:text-[28px]">Add Property</h1>
         <p className="mt-2 text-[14px] leading-snug text-muted @lg:mt-2.5 @lg:text-[15px]">Sections 1 to 4 are required. Add a title and description (section 5) too: Property Finder needs them to publish.</p>
       </div>

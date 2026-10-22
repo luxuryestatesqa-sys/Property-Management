@@ -93,11 +93,11 @@ export const BEDROOM_SHORT_LABELS: Record<BedroomCount, string> = {
   SIX_PLUS: "6+ BR",
 };
 
-// What the bedroom dropdowns offer, in this order: Studio, then 1 to 10, then the layouts with an extra room.
-// ("6+" is an older value kept for existing data; it is not offered any more.)
+// What the bedroom dropdowns offer, in this order: Studio, then 1 to 10, then 1 + Office.
+// ("6+" and the "+ Maid" layouts are older values kept for existing data; they are not offered any more.)
 export const BEDROOM_OPTIONS: BedroomCount[] = [
   "STUDIO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN",
-  "ONE_PLUS_OFFICE", "TWO_PLUS_MAID", "THREE_PLUS_MAID", "FOUR_PLUS_MAID", "FIVE_PLUS_MAID",
+  "ONE_PLUS_OFFICE",
 ];
 
 const ALL_BEDROOM_OPTIONS = BEDROOM_OPTIONS;
@@ -112,7 +112,7 @@ const BEDROOM_OPTIONS_BY_CATEGORY: Partial<Record<PropertyCategory, BedroomCount
   PENTHOUSE: FROM_ONE_BEDROOM_OPTIONS,
   DUPLEX: FROM_ONE_BEDROOM_OPTIONS,
   VILLA: FROM_TWO_BEDROOM_OPTIONS,
-  TOWNHOUSE: FROM_TWO_BEDROOM_OPTIONS,
+  TOWNHOUSE: FROM_ONE_BEDROOM_OPTIONS,
   COMPOUND_VILLA: FROM_TWO_BEDROOM_OPTIONS,
 };
 

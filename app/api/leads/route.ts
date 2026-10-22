@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
   if (stage && stage !== "all") where.stageId = stage;
   const channel = sp.get("channel");
   if (channel && ["WHATSAPP", "CALL", "EMAIL", "OTHER", "FORM"].includes(channel)) where.channel = channel as Prisma.LeadWhereInput["channel"];
+  const source = sp.get("source");
+  if (source && ["PROPERTY_FINDER", "META", "MANUAL", "IMPORT"].includes(source)) where.source = source as Prisma.LeadWhereInput["source"];
   // Follow-up tabs: leads with an open follow-up that is overdue, or due later today (Qatar time).
   const now = new Date();
   const dueWhere = (kind: string): Prisma.LeadWhereInput => ({ tasks: { some: { doneAt: null, dueAt: kind === "overdue" ? { lt: now } : { gte: now, lte: qatarEndOfDay() } } } });

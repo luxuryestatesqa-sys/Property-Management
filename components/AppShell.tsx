@@ -43,6 +43,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
         >
           {children}
         </div>
+        {/* Installed iPhone app: the page draws under the status bar (black-translucent), so scrolled content
+            shows through and blurs behind the clock. A solid strip the height of the status bar stops that. */}
+        <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 z-[60] bg-background lg:hidden" style={{ height: "env(safe-area-inset-top)" }} />
         {!hideNav && <Sidebar />}
         {!hideNav && <CommandPalette />}
         {!hideNav && <BottomNav />}

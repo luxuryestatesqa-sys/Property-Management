@@ -139,6 +139,8 @@ export default function MobileLeads() {
   const [channel, setChannel] = useState("ALL");
   const [group, setGroup] = useState("all");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
+  // Which source the list shows: Meta ads to start with, or every source.
+  const [source, setSource] = useState<"META" | "PROPERTY_FINDER" | "all">("META");
 
   const [items, setItems] = useState<LeadRow[]>([]);
   const [next, setNext] = useState<string | null>(null);
@@ -170,10 +172,11 @@ export default function MobileLeads() {
     if (effStage !== "all") p.set("stage", effStage);
     if (channel !== "ALL") p.set("channel", channel);
     if (group !== "all") p.set("group", group);
+    if (source !== "all") p.set("source", source);
     if (debounced) p.set("q", debounced);
     if (tab === "today" || tab === "overdue") p.set("followup", tab);
     return p.toString();
-  }, [effAssignee, effStage, channel, group, debounced, sort, tab]);
+  }, [effAssignee, effStage, channel, group, source, debounced, sort, tab]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 250);
@@ -310,6 +313,15 @@ export default function MobileLeads() {
           Filter
           {activeFilters > 0 && <span className="tnum flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-medium text-white">{activeFilters}</span>}
         </button>
+      </div>
+
+      {/* source */}
+      <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto px-4">
+        {([["META", "Meta"], ["PROPERTY_FINDER", "Property Finder"], ["all", "All"]] as const).map(([v, l]) => (
+          <button key={v} type="button" onClick={() => setSource(v)} className={`shrink-0 rounded-full px-4 py-1.5 text-[13.5px] font-medium ring-1 transition-colors ${source === v ? "bg-primary text-white ring-primary" : "bg-surface text-slate-600 ring-border"}`}>
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* tabs */}
@@ -530,7 +542,8 @@ export default function MobileLeads() {
             setIntake(null);
             setFlash(m);
             // A search or filter left on could hide the lead just added.
-            const filtered = q || debounced || tab !== "all" || assignee !== "all" || stageId !== "all" || channel !== "ALL" || group !== "all";
+            const filtered = q || debounced || tab !== "all" || assignee !== "all" || stageId !== "all" || channel !== "ALL" || group !== "all" || source !== "all";
+            setSource("all");
             setQ("");
             setDebounced("");
             setTab("all");
@@ -551,7 +564,8 @@ export default function MobileLeads() {
           onDone={(m) => {
             setIntake(null);
             setFlash(m);
-            loadFirst();
+            if (source !== "all") setSource("all");
+            else loadFirst();
           }}
         />
       )}
